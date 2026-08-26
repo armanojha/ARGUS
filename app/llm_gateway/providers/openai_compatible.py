@@ -262,16 +262,16 @@ class OpenAICompatibleProvider:
                 continue
 
             if (response.status_code == 429 or 500 <= response.status_code < 600) and attempt < self._max_retries:
-                    wait = (2**attempt) + random.uniform(0, 0.5)
-                    logger.warning(
-                        "llm_retry_http_error",
-                        provider=self._name,
-                        status_code=response.status_code,
-                        attempt=attempt + 1,
-                        wait_seconds=round(wait, 2),
-                    )
-                    await asyncio.sleep(wait)
-                    continue
+                wait = (2**attempt) + random.uniform(0, 0.5)
+                logger.warning(
+                    "llm_retry_http_error",
+                    provider=self._name,
+                    status_code=response.status_code,
+                    attempt=attempt + 1,
+                    wait_seconds=round(wait, 2),
+                )
+                await asyncio.sleep(wait)
+                continue
 
             if response.status_code >= 400:
                 raise self._normalize_error(response)

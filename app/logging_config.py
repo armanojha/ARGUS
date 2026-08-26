@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import re
 import sys
+from collections.abc import Mapping, MutableMapping
 
 import structlog
 from structlog.types import Processor
@@ -20,12 +21,14 @@ from structlog.types import Processor
 from app.config import Settings
 
 
-def _redact_secrets(_: object, __: str, event_dict: dict[str, object]) -> dict[str, object]:
+def _redact_secrets(
+    _: object, __: str, event_dict: Mapping[str, object]
+) -> MutableMapping[str, object]:
     """Redact sensitive fields from log entries.
 
     Matches common secret field names and Authorization header values.
     """
-    redacted = {}
+    redacted: MutableMapping[str, object] = {}
     secret_patterns = [
         r"(?i)api[_-]?key",
         r"(?i)authorization",
@@ -62,7 +65,7 @@ def configure_logging(settings: Settings) -> None:
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
-        _redact_secrets,
+        _redact_secrets,  # type: ignore[list-item]
     ]
 
     structlog.configure(

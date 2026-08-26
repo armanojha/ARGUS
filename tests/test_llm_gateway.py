@@ -271,12 +271,9 @@ class TestProviderRegistry:
         assert "groq" in registered_providers()
 
     def test_factory_creates_groq(self):
-        from app.config import Settings
-
-        # This will fail without API key, but we can test the factory lookup
-        settings = Settings(_env_file=None, llm_provider="groq")
-        # We can't easily test without mocking env, but the registry works
         from app.llm_gateway.providers import get_provider_factory
+
+        # We can't easily test without mocking env, but the registry works
         factory = get_provider_factory("groq")
         assert factory is not None
 
