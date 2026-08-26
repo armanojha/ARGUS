@@ -7,10 +7,6 @@ questions as evidence-backed investigations: adaptive hybrid retrieval,
 an evidence graph with temporal reasoning, closed-loop verification, and
 (from Phase 05 onward) an Obsidian-integrated personal knowledge layer.
 
-This repository is implemented phase by phase against the plan in
-`E:\ARGUS_VAULT`. **Project state, architecture decisions, and what's
-currently implemented live in the vault, not in this README** — read
-`E:\ARGUS_VAULT\00_CLAUDE_BOOT.md` before making changes.
 
 ## Status
 
