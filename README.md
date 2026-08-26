@@ -18,69 +18,141 @@ retrieval yet — see the vault's phase files for what's next.
 Requires Python 3.11+.
 
 ```powershell
-# 1. Create and activate a virtual environment
+# 1. Clone the repository
+git clone https://github.com/armanojha/ARGUS.git
+cd ARGUS
+
+# 2. Create and activate a virtual environment
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate
 
-# 2. Install dependencies (pick the groups you need; dev-test for testing)
+# 3. Install dependencies
 pip install -e ".[core,dev-test]"
-# add ,retrieval and/or ,graph once those phases are implemented
 
-# 3. Copy the environment template and fill in real values locally
+# 4. Configure environment
 copy .env.example .env
+# Edit .env — fill in API keys as needed (GROQ_API_KEY for LLM gateway)
 
-# 4. Run the tests
+# 5. Run the tests
+python -m pytest tests/ -v
+# Or use the PowerShell test runner:
 powershell -ExecutionPolicy Bypass -File scripts\run_tests.ps1
-# equivalent to: python -m pytest tests/ -v
 ```
 
-## Repository layout
+### Running the API
 
-```
-app/
-  api/              FastAPI app (Phase 00.2)
-  orchestration/    LangGraph state machine (Phase 02)
-  llm_gateway/       Provider abstraction + routing (Phase 00.3, 07)
-    providers/
-    routing/
-    policies/
-  retrieval/        BM25 + vector hybrid retrieval (Phase 01)
-  reranking/         (Phase 01)
-  graph/             Evidence Graph (Phase 03)
-  memory/            Persistent memory layers (Phase 08)
-  evidence/          Evidence Store (Phase 01)
-  verification/      Claim verification + contradiction detection (Phase 04)
-  ingestion/         Document ingestion (Phase 01), multimodal (Phase 11)
-  integrations/
-    obsidian/        Obsidian vault adapter (Phase 05, 09)
-  evaluation/        Benchmarks + ablations (Phase 12)
-  ui/                Evidence explorer UI (Phase 12)
-  config.py          Core settings loader (Phase 00.1 — implemented)
-data/                raw / processed / indexes / graph / memory / obsidian_index
-benchmarks/          Benchmark question sets (Phase 12)
-tests/               pytest suite
-notebooks/           exploratory notebooks
-scripts/             utility scripts (test runner, etc.)
-configs/
-  providers.yaml     LLM provider config (stub — Phase 00.3/07)
-  obsidian.yaml      Obsidian integration config (stub — Phase 05/09)
+```powershell
+# Start the server
+uvicorn app.api.main:app --reload
+
+# Verify it's running
+curl http://localhost:8000/health
 ```
 
-## Configuration
+### Running live LLM tests
 
-Settings are loaded via `app.config.get_settings()` (pydantic-settings),
-reading `ARGUS_*`-prefixed environment variables and `.env`. See
-`.env.example` for the full list. YAML config stubs in `configs/` are
-loaded on demand via `load_providers_config()` / `load_obsidian_config()`
-and are safe to load even when nearly empty.
+Live integration tests against the Groq API are skipped by default. To run them:
 
-## Project state, phases, decisions
+```powershell
+# Set the environment variable and ensure GROQ_API_KEY is configured
+$env:RUN_LIVE_LLM_TESTS = "1"
+python -m pytest tests/test_llm_gateway_integration.py -v
+```
 
-All of this lives in the vault, not here:
+## Development
 
-- `E:\ARGUS_VAULT\00_CLAUDE_BOOT.md` — start here
-- `E:\ARGUS_VAULT\01_MASTER_PHASE_INDEX.md` — phase list + current status
-- `E:\ARGUS_VAULT\02_PROJECT_STATE.md` — what works / what's next
-- `E:\ARGUS_VAULT\03_ARCHITECTURE_DECISIONS.md` — implementation-affecting decisions
-- `E:\ARGUS_VAULT\phases\` — one file per phase, with sub-phase checklists
-- `E:\ARGUS_VAULT\handoffs\CURRENT_HANDOFF.md` — short session-to-session handoff
+The project follows a phased implementation model. Each phase has a specification in the vault (`E:\ARGUS_VAULT\phases/`) and is implemented, tested, reviewed, and committed as a unit.
+
+**Workflow:**
+
+1. Read the active phase specification
+2. Implement against the phase's deliverables
+3. Write tests that validate the phase's acceptance criteria
+4. Run `pytest`, `ruff check`, and `mypy app/`
+5. Update project state in the vault
+
+**Code conventions:**
+
+- `from __future__ import annotations` in all modules
+- Modern type hints (`dict[str, Any]`, `str | None`)
+- No hardcoded provider names, model IDs, or API keys
+- LLMs are interpreters, not the database of record
+- All evidence and provenance in deterministic stores
+
+## Testing & Quality
+
+Current test suite: **45 passed, 8 skipped** (skipped tests are live LLM integration tests, require `RUN_LIVE_LLM_TESTS=1` and a valid `GROQ_API_KEY`).
+
+| Check | Status |
+|-------|--------|
+| `pytest tests/ -v` | 45 passed, 8 skipped |
+| `ruff check .` | 2 lint suggestions (uncommitted code) |
+| `mypy app/` | 3 type errors (uncommitted Phase 00.3 code) |
+
+Tests cover: config loading, API health endpoint, error envelope behavior, request ID propagation, structured JSON logging, LLM gateway unit tests (mock provider), model policy, provider registry, and provider capabilities.
+
+## Roadmap
+
+```
+Phase 00 — Foundation (00.1–00.4)         ← IN PROGRESS
+  ├─ 00.1 Repository + Configuration       ✓ Complete
+  ├─ 00.2 FastAPI Foundation               ✓ Complete
+  ├─ 00.3 LLM Gateway Core                 ✓ Complete
+  └─ 00.4 Testing Foundation               Next up
+
+Phase 01 — Hybrid RAG (01.1–01.5)         ← NOT STARTED
+  Evidence store (SQLite), BM25 + vector retrieval, embedding model
+
+Phase 02 — Agentic RAG (02.1–02.5)        ← NOT STARTED
+  LangGraph orchestration loop, query decomposition, retrieval planning
+
+Phase 03 — Evidence Graph (03.1–03.4)     ← NOT STARTED
+  Claim→source graph, temporal model, provenance tracking
+
+Phase 04 — Verification (04.1–04.4)       ← NOT STARTED
+  Contradiction detection, confidence scoring, revision cycles
+  ← MVP CORE LOOP CLOSES HERE
+
+Phase 05 — Obsidian Ingestion (05.1–05.4) ← NOT STARTED
+  Minimal vault ingestion, incremental sync
+  ← MVP BOUNDARY
+
+Phase 06 — Adaptive Research Policy        ← POST-MVP
+Phase 07 — Multi-Model Fabric              ← POST-MVP
+Phase 08 — Memory & Self-Evolution         ← POST-MVP
+Phase 09 — Obsidian Integration (full)     ← POST-MVP
+Phase 10 — Multi-Agent Challenge           ← POST-MVP
+Phase 11 — Multimodal Intelligence         ← POST-MVP
+Phase 12 — Research UI + Evaluation        ← POST-MVP
+```
+
+## Limitations
+
+This is an early-stage project. What does **not** exist yet:
+
+- No retrieval pipeline (BM25, vector search, or hybrid)
+- No evidence store or evidence graph
+- No claim verification or contradiction detection
+- No agentic orchestration loop
+- No Obsidian vault integration
+- No multi-provider LLM routing or intelligent model selection
+- No UI or evaluation benchmarks
+- No persistent memory or self-evolution
+- No authentication, rate limiting, or production hardening
+
+The LLM gateway currently supports only Groq as a wired provider. Other providers (Gemini, Cerebras) are configured as stubs but not implemented.
+
+## Contributing
+
+ARGUS is in active development. Contributions are welcome for:
+
+- Implementing planned phases (see the roadmap)
+- Adding new LLM providers to the gateway
+- Improving test coverage
+- Documentation and examples
+
+Before contributing, read `E:\ARGUS_VAULT\00_CLAUDE_BOOT.md` for the project's development model. The vault (`E:\ARGUS_VAULT`) is the source of truth for project state and architecture decisions.
+
+## License
+
+Proprietary — see `pyproject.toml` for license details.

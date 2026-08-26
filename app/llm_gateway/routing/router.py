@@ -7,9 +7,10 @@ provider-level fallback chains.
 
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from app.llm_gateway.providers.base import LLMProvider
 from app.llm_gateway.providers.models import CompletionResponse, Message, Tool, ToolChoice
-from pydantic import BaseModel
 
 
 class LLMRouter:

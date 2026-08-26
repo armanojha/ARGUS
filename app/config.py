@@ -1,4 +1,4 @@
-"""ARGUS core configuration (Phase 00.1).
+"""ARGUS core configuration (Phase 00.1 + 00.3).
 
 Loads runtime settings from environment variables / a local .env file via
 pydantic-settings, and provides small helpers to load the YAML config
@@ -46,6 +46,28 @@ class Settings(BaseSettings):
     obsidian_vault_path: str = Field(
         default="",
         description="Path to the user's Obsidian vault. Empty until Phase 05 wires ingestion.",
+    )
+
+    # --- LLM Gateway (Phase 00.3) ---
+    llm_provider: str = Field(
+        default="groq",
+        description="Active LLM provider name (matches providers.yaml entry name).",
+    )
+    llm_model: str | None = Field(
+        default=None,
+        description="Override default model for active provider.",
+    )
+    llm_timeout: float = Field(
+        default=30.0,
+        description="Request timeout in seconds.",
+    )
+    llm_max_retries: int = Field(
+        default=2,
+        description="Max retry attempts for transient failures.",
+    )
+    llm_call_type: str = Field(
+        default="general",
+        description="Call type for policy routing (Phase 07).",
     )
 
     @property

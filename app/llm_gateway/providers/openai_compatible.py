@@ -214,7 +214,7 @@ class OpenAICompatibleProvider:
         try:
             error_data = response.json()
             error_msg = error_data.get("error", {}).get("message", response.text)
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             error_msg = response.text
 
         status = response.status_code
@@ -261,8 +261,7 @@ class OpenAICompatibleProvider:
                 await asyncio.sleep(wait)
                 continue
 
-            if response.status_code == 429 or 500 <= response.status_code < 600:
-                if attempt < self._max_retries:
+            if (response.status_code == 429 or 500 <= response.status_code < 600) and attempt < self._max_retries:
                     wait = (2**attempt) + random.uniform(0, 0.5)
                     logger.warning(
                         "llm_retry_http_error",

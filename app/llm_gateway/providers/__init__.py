@@ -14,7 +14,8 @@ interface" rule in the Phase 00.3 brief).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.llm_gateway.providers.openai_compatible import OpenAICompatibleProvider
@@ -37,4 +38,4 @@ def registered_providers() -> list[str]:
     return sorted(_REGISTRY.keys())
 
 
-__all__ = ["register_provider", "get_provider_factory", "registered_providers"]
+__all__ = ["get_provider_factory", "register_provider", "registered_providers"]

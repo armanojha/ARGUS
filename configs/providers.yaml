@@ -1,21 +1,59 @@
-# ARGUS LLM provider configuration — STUB (Phase 00.1).
+# ARGUS LLM provider configuration (Phase 00.3).
 #
-# This file is intentionally empty of real provider entries. Provider
-# wiring happens in Phase 00.3 (one working provider) and Phase 07
-# (full capability-aware, quota-aware multi-provider router).
+# Provider wiring for the LLM gateway. The active provider is selected by
+# `ARGUS_LLM_PROVIDER` (defaults to "groq"). Each entry's `name` must match
+# a registered provider in `app/llm_gateway/providers/__init__.py`.
 #
 # Per vault decision D-005: model names and free-tier quotas are mutable
-# external dependencies. Do NOT copy the architecture docs' example model
-# table in here verbatim — verify current availability/quotas at the time
-# each provider is actually implemented.
-
-providers: []
-
-# Example future entry shape (not active, for reference only):
+# external dependencies. Verified at implementation time (2026-08-26)
+# against Groq's own docs (`console.groq.com/docs/models`,
+# `.../docs/deprecations`, `.../docs/structured-outputs`):
 #
-# providers:
-#   - name: gemini
-#     enabled: false
-#     api_key_env: GEMINI_API_KEY
-#     roles: [planner, synthesizer]
-#     notes: "Verify current model name/quota before enabling."
+# - Default/primary model: `openai/gpt-oss-120b` (note the `openai/`
+#   prefix — bare `gpt-oss-120b` is not a valid Groq model ID).
+# - Fallback model (config only, not used by the 00.3 router stub):
+#   `openai/gpt-oss-20b`.
+# - Both are current **production** models with strict-mode structured
+#   outputs (`response_format: {type: json_schema, strict: true}`) and
+#   tool calling support.
+# - Groq deprecated `llama-3.1-8b-instant` and `llama-3.3-70b-versatile`
+#   (announced 2026-06-17); GPT-OSS models are the recommended
+#   replacements.
+# - Free-tier limits for GPT-OSS models specifically are **30 RPM /
+#   1,000 RPD / 8,000 TPM / 200,000 TPD** (per-model, org-level).
+#   This is materially different from the deprecated llama models'
+#   limits (which had 14,400 RPD).
+
+providers:
+  - name: groq
+    enabled: true
+    api_key_env: GROQ_API_KEY
+    base_url: "https://api.groq.com/openai/v1"
+    default_model: "openai/gpt-oss-120b"
+    fallback_models: ["openai/gpt-oss-20b"]
+    roles: [general]
+    capabilities:
+      structured_output: true
+      tool_calling: true
+      streaming: false
+      max_context_tokens: 131072
+      max_output_tokens: 8192
+    timeout: 30.0
+    max_retries: 2
+    notes: "Groq free tier for GPT-OSS: 30 RPM, 1,000 RPD, 8,000 TPM, 200,000 TPD. Verified 2026-08-26."
+
+# Future providers (disabled until wired):
+# - name: gemini
+#   enabled: false
+#   api_key_env: GEMINI_API_KEY
+#   base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
+#   default_model: "gemini-2.5-flash-lite"
+#   roles: [general]
+#   notes: "Free tier: 15 RPM, 1,000 RPD. Data used for training on free tier."
+
+# - name: cerebras
+#   enabled: false
+#   api_key_env: CEREBRAS_API_KEY
+#   base_url: "https://api.cerebras.ai/v1"
+#   default_model: "gpt-oss-120b"
+#   notes: "Free trial now requires credit card ($5/30 days) as of 2026-08."

@@ -11,7 +11,7 @@ see these normalized types.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -79,7 +79,7 @@ class ToolChoice(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: Literal["auto", "none", "required", "function"] = "auto"
-    function: Optional[dict[str, str]] = None  # {"name": "fn_name"} when type == "function"
+    function: dict[str, str] | None = None  # {"name": "fn_name"} when type == "function"
 
 
 class Usage(BaseModel):

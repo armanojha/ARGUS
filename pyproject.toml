@@ -16,7 +16,7 @@ license = { text = "Proprietary" }
 dependencies = []
 
 [project.optional-dependencies]
-# Foundation: config, API surface, orchestration, logging (Phases 00.1-00.3).
+# Foundation: config, API surface, orchestration, logging, LLM gateway (Phases 00.1-00.3).
 core = [
     "pydantic>=2.6",
     "pydantic-settings>=2.2",
@@ -26,6 +26,7 @@ core = [
     "uvicorn[standard]>=0.29",
     "langgraph>=0.0.30",
     "structlog>=24.1",
+    "httpx>=0.27",
 ]
 
 # Hybrid retrieval (Phase 01).
@@ -44,7 +45,7 @@ graph = [
 "dev-test" = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
-    "httpx>=0.27",
+    "pytest-asyncio>=0.23",
     "ruff>=0.4",
     "mypy>=1.9",
 ]
@@ -55,6 +56,7 @@ include = ["app*"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100

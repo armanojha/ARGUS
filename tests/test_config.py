@@ -57,11 +57,21 @@ def test_load_yaml_config_reads_real_file(tmp_path: Path):
     assert load_yaml_config(sample) == {"a": 1, "b": "two"}
 
 
-def test_providers_stub_loads_and_has_empty_providers_list():
+def test_providers_config_loads_groq_entry():
+    """Test that providers.yaml loads the Groq configuration (Phase 00.3)."""
     settings = get_settings()
     data = load_providers_config(settings)
     assert isinstance(data, dict)
-    assert data.get("providers") == []
+    providers = data.get("providers", [])
+    assert len(providers) == 1
+    groq = providers[0]
+    assert groq["name"] == "groq"
+    assert groq["enabled"] is True
+    assert groq["api_key_env"] == "GROQ_API_KEY"
+    assert groq["default_model"] == "openai/gpt-oss-120b"
+    assert groq["fallback_models"] == ["openai/gpt-oss-20b"]
+    assert groq["capabilities"]["structured_output"] is True
+    assert groq["capabilities"]["tool_calling"] is True
 
 
 def test_obsidian_stub_loads_and_is_disabled_by_default():
