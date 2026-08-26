@@ -1,0 +1,13 @@
+# ARGUS Obsidian integration configuration — STUB (Phase 00.1).
+#
+# Real ingestion is implemented in Phase 05 (minimal MVP ingestion) and
+# Phase 09 (full knowledge-class taxonomy, hypothesis-to-research-objective,
+# vault-graph alignment, safe write-back workflow).
+#
+# `write_back_root` matches the dedicated write-back boundary defined in
+# the ARGUS V3 architecture report (§4.3): ARGUS never writes outside this
+# folder inside the user's vault.
+
+enabled: false
+vault_path: ""
+write_back_root: "90_ARGUS"

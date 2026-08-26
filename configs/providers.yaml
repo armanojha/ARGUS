@@ -1,0 +1,21 @@
+# ARGUS LLM provider configuration — STUB (Phase 00.1).
+#
+# This file is intentionally empty of real provider entries. Provider
+# wiring happens in Phase 00.3 (one working provider) and Phase 07
+# (full capability-aware, quota-aware multi-provider router).
+#
+# Per vault decision D-005: model names and free-tier quotas are mutable
+# external dependencies. Do NOT copy the architecture docs' example model
+# table in here verbatim — verify current availability/quotas at the time
+# each provider is actually implemented.
+
+providers: []
+
+# Example future entry shape (not active, for reference only):
+#
+# providers:
+#   - name: gemini
+#     enabled: false
+#     api_key_env: GEMINI_API_KEY
+#     roles: [planner, synthesizer]
+#     notes: "Verify current model name/quota before enabling."

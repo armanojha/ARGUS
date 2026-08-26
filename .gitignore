@@ -32,3 +32,9 @@ Thumbs.db
 *.log
 tmp/
 temp/
+
+# Build / tooling artifacts
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.Opencode/
