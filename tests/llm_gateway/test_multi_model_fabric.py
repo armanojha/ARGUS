@@ -20,28 +20,60 @@ from pydantic import BaseModel
 from app.config import Settings
 from app.llm_gateway.capabilities import ProviderCapabilities
 from app.llm_gateway.policies.model_policy import CallTypePolicy, ModelPolicy, load_model_policy
-from app.llm_gateway.providers.base import LLMProvider
-from app.llm_gateway.providers.exceptions import ConfigurationError
 from app.llm_gateway.providers.models import (
-    CompletionResponse,
     Message,
     MessageRole,
     Tool,
     ToolChoice,
-    Usage,
 )
-from app.llm_gateway.quota import ProviderQuota, QuotaTracker, QuotaWindow
-from app.llm_gateway.routing.multi_model_router import MultiModelRouter, ModelSpec
+from app.llm_gateway.quota import ProviderQuota, QuotaWindow
+from app.llm_gateway.routing.multi_model_router import ModelSpec, MultiModelRouter
 from app.llm_gateway.telemetry import (
-    RunTelemetry,
-    RoutingDecision,
+    check_call_ceiling,
+    end_run_telemetry,
     get_current_telemetry,
     record_routing_decision,
     start_run_telemetry,
-    end_run_telemetry,
-    check_call_ceiling,
 )
 from tests.mocks.mock_provider import MockProvider
+
+
+@pytest.fixture
+def mock_providers():
+    """Create mock providers for testing."""
+    return {
+        "groq": MockProvider(name="groq", default_model="openai/gpt-oss-120b"),
+        "gemini": MockProvider(name="gemini", default_model="gemini-2.5-flash-lite"),
+        "cerebras": MockProvider(name="cerebras", default_model="gpt-oss-120b"),
+    }
+
+
+@pytest.fixture
+def router(mock_providers, monkeypatch):
+    """Create a MultiModelRouter with mock providers."""
+    # Reset quota tracker for test isolation
+    import app.llm_gateway.quota as quota_module
+    quota_module._quota_tracker = None
+
+    settings = Settings(
+        multimodel_enabled=True,
+        multimodel_providers_config_path="configs/model_policy.yaml",
+    )
+
+    # Mock provider creation to return our mocks
+    async def mock_create_provider_instance(self, provider_name, config):
+        return mock_providers[provider_name]
+
+    monkeypatch.setattr(
+        MultiModelRouter,
+        "_create_provider_instance",
+        mock_create_provider_instance,
+    )
+
+    router = MultiModelRouter(settings=settings)
+    router._provider_cache = mock_providers
+    router._initialized = True
+    return router
 
 
 class Answer(BaseModel):
@@ -374,8 +406,6 @@ class TestBackwardCompatibility:
 
     def test_legacy_router_still_works(self):
         """Legacy LLMRouter should work when multimodel disabled."""
-        from app.llm_gateway import get_router, close_router
-        from app.llm_gateway.routing.router import LLMRouter
 
         import app.llm_gateway as gateway
         gateway._router = None
@@ -386,7 +416,6 @@ class TestBackwardCompatibility:
 
         # We can't easily test without mocking create_provider,
         # but we verify the type check works
-        from app.llm_gateway.routing.multi_model_router import MultiModelRouter
 
         # When multimodel_enabled=False, should get LLMRouter
         # When multimodel_enabled=True, should get MultiModelRouter

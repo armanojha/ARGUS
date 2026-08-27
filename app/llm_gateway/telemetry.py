@@ -17,7 +17,7 @@ from app.logging_config import get_logger
 logger = get_logger("argus.telemetry")
 
 # Context variable for the current run's telemetry
-_current_run_telemetry: ContextVar["RunTelemetry | None"] = ContextVar(
+_current_run_telemetry: ContextVar[RunTelemetry | None] = ContextVar(
     "current_run_telemetry", default=None
 )
 

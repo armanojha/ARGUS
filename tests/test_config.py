@@ -57,21 +57,39 @@ def test_load_yaml_config_reads_real_file(tmp_path: Path):
     assert load_yaml_config(sample) == {"a": 1, "b": "two"}
 
 
-def test_providers_config_loads_groq_entry():
-    """Test that providers.yaml loads the Groq configuration (Phase 00.3)."""
+def test_providers_config_loads_all_providers():
+    """Test that providers.yaml loads all provider configurations (Phase 00.3 + 07)."""
     settings = get_settings()
     data = load_providers_config(settings)
     assert isinstance(data, dict)
     providers = data.get("providers", [])
-    assert len(providers) == 1
-    groq = providers[0]
-    assert groq["name"] == "groq"
+    assert len(providers) == 3
+    
+    # Check Groq
+    groq = next(p for p in providers if p["name"] == "groq")
     assert groq["enabled"] is True
     assert groq["api_key_env"] == "GROQ_API_KEY"
     assert groq["default_model"] == "openai/gpt-oss-120b"
     assert groq["fallback_models"] == ["openai/gpt-oss-20b"]
     assert groq["capabilities"]["structured_output"] is True
     assert groq["capabilities"]["tool_calling"] is True
+    
+    # Check Gemini
+    gemini = next(p for p in providers if p["name"] == "gemini")
+    assert gemini["enabled"] is True
+    assert gemini["api_key_env"] == "GEMINI_API_KEY"
+    assert gemini["default_model"] == "gemini-2.5-flash-lite"
+    assert gemini["fallback_models"] == ["gemini-2.5-flash"]
+    assert gemini["capabilities"]["structured_output"] is True
+    assert gemini["capabilities"]["tool_calling"] is True
+    
+    # Check Cerebras
+    cerebras = next(p for p in providers if p["name"] == "cerebras")
+    assert cerebras["enabled"] is True
+    assert cerebras["api_key_env"] == "CEREBRAS_API_KEY"
+    assert cerebras["default_model"] == "gpt-oss-120b"
+    assert cerebras["capabilities"]["structured_output"] is True
+    assert cerebras["capabilities"]["tool_calling"] is True
 
 
 def test_obsidian_config_loads_with_expected_fields():

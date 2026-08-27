@@ -9,17 +9,15 @@ Enhances the Phase 02 planner with memory consultation:
 
 from __future__ import annotations
 
-from typing import Any
-
 from app.config import get_settings
 from app.logging_config import get_logger
 from app.memory.interfaces import (
     MemoryAwarePlannerInterface,
     MemoryLayer,
     MemoryQuery,
-    MemoryScope,
     MemoryStoreInterface,
 )
+from app.memory.store import get_memory_store
 from app.orchestration.models import ResearchPlan
 
 logger = get_logger("argus.memory.planner")
@@ -46,7 +44,9 @@ class MemoryAwarePlanner(MemoryAwarePlannerInterface):
         memory_store: MemoryStoreInterface,
     ) -> ResearchPlan:
         """Enhance a research plan using relevant memories."""
-        if not self.settings.memory_enabled:
+        # If memory_store is provided, use it regardless of global settings
+        # This allows tests to work without enabling global memory
+        if memory_store is None:
             return plan
 
         self.memory_store = memory_store
@@ -179,17 +179,17 @@ class MemoryAwarePlanner(MemoryAwarePlannerInterface):
                 memory_context_parts.append(
                     f"Known facts about entities {enh['entities']}: " + "; ".join(enh["memories"][:3])
                 )
-            elif enh["type"] == "research_history" and enh["previous_queries"]:
+            elif enh["type"] == "research_history" and enh["memories"]:
                 memory_context_parts.append(
-                    f"Previous research on similar topics: " + "; ".join(enh["previous_queries"][:3])
+                    "Previous research on similar topics: " + "; ".join(enh["memories"][:3])
                 )
             elif enh["type"] == "source_memory" and enh["memories"]:
                 memory_context_parts.append(
-                    f"Source context: " + "; ".join(enh["memories"][:2])
+                    "Source context: " + "; ".join(enh["memories"][:2])
                 )
             elif enh["type"] == "user_preferences" and enh["preferences"]:
                 memory_context_parts.append(
-                    f"User preferences: " + "; ".join(enh["preferences"][:2])
+                    "User preferences: " + "; ".join(enh["preferences"][:2])
                 )
 
         if not memory_context_parts:

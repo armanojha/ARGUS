@@ -11,7 +11,7 @@ from uuid import UUID
 
 from app.config import get_settings
 from app.evidence.models import Document, Source, SourceType
-from app.evidence.store import EvidenceStore, get_evidence_store, _json_dumps
+from app.evidence.store import EvidenceStore, _json_dumps, get_evidence_store
 from app.ingestion.chunking import TextSegment, chunk_by_sections
 from app.ingestion.pdf import extract_pdf_segments, extract_pdf_text
 from app.logging_config import get_logger

@@ -3,84 +3,79 @@
 Persistent multi-layer memory and versioned graph updates.
 """
 
+from app.memory.factory import (
+    MemoryFactory,
+    NullMemoryStore,
+    get_memory_factory_instance,
+    initialize_memory_system,
+    shutdown_memory_system,
+)
 from app.memory.interfaces import (
+    DefaultMemoryFactory,
+    MemoryAwarePlannerInterface,
+    MemoryFactoryInterface,
     # Enums
     MemoryLayer,
-    MemoryScope,
+    MemoryQuery,
     # Models
     MemoryRecord,
-    MemoryQuery,
+    MemoryScope,
     MemorySearchResult,
-    VaultMemoryRecord,
     # Interfaces
     MemoryStoreInterface,
-    MemoryAwarePlannerInterface,
     VaultMemoryInterface,
-    MemoryFactoryInterface,
-    DefaultMemoryFactory,
+    VaultMemoryRecord,
     get_memory_factory,
     set_memory_factory,
-)
-from app.memory.store import (
-    MemoryStore,
-    get_memory_store,
-    close_memory_store,
-)
-from app.memory.versioning import (
-    DeltaType,
-    DeltaStatus,
-    GraphDelta,
-    GraphVersionManager,
-    get_version_manager,
-    close_version_manager,
 )
 from app.memory.planner_integration import (
     MemoryAwarePlanner,
     create_memory_aware_planner,
     inject_memory_into_planning_prompt,
 )
-from app.memory.factory import (
-    MemoryFactory,
-    NullMemoryStore,
-    initialize_memory_system,
-    get_memory_factory_instance,
-    shutdown_memory_system,
+from app.memory.store import (
+    MemoryStore,
+    close_memory_store,
+    get_memory_store,
+)
+from app.memory.versioning import (
+    DeltaStatus,
+    DeltaType,
+    GraphDelta,
+    GraphVersionManager,
+    close_version_manager,
+    get_version_manager,
 )
 
 __all__ = [
-    # Enums
-    "MemoryLayer",
-    "MemoryScope",
-    "DeltaType",
-    "DeltaStatus",
-    # Models
-    "MemoryRecord",
-    "MemoryQuery",
-    "MemorySearchResult",
-    "VaultMemoryRecord",
-    "GraphDelta",
-    # Interfaces
-    "MemoryStoreInterface",
-    "MemoryAwarePlannerInterface",
-    "VaultMemoryInterface",
-    "MemoryFactoryInterface",
     "DefaultMemoryFactory",
-    # Implementations
-    "MemoryStore",
+    "DeltaStatus",
+    "DeltaType",
+    "GraphDelta",
     "GraphVersionManager",
     "MemoryAwarePlanner",
+    "MemoryAwarePlannerInterface",
     "MemoryFactory",
+    "MemoryFactoryInterface",
+    "MemoryLayer",
+    "MemoryQuery",
+    "MemoryRecord",
+    "MemoryScope",
+    "MemorySearchResult",
+    "MemoryStore",
+    "MemoryStoreInterface",
     "NullMemoryStore",
-    # Factories/Accessors
-    "get_memory_factory",
-    "set_memory_factory",
-    "get_memory_store",
+    "VaultMemoryInterface",
+    "VaultMemoryRecord",
     "close_memory_store",
-    "get_version_manager",
     "close_version_manager",
     "create_memory_aware_planner",
-    "inject_memory_into_planning_prompt",
-    "initialize_memory_system",
+    "get_memory_factory",
     "get_memory_factory_instance",
+    "get_memory_store",
+    "get_version_manager",
+    "initialize_memory_system",
+    "inject_memory_into_planning_prompt",
+    "set_memory_factory",
     "shutdown_memory_system",
 ]

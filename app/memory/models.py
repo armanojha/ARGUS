@@ -14,7 +14,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.memory.interfaces import MemoryLayer, MemoryScope, MemoryRecord as InterfaceMemoryRecord
+from app.memory.interfaces import MemoryLayer, MemoryScope
+from app.memory.interfaces import MemoryRecord as InterfaceMemoryRecord
 
 
 class MemoryPromotionStatus(str, Enum):
@@ -180,10 +181,6 @@ class MemorySearchResult(BaseModel):
     layer_counts: dict[str, int] = Field(default_factory=dict)
 
 
-# Re-export from interfaces for convenience
-MemoryQuery = MemoryQuery  # from interfaces
-
-
 class MemoryStats(BaseModel):
     """Memory store statistics."""
 
@@ -198,15 +195,15 @@ class MemoryStats(BaseModel):
 
 
 __all__ = [
-    "MemoryRecord",
-    "MemoryPromotionStatus",
     "GraphDelta",
     "GraphDeltaType",
     "GraphVersion",
+    "MemoryPromotionStatus",
+    "MemoryRecord",
     "MemorySearchResult",
     "MemoryStats",
 ]
 
 
 # Fix circular import - MemoryQuery is imported from interfaces
-from app.memory.interfaces import MemoryQuery  # noqa: E402
+from app.memory.interfaces import MemoryQuery

@@ -16,8 +16,8 @@ from app.memory.interfaces import (
     get_memory_factory,
     set_memory_factory,
 )
-from app.memory.store import MemoryStore, get_memory_store
-from app.memory.versioning import GraphVersionManager, get_version_manager
+from app.memory.store import MemoryStore
+from app.memory.versioning import GraphVersionManager
 
 logger = get_logger("argus.memory.factory")
 

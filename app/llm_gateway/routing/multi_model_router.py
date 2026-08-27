@@ -18,21 +18,20 @@ from pydantic import BaseModel
 
 from app.config import Settings, get_settings
 from app.llm_gateway.capabilities import get_capabilities
+from app.llm_gateway.policies.model_policy import load_model_policy
 from app.llm_gateway.providers.base import LLMProvider
 from app.llm_gateway.providers.exceptions import (
     ConfigurationError,
     LLMProviderError,
     RateLimitError,
 )
-from app.llm_gateway.providers.factory import create_provider
 from app.llm_gateway.providers.models import (
     CompletionResponse,
     Message,
     Tool,
     ToolChoice,
 )
-from app.llm_gateway.policies.model_policy import load_model_policy
-from app.llm_gateway.quota import get_quota_tracker, update_quota_from_response
+from app.llm_gateway.quota import get_quota_tracker
 from app.llm_gateway.telemetry import record_routing_decision
 from app.logging_config import get_logger
 
@@ -108,7 +107,7 @@ class MultiModelRouter:
             try:
                 provider = await self._create_provider_instance(provider_name, entry)
                 self._provider_cache[provider_name] = provider
-            except Exception as exc:
+            except (ConfigurationError, ValueError, OSError) as exc:
                 logger.warning(
                     "multi_model_provider_init_failed",
                     provider=provider_name,
@@ -535,7 +534,7 @@ class MultiModelRouter:
             # Use the provider's default model
             model_spec = ModelSpec(provider=pref_provider, model=provider.default_model)
 
-            ok, reason = self._validate_capabilities(
+            ok, _reason = self._validate_capabilities(
                 pref_provider,
                 model_spec.model,
                 call_type,
@@ -614,7 +613,7 @@ class MultiModelRouter:
                 if routing_result is None:
                     break
 
-        raise last_error or ConfigurationError(f"Cross-model verification failed: no available verifier")
+        raise last_error or ConfigurationError("Cross-model verification failed: no available verifier")
 
     def _load_model_policy_raw(self) -> dict[str, Any]:
         from app.config import load_yaml_config

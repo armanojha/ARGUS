@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.config import get_settings
 from app.logging_config import get_logger
@@ -23,8 +24,30 @@ from app.memory.interfaces import (
     MemoryScope,
     MemoryStoreInterface,
 )
+from app.memory.versioning import DeltaType, GraphDelta
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = get_logger("argus.memory.store")
+
+
+class GraphVersion(BaseModel):
+    """A versioned snapshot of the graph state at a point in time."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID = Field(default_factory=uuid4)
+    version_number: int
+    description: str
+    # Deltas included in this version
+    delta_ids: list[UUID] = Field(default_factory=list)
+    # Graph statistics at this version
+    node_counts: dict[str, int] = Field(default_factory=dict)
+    edge_count: int = 0
+    # Parent version
+    parent_version_id: UUID | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_by_query: str | None = None
+
 
 SCHEMA_SQL = """
 -- Memory Records: the core memory storage
@@ -221,7 +244,37 @@ class MemoryStore(MemoryStoreInterface):
                     (str(record.id), str(record.supersedes_id)),
                 )
             conn.commit()
+        # Enforce layer limits
+        await self._enforce_layer_limit(record.layer)
         logger.debug("memory_stored", memory_id=str(record.id), layer=record.layer.value)
+
+    async def _enforce_layer_limit(self, layer: MemoryLayer) -> None:
+        """Enforce max records per layer by removing oldest lowest-confidence records."""
+        with self._conn() as conn:
+            count_row = conn.execute(
+                "SELECT COUNT(*) as count FROM memory_records WHERE layer = ?",
+                (layer.value,),
+            ).fetchone()
+            count = count_row["count"] if count_row else 0
+
+            if count > self.max_records_per_layer:
+                # Delete oldest lowest-confidence records to make room
+                excess = count - self.max_records_per_layer
+                conn.execute(
+                    """
+                    DELETE FROM memory_records
+                    WHERE layer = ?
+                    AND id IN (
+                        SELECT id FROM memory_records
+                        WHERE layer = ?
+                        ORDER BY confidence ASC, created_at ASC
+                        LIMIT ?
+                    )
+                    """,
+                    (layer.value, layer.value, excess),
+                )
+                conn.commit()
+                logger.info("memory_layer_pruned", layer=layer.value, removed=excess)
 
     async def retrieve(self, query: MemoryQuery) -> list[MemoryRecord]:
         """Retrieve relevant memories for a query."""
@@ -246,7 +299,7 @@ class MemoryStore(MemoryStoreInterface):
             if query.tags_match_all:
                 # All tags must match - use subquery
                 for tag in query.tags:
-                    conditions.append(f"id IN (SELECT memory_id FROM memory_tags WHERE tag = ?)")
+                    conditions.append("id IN (SELECT memory_id FROM memory_tags WHERE tag = ?)")
                     params.append(tag)
             else:
                 # Any tag matches
@@ -261,6 +314,12 @@ class MemoryStore(MemoryStoreInterface):
         if query.time_window_end:
             conditions.append("created_at <= ?")
             params.append(query.time_window_end.isoformat())
+
+        # Text search - simple LIKE-based search
+        if query.query_text:
+            conditions.append("(content LIKE ? OR subject LIKE ? OR predicate LIKE ? OR object LIKE ? OR source_query LIKE ?)")
+            search_term = f"%{query.query_text}%"
+            params.extend([search_term] * 5)
 
         where_clause = " AND ".join(conditions)
 
@@ -314,7 +373,7 @@ class MemoryStore(MemoryStoreInterface):
                     _serialize_tags(record.tags),
                     _json_dumps(record.metadata),
                     record.updated_at.isoformat(),
-                    record.promotion_status.value,
+                    record.promotion_status,
                     record.version,
                     str(record.supersedes_id) if record.supersedes_id else None,
                     str(record.superseded_by_id) if record.superseded_by_id else None,
@@ -463,7 +522,7 @@ class MemoryStore(MemoryStoreInterface):
 
     # -- Stats ------------------------------------------------------------------
 
-    async def get_stats(self) -> MemoryStats:
+    async def get_stats(self) -> dict[str, Any]:
         """Get memory store statistics."""
         with self._conn() as conn:
             # Total records
@@ -495,14 +554,34 @@ class MemoryStore(MemoryStoreInterface):
             # DB size
             db_size = self.db_path.stat().st_size if self.db_path.exists() else 0
 
-        return MemoryStats(
-            total_records=total,
-            layer_counts=layer_counts,
-            promotion_counts=promotion_counts,
-            scope_counts=scope_counts,
-            avg_confidence=round(avg_conf, 4),
-            db_size_bytes=db_size,
+        return {
+            "total_records": total,
+            "layer_counts": layer_counts,
+            "promotion_counts": promotion_counts,
+            "scope_counts": scope_counts,
+            "avg_confidence": round(avg_conf, 4),
+            "db_size_bytes": db_size,
+        }
+
+    async def promote_memory(self, record_id: str, new_confidence: float, reason: str = "") -> bool:
+        """Promote a memory record to higher confidence."""
+        record = await self.get_by_id(record_id)
+        if not record:
+            return False
+
+        if new_confidence <= record.confidence:
+            return False
+
+        dump = record.model_dump(exclude={"confidence", "promotion_status", "updated_at"})
+        updated_record = MemoryRecord(
+            **dump,
+            confidence=new_confidence,
+            promotion_status="promoted",
+            updated_at=datetime.now(UTC),
         )
+        await self.update(updated_record)
+        logger.info("memory_promoted", record_id=record_id, new_confidence=new_confidence, reason=reason)
+        return True
 
     # -- Helpers -----------------------------------------------------------------
 
@@ -533,7 +612,7 @@ class MemoryStore(MemoryStoreInterface):
     def _row_to_delta(self, row: sqlite3.Row) -> GraphDelta:
         return GraphDelta(
             id=UUID(row["id"]),
-            delta_type=GraphDeltaType(row["delta_type"]),
+            delta_type=DeltaType(row["delta_type"]),
             target_id=UUID(row["target_id"]),
             target_type=row["target_type"],
             new_data=_json_loads(row["new_data"]),

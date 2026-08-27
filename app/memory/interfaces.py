@@ -44,7 +44,7 @@ class MemoryRecord(BaseModel):
 
     All memory records trace back to evidence chunks.
     """
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid")
 
     id: UUID
     layer: MemoryLayer
@@ -69,6 +69,11 @@ class MemoryRecord(BaseModel):
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    # Phase 08 extensions
+    promotion_status: str = "provisional"
+    version: int = 1
+    supersedes_id: UUID | None = None
+    superseded_by_id: UUID | None = None
 
 
 class MemoryQuery(BaseModel):
