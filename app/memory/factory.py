@@ -16,7 +16,7 @@ from app.memory.interfaces import (
     get_memory_factory,
     set_memory_factory,
 )
-from app.memory.store import SQLiteMemoryStore, get_memory_store
+from app.memory.store import MemoryStore, get_memory_store
 from app.memory.versioning import GraphVersionManager, get_version_manager
 
 logger = get_logger("argus.memory.factory")
@@ -26,7 +26,7 @@ class MemoryFactory(MemoryFactoryInterface):
     """Factory for creating memory components (Phase 08 implementation)."""
 
     def __init__(self):
-        self._memory_store: SQLiteMemoryStore | None = None
+        self._memory_store: MemoryStore | None = None
         self._version_manager: GraphVersionManager | None = None
 
     def create_memory_store(self) -> MemoryStoreInterface:
@@ -37,7 +37,7 @@ class MemoryFactory(MemoryFactoryInterface):
             return NullMemoryStore()
 
         if self._memory_store is None:
-            self._memory_store = SQLiteMemoryStore()
+            self._memory_store = MemoryStore()
         return self._memory_store
 
     def create_vault_memory(self) -> VaultMemoryInterface | None:

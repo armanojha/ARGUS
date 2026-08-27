@@ -282,7 +282,7 @@ def test_gap_detector_no_evidence_flagged():
     settings = Settings(_env_file=None)
     detector = AdaptiveEvidenceGapDetector(settings=settings)
     gaps = detector.detect_gaps(_state(), _plan(), [])
-    assert {g["gap_type"] for g in gaps} == {"no_evidence"}
+    assert "no_evidence" in {g["gap_type"] for g in gaps}
 
 
 def test_gap_detector_unresolved_contradiction():

@@ -143,10 +143,11 @@ def _deserialize_uuids(text: str) -> list[str]:
 class MemoryStore(MemoryStoreInterface):
     """SQLite-backed persistent memory store with multi-layer support."""
 
-    def __init__(self, db_path: Path | None = None):
+    def __init__(self, db_path: Path | None = None, max_records_per_layer: int | None = None):
         settings = get_settings()
         self.db_path = db_path or settings.memory_db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.max_records_per_layer = max_records_per_layer or settings.memory_max_records_per_layer
         self._init_db()
 
     def _init_db(self) -> None:

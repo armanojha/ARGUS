@@ -39,11 +39,15 @@ class MockProvider(LLMProvider):
 
     def __init__(
         self,
+        name: str = "mock",
+        default_model: str = "mock-model",
         responses: dict[str, CompletionResponse] | None = None,
         should_fail: bool = False,
         fail_with: type[LLMProviderError] | None = None,
         fail_message: str = "mock failure",
     ) -> None:
+        self._name = name
+        self._default_model = default_model
         self._responses = responses or {}
         self._should_fail = should_fail
         self._fail_with = fail_with
@@ -53,11 +57,11 @@ class MockProvider(LLMProvider):
 
     @property
     def name(self) -> str:
-        return "mock"
+        return self._name
 
     @property
     def default_model(self) -> str:
-        return "mock-model"
+        return self._default_model
 
     @property
     def capabilities(self) -> ProviderCapabilities:

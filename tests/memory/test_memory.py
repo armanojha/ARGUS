@@ -182,7 +182,7 @@ class TestSQLiteMemoryStore:
     @pytest.mark.asyncio
     async def test_layer_limit_enforcement(self, temp_db):
         """Test that layer limits are enforced."""
-        store = SQLiteMemoryStore(db_path=temp_db, max_records_per_layer=3)
+        store = MemoryStore(db_path=temp_db, max_records_per_layer=3)
 
         # Store 5 records in the same layer
         for i in range(5):
@@ -465,7 +465,7 @@ class TestMemoryAwarePlanner:
         """Create a memory store for testing."""
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = Path(f.name)
-        store = SQLiteMemoryStore(db_path=db_path, max_records_per_layer=100)
+        store = MemoryStore(db_path=db_path, max_records_per_layer=100)
         yield store
         if db_path.exists():
             db_path.unlink()

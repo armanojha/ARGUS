@@ -50,13 +50,9 @@ _DEFAULT_ORDER = [
 # they are gated behind the assessor's verdict. If the last assessment said
 # more evidence is needed, these must not fire (the assessor is the arbiter
 # of sufficiency; claims support / contradiction status alone cannot close
-# a run the arbiter explicitly kept open).
-_GATE_ON_ARBITER_CONFIRM: frozenset[StopCondition] = frozenset(
-    {
-        StopCondition.CLAIMS_SUPPORTED,
-        StopCondition.NO_UNRESOLVED_CONTRADICTION,
-    }
-)
+# a run the arbiter explicitly kept open). The gating lives inside each
+# checker (require_assessor_agreement=True) so a checker stays safe even
+# when used standalone, and the composition remains a plain priority loop.
 
 class ClaimsSupportedChecker(StopConditionChecker):
     """Stop when claims are supported above the configured threshold.
@@ -71,15 +67,28 @@ class ClaimsSupportedChecker(StopConditionChecker):
         self,
         threshold: float = 0.7,
         support_provider: Callable[[OrchestrationState], float] | None = None,
+        require_assessor_agreement: bool = True,
     ) -> None:
         self.threshold = threshold
         self._support_provider = support_provider or self._default_support
+        self.require_assessor_agreement = require_assessor_agreement
 
     @property
     def condition(self) -> StopCondition:
         return StopCondition.CLAIMS_SUPPORTED
 
     async def check(self, state: OrchestrationState) -> StopDecision:
+        if self.require_assessor_agreement and state.get("sufficient") is not True:
+            return StopDecision(
+                should_stop=False,
+                condition=self.condition,
+                reason="Deferred: assessor reports more evidence is needed.",
+                metadata={
+                    "support": round(self._support_provider(state), 4),
+                    "threshold": self.threshold,
+                    "deferred_by": "assessor_open",
+                },
+            )
         support = self._support_provider(state)
         if not state["evidence"]:
             return StopDecision(
@@ -124,15 +133,27 @@ class NoUnresolvedContradictionChecker(StopConditionChecker):
         self,
         contradictions_provider: Callable[[OrchestrationState], list[dict[str, Any]]] | None = None,
         critical_min_severity: float = 0.0,
+        require_assessor_agreement: bool = True,
     ) -> None:
         self._provider = contradictions_provider or self._state_signals
         self.critical_min_severity = critical_min_severity
+        self.require_assessor_agreement = require_assessor_agreement
 
     @property
     def condition(self) -> StopCondition:
         return StopCondition.NO_UNRESOLVED_CONTRADICTION
 
     async def check(self, state: OrchestrationState) -> StopDecision:
+        if self.require_assessor_agreement and state.get("sufficient") is not True:
+            return StopDecision(
+                should_stop=False,
+                condition=self.condition,
+                reason="Deferred: assessor reports more evidence is needed.",
+                metadata={
+                    "unresolved_contradictions": len(self._provider(state)),
+                    "deferred_by": "assessor_open",
+                },
+            )
         signals = self._provider(state)
         unresolved = [
             s for s in signals
@@ -292,17 +313,7 @@ class AdaptiveStoppingLogic(StoppingLogicInterface):
 
     async def should_stop(self, state: OrchestrationState) -> StopDecision:
         checked: list[dict[str, Any]] = []
-        arbiter_kept_open = state.get("sufficient") is not True
         for checker in self._checkers:
-            if arbiter_kept_open and checker.condition in _GATE_ON_ARBITER_CONFIRM:
-                checked.append({
-                    "condition": checker.condition.value,
-                    "evaluated": False,
-                    "should_stop": False,
-                    "reason": "deferred: assessor reports more evidence needed",
-                    "metadata": {},
-                })
-                continue
             decision = await checker.check(state)
             checked.append({
                 "condition": checker.condition.value,

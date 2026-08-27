@@ -324,6 +324,12 @@ class EvidenceStore:
         personal-context notes) without scanning every chunk. Document-level
         metadata matching keeps the query small and index-friendly.
         """
+        if isinstance(value, bool):
+            expected = "true" if value else "false"
+        elif isinstance(value, (int, float)):
+            expected = str(value)
+        else:
+            expected = value
         with self._conn() as conn:
             rows = conn.execute(
                 """
@@ -332,7 +338,7 @@ class EvidenceStore:
                 WHERE json_extract(d.metadata, ?) = ?
                 ORDER BY d.source_id, c.ordinal
                 """,
-                (f"$.{key}", json.dumps(value, ensure_ascii=False)),
+                (f"$.{key}", expected),
             ).fetchall()
         return [self._row_to_chunk(row) for row in rows]
 

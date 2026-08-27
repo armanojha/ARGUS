@@ -274,7 +274,7 @@ def make_assess_node(
     async def assess_node(state: OrchestrationState) -> dict:
         plan = state["plan"]
         if plan is None:
-            return state
+            return {}
 
         # Deterministic short-circuits: never spend an LLM call once a
         # hard bound is already exceeded.
@@ -407,7 +407,7 @@ def make_synthesize_node(router: LLMRouter, settings: Settings) -> NodeFn:
     async def synthesize_node(state: OrchestrationState) -> dict:
         plan = state["plan"]
         if plan is None:
-            return state
+            return {}
         evidence = state["evidence"]
         warnings = list(state["warnings"])
 

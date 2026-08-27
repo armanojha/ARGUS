@@ -162,6 +162,7 @@ class MultiModelRouter:
         self,
         provider_name: str,
         model: str,
+        call_type: str,
         *,
         response_format: type[BaseModel] | None = None,
         tools: list[Tool] | None = None,
@@ -231,6 +232,7 @@ class MultiModelRouter:
             ok, reason = self._validate_capabilities(
                 model_spec.provider,
                 model_spec.model,
+                call_type,
                 response_format=response_format,
                 tools=tools,
                 estimated_tokens=estimated_tokens,
@@ -272,6 +274,7 @@ class MultiModelRouter:
             ok, reason = self._validate_capabilities(
                 provider_name,
                 model_spec.model,
+                call_type,
                 response_format=response_format,
                 tools=tools,
                 estimated_tokens=estimated_tokens,
