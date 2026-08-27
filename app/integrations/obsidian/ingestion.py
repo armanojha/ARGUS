@@ -59,9 +59,9 @@ class ObsidianIngestionPipeline:
         Returns:
             Ingestion result with statistics.
         """
-        from datetime import UTC, datetime, timezone
+        from datetime import UTC, datetime
 
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
         result = ObsidianIngestionResult(
             vault_path=str(self.vault_root),
             started_at=started_at,

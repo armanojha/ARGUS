@@ -7,7 +7,7 @@ Handles YAML frontmatter, sections, wikilinks, tags, callouts, and code blocks.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -82,14 +82,17 @@ def _parse_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
         return value
     # YAML may parse dates as datetime.date objects
     if isinstance(value, dt_mod.date):
-        return datetime(value.year, value.month, value.day)
+        return datetime(value.year, value.month, value.day, tzinfo=UTC)
     if isinstance(value, str):
         for fmt in ["%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"]:
             try:
-                return datetime.strptime(value, fmt)
+                dt = datetime.strptime(value, fmt)  # noqa: DTZ007
+                return dt.replace(tzinfo=UTC)
             except ValueError:
                 continue
     return None
@@ -254,8 +257,8 @@ def parse_obsidian_note(file_path: Path, vault_root: Path) -> ParsedObsidianNote
         callouts=callouts,
         code_blocks=code_blocks,
         file_size=stat.st_size,
-        file_modified=datetime.fromtimestamp(stat.st_mtime),
-        file_created=datetime.fromtimestamp(stat.st_ctime),
+        file_modified=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+        file_created=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
         content_checksum=content_checksum,
         vault_relative_path=vault_relative_path,
     )
