@@ -1,9 +1,9 @@
-"""Agentic RAG orchestration graph (Phase 02).
+"""Agentic RAG orchestration graph (Phase 02 + 08 Memory Integration).
 
 Builds and runs the LangGraph state machine:
 
-    analyze -> plan -> retrieve -> assess -+-> retrieve (loop)
-                                            +-> synthesize -> END
+    analyze -> plan -> [memory_enhance] -> retrieve -> assess -+-> retrieve (loop)
+                                                             +-> synthesize -> END
 
 No checkpointer is configured — each `run_query()` call is a single
 in-memory execution with no cross-request persistence. That's
