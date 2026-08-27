@@ -10,7 +10,6 @@ These are CONTRACTS only - Phase 08 implements them.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
@@ -40,12 +39,13 @@ class MemoryScope(str, Enum):
     VAULT = "vault"             # Specific to a vault (Phase 09)
 
 
-@dataclass(frozen=True)
-class MemoryRecord:
+class MemoryRecord(BaseModel):
     """A single memory record with full provenance.
 
     All memory records trace back to evidence chunks.
     """
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     id: UUID
     layer: MemoryLayer
     scope: MemoryScope = MemoryScope.GLOBAL
@@ -55,20 +55,20 @@ class MemoryRecord:
     predicate: str | None = None
     object: str | None = None
     # Provenance - ALWAYS required
-    supporting_chunk_ids: list[str] = field(default_factory=list)  # UUID strings
+    supporting_chunk_ids: list[str] = Field(default_factory=list)  # UUID strings
     # Source query that created this memory
     source_query: str | None = None
     # Confidence in this memory (0-1)
-    confidence: float = field(default=1.0, ge=0.0, le=1.0)
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     # Temporal validity
     valid_from: datetime | None = None
     valid_to: datetime | None = None
     # Metadata
-    tags: list[str] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     # Timestamps
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class MemoryQuery(BaseModel):
@@ -81,7 +81,7 @@ class MemoryQuery(BaseModel):
     limit: int = Field(default=10, ge=1, le=100)
     min_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     # Optional filters
-    tags: list[str] = field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     time_window_start: datetime | None = None
     time_window_end: datetime | None = None
     tags_match_all: bool = False
@@ -91,7 +91,7 @@ class MemorySearchResult(BaseModel):
     """Result of a memory search."""
     model_config = ConfigDict(extra="forbid")
 
-    records: list[Any] = field(default_factory=list)  # list[MemoryRecord]
+    records: list[Any] = Field(default_factory=list)  # list[MemoryRecord]
     total_count: int = 0
     query: MemoryQuery | None = None
 
@@ -170,12 +170,12 @@ class VaultMemoryRecord(BaseModel):
     note_path: str  # Relative path in vault
     note_id: str  # UUID string
     # Graph entity links
-    entity_ids: list[str] = field(default_factory=list)  # UUID strings
-    claim_ids: list[str] = field(default_factory=list)
+    entity_ids: list[str] = Field(default_factory=list)  # UUID strings
+    claim_ids: list[str] = Field(default_factory=list)
     # Classification
     note_type: str = "personal_context"  # Will be 7-class in Phase 09
     # Provenance
-    chunk_ids: list[str] = field(default_factory=list)
+    chunk_ids: list[str] = Field(default_factory=list)
     # Timestamps
     ingested_at: datetime
     last_synced: datetime

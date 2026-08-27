@@ -215,6 +215,7 @@ async def verify_claim(
         # Fallback: return UNSUPPORTED with error info
         return VerificationResult(
             claim_id=request.claim_id,
+            claim_text=request.claim_text,
             status=VerificationStatus.ERROR,
             confidence=0.0,
             reasoning=f"Verification LLM call failed: {error}",
@@ -273,11 +274,16 @@ async def verify_claim(
         except ValueError:
             contra_type = ContradictionType.SOURCE_CONFLICT
 
+        try:
+            claim_b_id = UUID(contra.get("claim_b_id", "00000000-0000-0000-0000-000000000000"))
+        except (ValueError, AttributeError):
+            claim_b_id = UUID("00000000-0000-0000-0000-000000000000")
+
         contradictions.append(ContradictionDetail(
             contradiction_type=contra_type,
             description=contra.get("description", ""),
             claim_a_id=request.claim_id,
-            claim_b_id=UUID(contra.get("claim_b_id", "00000000-0000-0000-0000-000000000000")),
+            claim_b_id=claim_b_id,
             evidence_a_ids=[UUID(eid) for eid in contra.get("evidence_a_ids", [])],
             evidence_b_ids=[UUID(eid) for eid in contra.get("evidence_b_ids", [])],
             severity=contra.get("severity", 0.5),
@@ -296,6 +302,7 @@ async def verify_claim(
 
     return VerificationResult(
         claim_id=request.claim_id,
+        claim_text=request.claim_text,
         status=status,
         confidence=verifier_output.confidence,
         reasoning=verifier_output.reasoning,

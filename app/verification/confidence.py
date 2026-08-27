@@ -156,6 +156,7 @@ class ConfidenceScorer:
             # Simplified: assume evidence is relevant if claim has validity period
             relevant_count += 1
 
+        logger.debug("temporal_relevance_stub", note="implementation deferred to Phase 09")
         return relevant_count / len(evidence) if evidence else 0.0
 
     def _compute_retrieval_rank(self, evidence: list[VerificationEvidence]) -> float:

@@ -5,6 +5,7 @@ Provides cross-encoder reranking over fused retrieval candidates.
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 from app.config import get_settings
@@ -26,18 +27,20 @@ class Reranker:
     def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
         self.model_name = model_name
         self.settings = get_settings()
+        self._lock = threading.Lock()
 
     def _get_model(self):
         """Lazy-load the cross-encoder model."""
-        if Reranker._model is None:
-            try:
-                from sentence_transformers import CrossEncoder
-                logger.info("loading_reranker_model", model=self.model_name)
-                Reranker._model = CrossEncoder(self.model_name)
-            except ImportError:
-                logger.warning("cross_encoder_not_available", model=self.model_name)
-                return None
-        return Reranker._model
+        with self._lock:
+            if Reranker._model is None:
+                try:
+                    from sentence_transformers import CrossEncoder
+                    logger.info("loading_reranker_model", model=self.model_name)
+                    Reranker._model = CrossEncoder(self.model_name)
+                except ImportError:
+                    logger.warning("cross_encoder_not_available", model=self.model_name)
+                    return None
+            return Reranker._model
 
     def rerank(
         self,

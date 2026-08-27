@@ -5,6 +5,7 @@ Generates dense vector embeddings using local sentence-transformers model.
 
 from __future__ import annotations
 
+import threading
 from uuid import UUID
 
 import numpy as np
@@ -26,13 +27,15 @@ class EmbeddingGenerator:
     def __init__(self, model_name: str | None = None):
         self.settings = get_settings()
         self.model_name = model_name or self.settings.embedding_model
+        self._lock = threading.Lock()
 
     def _get_model(self) -> SentenceTransformer:
         """Lazy-load the embedding model."""
-        if EmbeddingGenerator._model is None:
-            logger.info("loading_embedding_model", model=self.model_name)
-            EmbeddingGenerator._model = SentenceTransformer(self.model_name)
-        return EmbeddingGenerator._model
+        with self._lock:
+            if EmbeddingGenerator._model is None:
+                logger.info("loading_embedding_model", model=self.model_name)
+                EmbeddingGenerator._model = SentenceTransformer(self.model_name)
+            return EmbeddingGenerator._model
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
         """Generate embeddings for a list of texts.
@@ -83,18 +86,21 @@ def generate_and_store_embeddings(
     # Generate embeddings
     embeddings = generator.embed_chunks(chunks)
 
+    # Build dict mapping chunk_id to embedding before any re-fetch
+    embedding_map = {cid: emb for cid, emb in zip(chunk_ids, embeddings)}
+
     # Assign embedding indices
     from app.retrieval.vector import assign_embedding_indices
     assign_embedding_indices(store)
 
-    # Update chunks with embedding_index (already assigned by the function above)
     # Re-fetch to get the assigned indices
     chunks = store.get_chunks_by_ids(chunk_ids)
 
     # Build FAISS index
     from app.retrieval.vector import FAISSVectorStore
     vector_store = FAISSVectorStore(store)
-    vector_store.build_index(embeddings, chunk_ids)
+    ordered_embeddings = np.array([embedding_map[cid] for cid in chunk_ids])
+    vector_store.build_index(ordered_embeddings, chunk_ids)
 
     logger.info("embeddings_generated", count=len(chunks))
     return len(chunks)

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,8 +16,13 @@ from uuid import UUID
 
 from app.config import get_settings
 from app.logging_config import get_logger
-from app.memory.interfaces import MemoryLayer, MemoryQuery, MemoryScope, MemoryStoreInterface
-from app.memory.models import GraphDelta, GraphDeltaType, GraphVersion, MemoryRecord, MemoryPromotionStatus, MemoryStats
+from app.memory.interfaces import (
+    MemoryLayer,
+    MemoryQuery,
+    MemoryRecord,
+    MemoryScope,
+    MemoryStoreInterface,
+)
 
 logger = get_logger("argus.memory.store")
 

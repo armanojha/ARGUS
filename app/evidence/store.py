@@ -99,21 +99,46 @@ class EvidenceStore:
         self.faiss_index_path = faiss_index_path or settings.faiss_index_path
         self.bm25_index_path.parent.mkdir(parents=True, exist_ok=True)
         self.faiss_index_path.parent.mkdir(parents=True, exist_ok=True)
+        self._connection: sqlite3.Connection | None = None
         self._init_db()
 
     def _init_db(self) -> None:
         with self._conn() as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
             conn.executescript(SCHEMA_SQL)
             conn.commit()
 
     @contextmanager
     def _conn(self) -> Iterator[sqlite3.Connection]:
+        if self._connection is not None:
+            yield self._connection
+            return
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         try:
             yield conn
         finally:
             conn.close()
+
+    @contextmanager
+    def transaction(self) -> Iterator[sqlite3.Connection]:
+        """Provide a transactional connection for batch operations."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def close(self) -> None:
+        """Close the persistent connection if open."""
+        if self._connection is not None:
+            self._connection.close()
+            self._connection = None
 
     # -- Source operations -------------------------------------------------
 
@@ -264,7 +289,8 @@ class EvidenceStore:
                 [str(cid) for cid in chunk_ids],
             ).fetchall()
         # Preserve input order
-        chunk_map = {self._row_to_chunk(row).id: self._row_to_chunk(row) for row in rows}
+        chunks = [self._row_to_chunk(row) for row in rows]
+        chunk_map = {c.id: c for c in chunks}
         return [chunk_map[cid] for cid in chunk_ids if cid in chunk_map]
 
     def get_chunks_by_embedding_indices(self, indices: list[int]) -> list[Chunk]:
@@ -334,9 +360,11 @@ class EvidenceStore:
         for rank, (chunk, score) in enumerate(zip(chunks, scores), 1):
             document = self.get_document(chunk.document_id)
             if not document:
+                logger.warning("orphaned_chunk", chunk_id=str(chunk.id))
                 continue
             source = self.get_source(document.source_id)
             if not source:
+                logger.warning("orphaned_chunk", chunk_id=str(chunk.id))
                 continue
 
             refs.append(EvidenceRef(

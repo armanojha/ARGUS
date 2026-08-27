@@ -16,6 +16,11 @@ from app.logging_config import get_logger
 logger = get_logger("argus.obsidian.writer")
 
 
+def _escape_yaml(value: str) -> str:
+    """Escape special characters for YAML values."""
+    return value.replace('"', '\\"').replace('\n', '\\n')
+
+
 class ObsidianWriter:
     """Writes ARGUS research outputs to the 90_ARGUS/ area of the vault."""
 
@@ -44,9 +49,11 @@ class ObsidianWriter:
         Returns:
             Path to the written file.
         """
-        # Generate filename: research_id + timestamp
+        # Generate filename: research_id + timestamp (sanitized)
+        import re
         timestamp = capture.created_at.strftime("%Y%m%d_%H%M%S")
-        filename = f"{capture.research_id}_{timestamp}.md"
+        safe_id = re.sub(r'[/\\..]', '_', capture.research_id)
+        filename = f"{safe_id}_{timestamp}.md"
         file_path = self.write_back_root / "Research_Output" / filename
 
         # Ensure directory exists
@@ -77,14 +84,14 @@ class ObsidianWriter:
         file_path = self.write_back_root / "Evidence_Reports" / filename
 
         content = f"""---
-title: "{title}"
+title: "{_escape_yaml(title)}"
 research_id: {research_id}
 type: evidence_report
 created_at: {datetime.now(UTC).isoformat()}
 tags: [argus, evidence-report]
 ---
 
-# {title}
+# {_escape_yaml(title)}
 
 **Research ID:** {research_id}
 
@@ -139,6 +146,12 @@ tags: [argus, evidence-report]
 
     def read_research_capture(self, file_path: Path) -> str | None:
         """Read a research capture note from the vault."""
+        # Path traversal check
+        resolved = file_path.resolve()
+        vault_resolved = self.vault_root.resolve()
+        if not str(resolved).startswith(str(vault_resolved)):
+            logger.warning("path_traversal_blocked", path=str(file_path))
+            return None
         if not file_path.exists():
             return None
         return file_path.read_text(encoding="utf-8")

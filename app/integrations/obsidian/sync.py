@@ -6,7 +6,7 @@ Tracks checksums, document IDs, and chunk IDs for each note.
 
 from __future__ import annotations
 
-import pickle
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -37,8 +37,8 @@ class SyncManager:
         """Load manifest from disk if exists."""
         if self.manifest_path.exists():
             try:
-                with self.manifest_path.open("rb") as f:
-                    self._manifest = pickle.load(f)
+                data = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+                self._manifest = SyncManifest.model_validate(data)
                 logger.info("manifest_loaded", path=str(self.manifest_path), notes=len(self._manifest.notes))
             except Exception as e:  # noqa: BLE001
                 logger.warning("manifest_load_failed", error=str(e), path=str(self.manifest_path))
@@ -58,13 +58,18 @@ class SyncManager:
         return hashlib.sha256(str(self.vault_root).encode()).hexdigest()[:16]
 
     def save(self) -> None:
-        """Persist manifest to disk."""
+        """Persist manifest to disk using atomic write pattern."""
         if self._manifest is None:
             logger.warning("manifest_save_skipped", reason="no manifest to save")
             return
         try:
-            with self.manifest_path.open("wb") as f:
-                pickle.dump(self._manifest, f)
+            import os
+            temp_path = self.manifest_path.with_suffix('.tmp')
+            temp_path.write_text(
+                self._manifest.model_dump_json(indent=2),
+                encoding="utf-8",
+            )
+            os.replace(str(temp_path), str(self.manifest_path))
             logger.info("manifest_saved", path=str(self.manifest_path), notes=len(self._manifest.notes))
         except Exception as e:
             logger.error("manifest_save_failed", error=str(e), path=str(self.manifest_path))

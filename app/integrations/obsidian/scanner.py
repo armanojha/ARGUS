@@ -91,7 +91,7 @@ class VaultScanner:
         return {
             "path": str(file_path),
             "relative_path": str(file_path.relative_to(self.vault_root)),
-            "size": file_path.stat().st_size,
+            "size": stat.st_size,
             "modified": stat.st_mtime,
             "created": stat.st_ctime,
         }

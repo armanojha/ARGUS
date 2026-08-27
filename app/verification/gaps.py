@@ -101,16 +101,15 @@ class EvidenceGapDetector:
         focus: str = "general",
     ) -> str:
         """Generate a targeted retrieval query for a claim with gaps."""
-        # This would ideally use the claim text and context
-        # For now, return a generic query based on the claim
-        base_query = f"Evidence for: {result.claim_id}"
+        # Use claim text when available, fall back to claim ID
+        base_query = f"Evidence for: {result.claim_text}" if result.claim_text else f"Evidence for: {result.claim_id}"
 
         if focus == "authoritative":
-            return f"Authoritative sources for: {result.claim_id}"
+            return f"Authoritative sources for: {result.claim_text}" if result.claim_text else f"Authoritative sources for: {result.claim_id}"
         elif focus == "recent":
-            return f"Recent evidence for: {result.claim_id}"
+            return f"Recent evidence for: {result.claim_text}" if result.claim_text else f"Recent evidence for: {result.claim_id}"
         elif focus == "resolve":
-            return f"Resolving contradictory evidence for: {result.claim_id}"
+            return f"Resolving contradictory evidence for: {result.claim_text}" if result.claim_text else f"Resolving contradictory evidence for: {result.claim_id}"
 
         return base_query
 

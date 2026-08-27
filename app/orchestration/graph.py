@@ -103,15 +103,9 @@ def build_graph(
     workflow.add_node("plan", make_plan_node(router, settings))  # type: ignore
     if memory_store is not None:
         workflow.add_node("memory_enhance", lambda s: _memory_enhance_node(s, memory_store))  # type: ignore
-    workflow.add_node(
-        "retrieve", make_retrieve_node(retriever, reranker, settings, policy_router=policy_router)  # type: ignore
-    )
-    workflow.add_node(  # type: ignore
-        "assess", make_assess_node(router, settings, gap_detector=gap_detector)
-    )
-    workflow.add_node(  # type: ignore
-        "stop_check", make_stop_check_node(stopping_logic)
-    )
+    workflow.add_node("retrieve", make_retrieve_node(retriever, reranker, settings, policy_router=policy_router))  # type: ignore
+    workflow.add_node("assess", make_assess_node(router, settings, gap_detector=gap_detector))  # type: ignore
+    workflow.add_node("stop_check", make_stop_check_node(stopping_logic))  # type: ignore
     workflow.add_node("synthesize", make_synthesize_node(router, settings))  # type: ignore
 
     workflow.set_entry_point("analyze")
@@ -285,7 +279,11 @@ async def run_query(
         initial_state["user_early_stop"] = True
 
     logger.info("orchestration_run_started", request_id=request_id, query=query[:100])
-    final_state: OrchestrationState = await graph.ainvoke(initial_state)
+    import asyncio
+    final_state: OrchestrationState = await asyncio.wait_for(
+        graph.ainvoke(initial_state),
+        timeout=settings.orchestration_timeout or 120,
+    )
     logger.info(
         "orchestration_run_finished",
         request_id=request_id,

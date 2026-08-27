@@ -28,7 +28,10 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         incoming = request.headers.get(REQUEST_ID_HEADER)
-        request_id = incoming if incoming else generate_request_id()
+        if incoming and len(incoming) <= 128:
+            request_id = incoming
+        else:
+            request_id = generate_request_id()
         request.state.request_id = request_id
 
         structlog.contextvars.clear_contextvars()

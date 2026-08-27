@@ -265,34 +265,44 @@ async def extract_from_chunks(
     chunk_id_map = {i: chunks[i].id for i in range(len(chunks))}
 
     # Process entities
-    entity_name_to_id: dict[str, UUID] = {}
+    entity_name_to_id: dict[tuple[str, str], UUID] = {}
     for ext_entity in extraction_output.entities:
+        entity_type = _map_entity_type(ext_entity.entity_type)
         entity = Entity(
             canonical_name=ext_entity.canonical_name,
-            entity_type=_map_entity_type(ext_entity.entity_type),
+            entity_type=entity_type,
             aliases=ext_entity.aliases,
             description=ext_entity.description,
             confidence=max(0.0, min(1.0, ext_entity.confidence)),
             supporting_chunk_ids=[chunk_id_map[i] for i in ext_entity.chunk_indices if i in chunk_id_map],
         )
         result.entities.append(entity)
-        entity_name_to_id[ext_entity.canonical_name.lower()] = entity.id
+        entity_name_to_id[(ext_entity.canonical_name.lower(), entity_type.value)] = entity.id
         # Also map aliases
         for alias in ext_entity.aliases:
-            entity_name_to_id[alias.lower()] = entity.id
+            entity_name_to_id[(alias.lower(), entity_type.value)] = entity.id
+
+    # Helper to look up entity by name across all types
+    def _lookup_entity(name: str) -> UUID | None:
+        name_lower = name.lower()
+        for et in EntityType:
+            key = (name_lower, et.value)
+            if key in entity_name_to_id:
+                return entity_name_to_id[key]
+        return None
 
     # Process claims
     for ext_claim in extraction_output.claims:
         # Resolve subject entity
         subject_id = None
         if ext_claim.subject:
-            subject_id = entity_name_to_id.get(ext_claim.subject.lower())
+            subject_id = _lookup_entity(ext_claim.subject)
 
         # Resolve object entity
         object_id = None
         object_value = ext_claim.object
         if ext_claim.object_is_entity and ext_claim.object:
-            object_id = entity_name_to_id.get(ext_claim.object.lower())
+            object_id = _lookup_entity(ext_claim.object)
             object_value = None
 
         valid_from, valid_prec = _parse_datetime(ext_claim.valid_from, ext_claim.valid_precision)
@@ -323,14 +333,14 @@ async def extract_from_chunks(
         # Resolve participant entities
         participant_ids = []
         for p_name in ext_event.participants:
-            pid = entity_name_to_id.get(p_name.lower())
+            pid = _lookup_entity(p_name)
             if pid:
                 participant_ids.append(pid)
 
         # Resolve location entity
         location_id = None
         if ext_event.location:
-            location_id = entity_name_to_id.get(ext_event.location.lower())
+            location_id = _lookup_entity(ext_event.location)
 
         event = Event(
             name=ext_event.name,
@@ -347,8 +357,8 @@ async def extract_from_chunks(
     # Process relations
     for ext_rel in extraction_output.relations:
         # Resolve source and target
-        source_id = entity_name_to_id.get(ext_rel.source_name.lower())
-        target_id = entity_name_to_id.get(ext_rel.target_name.lower())
+        source_id = _lookup_entity(ext_rel.source_name)
+        target_id = _lookup_entity(ext_rel.target_name)
 
         if not source_id or not target_id:
             # Try to find in claims/events by name (simplified)

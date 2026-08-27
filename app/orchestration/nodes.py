@@ -228,7 +228,7 @@ def make_retrieve_node(
                 if results:
                     results = reranker.rerank(subquery, results, top_k=settings.orchestration_retrieval_top_k)
         except Exception as exc:  # noqa: BLE001 - retrieval must never crash the loop
-            logger.warning("orchestration_retrieval_failed", subquery=subquery, error=str(exc))
+            logger.error("orchestration_retrieval_critical", subquery=subquery, error=str(exc), exc_info=True)
             results = []
 
         merged_evidence, new_count = _merge_evidence(state["evidence"], results)
@@ -273,7 +273,8 @@ def make_assess_node(
 ) -> NodeFn:
     async def assess_node(state: OrchestrationState) -> dict:
         plan = state["plan"]
-        assert plan is not None  # guaranteed by graph ordering (plan always runs before assess)
+        if plan is None:
+            return state
 
         # Deterministic short-circuits: never spend an LLM call once a
         # hard bound is already exceeded.
@@ -405,7 +406,8 @@ _CITATION_MARKER_RE = re.compile(r"\[(\d+)\]")
 def make_synthesize_node(router: LLMRouter, settings: Settings) -> NodeFn:
     async def synthesize_node(state: OrchestrationState) -> dict:
         plan = state["plan"]
-        assert plan is not None
+        if plan is None:
+            return state
         evidence = state["evidence"]
         warnings = list(state["warnings"])
 

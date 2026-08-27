@@ -77,6 +77,7 @@ class VerificationResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     claim_id: UUID
+    claim_text: str = ""
     status: VerificationStatus
     confidence: float = Field(ge=0.0, le=1.0, description="Overall verification confidence (0-1)")
     reasoning: str = Field(description="Explanation of the verification decision")

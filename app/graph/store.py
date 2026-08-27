@@ -50,6 +50,7 @@ class EvidenceGraphStore:
         self.graph_path.parent.mkdir(parents=True, exist_ok=True)
         self.evidence_store = evidence_store or get_evidence_store()
         self._graph: nx.MultiDiGraph = nx.MultiDiGraph()
+        self._entity_name_index: dict[str, UUID] = {}
         self._load_graph()
 
     def _load_graph(self) -> None:
@@ -58,6 +59,7 @@ class EvidenceGraphStore:
             try:
                 with self.graph_path.open("rb") as f:
                     self._graph = pickle.load(f)
+                self._rebuild_entity_name_index()
                 logger.info("graph_loaded", path=str(self.graph_path), nodes=self._graph.number_of_nodes(), edges=self._graph.number_of_edges())
             except (pickle.PickleError, OSError, EOFError) as exc:
                 logger.warning("graph_load_failed", error=str(exc), path=str(self.graph_path))
@@ -65,6 +67,17 @@ class EvidenceGraphStore:
         else:
             logger.info("graph_not_found_creating_new", path=str(self.graph_path))
             self._graph = nx.MultiDiGraph()
+
+    def _rebuild_entity_name_index(self) -> None:
+        """Rebuild the entity name lookup index from the graph."""
+        self._entity_name_index.clear()
+        for node_key in self._graph.nodes:
+            node_data = self._graph.nodes[node_key]
+            if node_data.get("node_type") == "entity":
+                data = json.loads(node_data.get("data", "{}"))
+                name = data.get("canonical_name", "")
+                if name:
+                    self._entity_name_index[name.lower()] = UUID(data["id"])
 
     def save(self) -> None:
         """Persist graph to disk."""
@@ -143,6 +156,7 @@ class EvidenceGraphStore:
                 entity = existing
 
         self._add_node("entity", entity.id, entity.model_dump(mode="json"))
+        self._entity_name_index[entity.canonical_name.lower()] = entity.id
         return entity
 
     def get_entity(self, entity_id: UUID) -> Entity | None:
@@ -152,15 +166,16 @@ class EvidenceGraphStore:
 
     def find_entity_by_name(self, name: str, entity_type: EntityType | None = None) -> Entity | None:
         """Find entity by canonical name (and optionally type)."""
-        for node_key in self._graph.nodes:
-            node_data = self._graph.nodes[node_key]
-            if node_data.get("node_type") == "entity":
-                data = json.loads(node_data.get("data", "{}"))
-                if data.get("canonical_name", "").lower() == name.lower() and (
-                    entity_type is None or data.get("entity_type") == entity_type.value
-                ):
-                    return Entity(**data)
-        return None
+        name_lower = name.lower()
+        entity_id = self._entity_name_index.get(name_lower)
+        if entity_id is None:
+            return None
+        entity = self.get_entity(entity_id)
+        if entity is None:
+            return None
+        if entity_type is not None and entity.entity_type != entity_type:
+            return None
+        return entity
 
     def find_entities_by_alias(self, alias: str) -> list[Entity]:
         """Find entities that have this alias."""
@@ -209,8 +224,8 @@ class EvidenceGraphStore:
             if claim.object_value is not None:
                 existing.object_value = claim.object_value
             # Update confidence (weighted by evidence count)
-            total_support = len(existing.supporting_chunk_ids) + len(claim.supporting_chunk_ids)
-            total_contra = len(existing.contradicting_chunk_ids) + len(claim.contradicting_chunk_ids)
+            total_support = len(existing.supporting_chunk_ids)
+            total_contra = len(existing.contradicting_chunk_ids)
             if total_support + total_contra > 0:
                 existing.confidence = total_support / (total_support + total_contra)
             existing.updated_at = datetime.now(UTC)
@@ -369,6 +384,7 @@ class EvidenceGraphStore:
 
         # Multi-hop traversal
         visited = set()
+        visited_edges: set[tuple[str, str, str]] = set()
         current_frontier = set(start_keys)
         paths: dict[str, list[str]] = {k: [k] for k in start_keys}
 
@@ -393,6 +409,10 @@ class EvidenceGraphStore:
 
                 # Traverse outgoing edges
                 for _, target_key, edge_key, edge_data in self._graph.out_edges(node_key, keys=True, data=True):
+                    edge_tuple = (node_key, target_key, edge_key)
+                    if edge_tuple in visited_edges:
+                        continue
+                    visited_edges.add(edge_tuple)
                     edge = GraphEdge(**json.loads(edge_data.get("data", "{}")))
                     if query.edge_types and edge.edge_type not in query.edge_types:
                         continue

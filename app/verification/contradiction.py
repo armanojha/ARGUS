@@ -198,7 +198,7 @@ class ContradictionDetector:
         text_b = claim_b.text.lower()
 
         geo_a = [term for term in geo_terms if term in text_a]
-        geo_b = [term for term in geo_terms if term in geo_terms if term in text_b]
+        geo_b = [term for term in geo_terms if term in text_b]
 
         if (
             geo_a

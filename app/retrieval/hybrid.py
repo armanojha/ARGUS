@@ -31,9 +31,17 @@ class HybridRetriever:
         self.bm25 = bm25 or BM25Retriever(self.store)
         self.vector = vector or FAISSVectorStore(self.store)
         self.embedder = embedder or EmbeddingGenerator()
+        self._dirty = True
+
+    def mark_dirty(self) -> None:
+        """Mark indexes as needing rebuild on next search."""
+        self._dirty = True
 
     def ensure_indexes(self) -> None:
         """Ensure both BM25 and FAISS indexes are built and up to date with current store data."""
+        if not self._dirty:
+            return
+
         # Assign BM25 doc IDs if needed
         assign_bm25_doc_ids(self.store)
 
@@ -52,12 +60,12 @@ class HybridRetriever:
         self.bm25.build_index(chunks)
 
         # Generate embeddings for all chunks
-        embedder = EmbeddingGenerator()
-        embeddings = embedder.embed_chunks(chunks)
+        embeddings = self.embedder.embed_chunks(chunks)
 
         # Build FAISS index (force rebuild)
         self.vector.build_index(embeddings, chunk_ids)
 
+        self._dirty = False
         logger.info("indexes_ensured", chunk_count=len(chunks))
 
     def search(
@@ -79,6 +87,15 @@ class HybridRetriever:
             List of EvidenceRef with fused scores, sorted by fused score.
         """
         top_k = top_k or self.settings.retrieval_top_k
+
+        # Validate and normalize weights
+        total_weight = bm25_weight + vector_weight
+        if abs(total_weight - 1.0) > 1e-6:
+            if total_weight == 0:
+                bm25_weight, vector_weight = 0.5, 0.5
+            else:
+                bm25_weight /= total_weight
+                vector_weight /= total_weight
 
         # BM25 search
         bm25_results = self.bm25.search(query, top_k=top_k * 2)
@@ -102,7 +119,8 @@ class HybridRetriever:
 
             # Normalize scores to [0, 1] range (rough approximation)
             # BM25 scores can be unbounded, vector scores are cosine similarity [0, 1]
-            norm_bm25 = min(bm25_score / 10.0, 1.0)  # rough normalization
+            max_bm25 = max(bm25_scores.values()) if bm25_scores else 1.0
+            norm_bm25 = bm25_score / max_bm25 if max_bm25 > 0 else 0.0
             norm_vector = vector_score  # already [0, 1]
 
             fused_score = bm25_weight * norm_bm25 + vector_weight * norm_vector

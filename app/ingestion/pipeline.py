@@ -11,7 +11,7 @@ from uuid import UUID
 
 from app.config import get_settings
 from app.evidence.models import Document, Source, SourceType
-from app.evidence.store import EvidenceStore, get_evidence_store
+from app.evidence.store import EvidenceStore, get_evidence_store, _json_dumps
 from app.ingestion.chunking import TextSegment, chunk_by_sections
 from app.ingestion.pdf import extract_pdf_segments, extract_pdf_text
 from app.logging_config import get_logger
@@ -106,13 +106,53 @@ class IngestionPipeline:
                 "total_tokens": sum(c.token_count for c in chunks),
             },
         )
-        document = self.store.insert_document(document)
 
-        # 7. Update chunks with correct document_id and store
+        # 7. Update chunks with correct document_id and store atomically
         for i, chunk in enumerate(chunks):
             chunk.document_id = document.id
             chunk.ordinal = i
-        self.store.insert_chunks(chunks)
+
+        with self.store.transaction() as conn:
+            conn.execute(
+                """
+                INSERT INTO documents (id, source_id, version, checksum, chunking_strategy, metadata, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(document.id),
+                    str(document.source_id),
+                    document.version,
+                    document.checksum,
+                    document.chunking_strategy,
+                    _json_dumps(document.metadata),
+                    document.created_at.isoformat(),
+                ),
+            )
+            for chunk in chunks:
+                conn.execute(
+                    """
+                    INSERT INTO chunks (id, document_id, ordinal, text, token_count,
+                        page_start, page_end, char_start, char_end, section_path,
+                        embedding_index, bm25_doc_id, metadata, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(chunk.id),
+                        str(chunk.document_id),
+                        chunk.ordinal,
+                        chunk.text,
+                        chunk.token_count,
+                        chunk.page_start,
+                        chunk.page_end,
+                        chunk.char_start,
+                        chunk.char_end,
+                        chunk.section_path,
+                        chunk.embedding_index,
+                        chunk.bm25_doc_id,
+                        _json_dumps(chunk.metadata),
+                        chunk.created_at.isoformat(),
+                    ),
+                )
 
         logger.info(
             "document_ingested",
@@ -192,13 +232,53 @@ class IngestionPipeline:
                 "total_tokens": sum(c.token_count for c in chunks),
             },
         )
-        document = self.store.insert_document(document)
 
-        # Update and store chunks
+        # Update and store chunks atomically
         for i, chunk in enumerate(chunks):
             chunk.document_id = document.id
             chunk.ordinal = i
-        self.store.insert_chunks(chunks)
+
+        with self.store.transaction() as conn:
+            conn.execute(
+                """
+                INSERT INTO documents (id, source_id, version, checksum, chunking_strategy, metadata, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(document.id),
+                    str(document.source_id),
+                    document.version,
+                    document.checksum,
+                    document.chunking_strategy,
+                    _json_dumps(document.metadata),
+                    document.created_at.isoformat(),
+                ),
+            )
+            for chunk in chunks:
+                conn.execute(
+                    """
+                    INSERT INTO chunks (id, document_id, ordinal, text, token_count,
+                        page_start, page_end, char_start, char_end, section_path,
+                        embedding_index, bm25_doc_id, metadata, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(chunk.id),
+                        str(chunk.document_id),
+                        chunk.ordinal,
+                        chunk.text,
+                        chunk.token_count,
+                        chunk.page_start,
+                        chunk.page_end,
+                        chunk.char_start,
+                        chunk.char_end,
+                        chunk.section_path,
+                        chunk.embedding_index,
+                        chunk.bm25_doc_id,
+                        _json_dumps(chunk.metadata),
+                        chunk.created_at.isoformat(),
+                    ),
+                )
 
         logger.info(
             "text_file_ingested",

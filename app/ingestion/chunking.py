@@ -37,13 +37,13 @@ def chunk_text(
     chunk_size: int | None = None,
     chunk_overlap: int | None = None,
 ) -> list[Chunk]:
-    """Chunk text segments into token-bounded chunks with overlap.
+    """Chunk text segments into character-bounded chunks with overlap.
 
     Args:
         segments: List of text segments with provenance info
         document_id: UUID of the parent document
-        chunk_size: Target chunk size in tokens (from settings if None)
-        chunk_overlap: Overlap in tokens (from settings if None)
+        chunk_size: Target chunk size in characters (from settings if None)
+        chunk_overlap: Overlap in characters (from settings if None)
 
     Returns:
         List of Chunk objects with provenance preserved
@@ -110,6 +110,10 @@ def chunk_text(
             char_end=char_end,
             section_path=section_path,
         )
+        if not chunk_text.strip():
+            ordinal += 1
+            start_token += chunk_size - chunk_overlap
+            continue
         chunks.append(chunk)
 
         ordinal += 1

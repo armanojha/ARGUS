@@ -145,6 +145,17 @@ class ObsidianIngestionPipeline:
             if existing_record:
                 return existing_record
 
+        # Delete old chunks if updating an existing note
+        existing_record = self.sync_manager.get_note_record(note.vault_relative_path)
+        if existing_record and existing_record.chunk_ids:
+            for chunk_id in existing_record.chunk_ids:
+                self.store.delete_chunk(chunk_id)
+            logger.info(
+                "old_chunks_deleted",
+                note_path=note.vault_relative_path,
+                count=len(existing_record.chunk_ids),
+            )
+
         # 3. Create text segments from note sections
         segments = self._note_to_segments(note)
 
