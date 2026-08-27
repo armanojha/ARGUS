@@ -145,6 +145,28 @@ class Settings(BaseSettings):
         description="Whether to run LLM-based extraction during ingestion.",
     )
 
+    # --- Verification (Phase 04) ---
+    verification_enabled: bool = Field(
+        default=True,
+        description="Whether to run verification on claims.",
+    )
+    verification_max_evidence_items: int = Field(
+        default=20,
+        description="Max evidence items to send to verifier LLM.",
+    )
+    verification_contradiction_threshold: float = Field(
+        default=0.3,
+        description="Minimum severity for contradiction detection.",
+    )
+    verification_re_retrieval_enabled: bool = Field(
+        default=True,
+        description="Whether to trigger re-retrieval on evidence gaps (MVP: one cycle).",
+    )
+    verification_max_re_retrieval_cycles: int = Field(
+        default=1,
+        description="Max additional retrieval cycles (MVP: 1).",
+    )
+
     @property
     def providers_config_path(self) -> Path:
         return self.config_dir / "providers.yaml"
