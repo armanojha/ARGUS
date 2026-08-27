@@ -19,13 +19,15 @@ Full hypothesis-classification/write-back is deferred to Phase 09.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.config import Settings, get_settings
 from app.evidence.models import EvidenceRef
 from app.logging_config import get_logger
-from app.orchestration.state import OrchestrationState
 from app.retrieval.policy import EvidenceGapDetectorInterface
+
+if TYPE_CHECKING:
+    from app.orchestration.state import OrchestrationState
 
 logger = get_logger("argus.retrieval.seeking")
 
