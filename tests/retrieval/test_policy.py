@@ -94,6 +94,9 @@ PATTERN_CASES = [
     ("Give me a comprehensive report on quantum computing.", QuestionPattern.LONG_REPORT),
     ("Compare the revenue chart and the expense table for 2024.", QuestionPattern.MULTIMODAL),
     ("What are the latest updates on the 2024 elections?", QuestionPattern.FRESH_MISSING),
+    ("How does the fox's behavior vary across seasons?", QuestionPattern.CONCEPTUAL),
+    ("What is France's GDP growth rate?", QuestionPattern.CONCEPTUAL),
+    ("Compare 'revenue' and 'expenses' in the chart.", QuestionPattern.MULTIMODAL),
 ]
 
 

@@ -40,7 +40,9 @@ _STOPWORDS = {
 
 
 def _terms(text: str) -> set[str]:
-    return {t for t in re.findall(r"[a-zA-Z0-9_]{4,}", text.lower()) if t not in _STOPWORDS}
+    # Min length 3 keeps short but meaningful domain terms (e.g. "fox")
+    # relevant to overlap detection; the stopword set still filters noise.
+    return {t for t in re.findall(r"[a-zA-Z0-9_]{3,}", text.lower()) if t not in _STOPWORDS}
 
 
 def _overlap(a: str, b: str) -> float:

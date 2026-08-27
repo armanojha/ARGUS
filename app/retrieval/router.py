@@ -60,12 +60,19 @@ def _query_terms(text: str) -> set[str]:
     return {t for t in re.findall(r"[a-zA-Z0-9_]{4,}", text.lower()) if t not in _STOPWORDS}
 
 
-def _token_overlap(a: str, b: str) -> float:
-    ta = _query_terms(a)
-    tb = _query_terms(b)
-    if not ta or not tb:
-        return 0.0
-    return len(ta & tb) / len(ta | tb)
+_DOUBLE_QUOTE_RE = re.compile(r'["\u201c\u201d]')
+_SINGLE_QUOTE_PAIR_RE = re.compile(r"'(?:[^']{1,60})'")
+
+
+def _has_balanced_quotes(text: str) -> bool:
+    """Detect a quoted phrase (pair of quote chars), not lone apostrophes.
+
+    Possessive/contraction apostrophes ("fox's", "France's") must not trick
+    the classifier into treating a normal sentence as an exact-term lookup.
+    """
+    if _DOUBLE_QUOTE_RE.search(text):
+        return True
+    return bool(_SINGLE_QUOTE_PAIR_RE.search(text))
 
 
 class RetrievalPolicyRouter(RetrievalPolicyInterface):
@@ -102,7 +109,7 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
         q = query.strip()
         low = q.lower()
 
-        has_quoted = bool(re.search(r"['\"]", q))
+        has_quoted = _has_balanced_quotes(q)
         year_matches = _YEAR_RE.findall(q)
 
         if any(w in low for w in _MULTIMODAL_WORDS) and re.search(r"(show|compare|in the .* (figure|chart|table|diagram))", low):
