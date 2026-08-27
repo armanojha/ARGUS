@@ -282,7 +282,7 @@ async def run_query(
     import asyncio
     final_state: OrchestrationState = await asyncio.wait_for(
         graph.ainvoke(initial_state),
-        timeout=settings.orchestration_timeout or 120,
+        timeout=120,
     )
     logger.info(
         "orchestration_run_finished",

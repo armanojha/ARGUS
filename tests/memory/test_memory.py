@@ -10,7 +10,7 @@ import pytest
 
 from app.config import Settings
 from app.memory import (
-    SQLiteMemoryStore,
+    MemoryStore,
     GraphVersionManager,
     MemoryAwarePlanner,
     MemoryFactory,
@@ -46,7 +46,7 @@ class TestSQLiteMemoryStore:
     @pytest.fixture
     def memory_store(self, temp_db):
         """Create a memory store with temp database."""
-        store = SQLiteMemoryStore(db_path=temp_db, max_records_per_layer=100)
+        store = MemoryStore(db_path=temp_db, max_records_per_layer=100)
         yield store
 
     @pytest.fixture

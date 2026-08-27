@@ -22,7 +22,7 @@ from app.memory.interfaces import (
     set_memory_factory,
 )
 from app.memory.store import (
-    SQLiteMemoryStore,
+    MemoryStore,
     get_memory_store,
     close_memory_store,
 )
@@ -66,7 +66,7 @@ __all__ = [
     "MemoryFactoryInterface",
     "DefaultMemoryFactory",
     # Implementations
-    "SQLiteMemoryStore",
+    "MemoryStore",
     "GraphVersionManager",
     "MemoryAwarePlanner",
     "MemoryFactory",

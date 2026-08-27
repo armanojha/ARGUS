@@ -570,3 +570,9 @@ def get_memory_store() -> MemoryStore:
     if _store is None:
         _store = MemoryStore()
     return _store
+
+
+def close_memory_store() -> None:
+    """Close the singleton memory store (for testing)."""
+    global _store
+    _store = None
