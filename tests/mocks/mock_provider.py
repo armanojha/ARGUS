@@ -115,7 +115,7 @@ class MockProvider(LLMProvider):
                 content='{"result": "mock structured output"}',
                 model=key,
                 usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
-                provider="mock",
+                provider=self._name,
                 request_id=request_id,
             )
 
@@ -123,7 +123,7 @@ class MockProvider(LLMProvider):
             content="Mock response",
             model=key,
             usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
-            provider="mock",
+            provider=self._name,
             request_id=request_id,
         )
 

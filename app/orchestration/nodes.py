@@ -227,8 +227,8 @@ def make_retrieve_node(
                 results = retriever.search(subquery, top_k=settings.orchestration_retrieval_top_k)
                 if results:
                     results = reranker.rerank(subquery, results, top_k=settings.orchestration_retrieval_top_k)
-        except Exception as exc:  # noqa: BLE001 - retrieval must never crash the loop
-            logger.error("orchestration_retrieval_critical", subquery=subquery, error=str(exc), exc_info=True)
+        except Exception as exc:
+            logger.exception("orchestration_retrieval_critical", subquery=subquery, error=str(exc))
             results = []
 
         merged_evidence, new_count = _merge_evidence(state["evidence"], results)

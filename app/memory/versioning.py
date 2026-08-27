@@ -285,6 +285,8 @@ class GraphVersionManager:
         # Auto-promote if confidence is high enough
         if delta.confidence >= self.confidence_threshold and delta.status == DeltaStatus.PROVISIONAL:
             self.promote_delta(delta.id, "auto")
+            # Return the updated delta
+            return self.get_delta(delta.id) or delta
 
         logger.debug("delta_recorded", delta_id=str(delta.id), type=delta.delta_type.value, status=delta.status.value)
         return delta
