@@ -179,13 +179,13 @@ async def test_composition_evaluates_in_priority_order():
     decision = await logic.should_stop(state)
     assert decision.condition == StopCondition.BUDGET_EXHAUSTED
     checked = decision.metadata["checked"]
+    # The budget fires at the ceiling, so only the conditions evaluated
+    # before it (USER then BUDGET, in priority order) appear in the trace.
     assert [c["condition"] for c in checked] == [
         StopCondition.USER_EARLY_STOP.value,
         StopCondition.BUDGET_EXHAUSTED.value,
-        StopCondition.NEGLIGIBLE_EVIDENCE_GAIN.value,
-        StopCondition.CLAIMS_SUPPORTED.value,
-        StopCondition.NO_UNRESOLVED_CONTRADICTION.value,
     ]
+    assert all(c["evaluated"] is True for c in checked)
 
 
 async def test_composition_gates_positive_conditions_while_assessor_open():
@@ -202,8 +202,13 @@ async def test_composition_gates_positive_conditions_while_assessor_open():
     checked = decision.metadata["checked"]
     claims = next(c for c in checked if c["condition"] == StopCondition.CLAIMS_SUPPORTED.value)
     contradictions = next(c for c in checked if c["condition"] == StopCondition.NO_UNRESOLVED_CONTRADICTION.value)
-    assert claims["evaluated"] is False
-    assert contradictions["evaluated"] is False
+    # Evaluated, but deterministically deferred to the assessor's verdict.
+    assert claims["evaluated"] is True
+    assert claims["should_stop"] is False
+    assert "Deferred" in claims["reason"]
+    assert contradictions["evaluated"] is True
+    assert contradictions["should_stop"] is False
+    assert "Deferred" in contradictions["reason"]
 
 
 async def test_composition_confirms_claims_when_assessor_done():

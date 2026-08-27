@@ -271,6 +271,13 @@ class EvidenceStore:
             row = conn.execute("SELECT * FROM chunks WHERE id = ?", (str(chunk_id),)).fetchone()
         return self._row_to_chunk(row) if row else None
 
+    def delete_chunk(self, chunk_id: UUID) -> bool:
+        """Delete a single chunk by ID. Returns True if deleted."""
+        with self._conn() as conn:
+            cursor = conn.execute("DELETE FROM chunks WHERE id = ?", (str(chunk_id),))
+            conn.commit()
+            return cursor.rowcount > 0
+
     def get_chunks_by_document(self, document_id: UUID) -> list[Chunk]:
         with self._conn() as conn:
             rows = conn.execute(

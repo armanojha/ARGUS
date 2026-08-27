@@ -306,7 +306,15 @@ def test_obsidian_hypothesis_seeker_returns_tasks_not_evidence(store: EvidenceSt
     )
     store.insert_document(doc)
     store.insert_chunks(
-        [Chunk(document_id=doc.id, ordinal=0, text="Hypothesis: foxes dig dens under south-facing slopes.", token_count=8)]
+        [
+            Chunk(
+                document_id=doc.id,
+                ordinal=0,
+                text="Hypothesis: foxes dig dens under south-facing slopes.",
+                token_count=8,
+                metadata={"vault_relative_path": "notes/my_hypothesis.md"},
+            )
+        ]
     )
 
     seeker = ObsidianHypothesisSeeker(store=store, task_priority=0.6)

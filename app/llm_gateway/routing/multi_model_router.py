@@ -538,6 +538,7 @@ class MultiModelRouter:
             ok, reason = self._validate_capabilities(
                 pref_provider,
                 model_spec.model,
+                call_type,
                 response_format=response_format,
                 tools=tools,
                 estimated_tokens=estimated_tokens,
