@@ -189,6 +189,191 @@ class Settings(BaseSettings):
         description="Chunking strategy for Obsidian notes.",
     )
 
+    # --- Adaptive Research Policy (Phase 06) ---
+    retrieval_policy_enabled: bool = Field(
+        default=True,
+        description="Whether adaptive retrieval policy is enabled.",
+    )
+    retrieval_policy_config_path: str = Field(
+        default="configs/retrieval_policy.yaml",
+        description="Path to retrieval policy configuration file.",
+    )
+    active_evidence_seeking_enabled: bool = Field(
+        default=True,
+        description="Whether active evidence seeking is enabled.",
+    )
+    stopping_logic_enabled: bool = Field(
+        default=True,
+        description="Whether full stopping logic is enabled.",
+    )
+    stopping_claim_support_threshold: float = Field(
+        default=0.7,
+        description="Minimum claim support threshold for stopping.",
+    )
+    stopping_evidence_gain_threshold: float = Field(
+        default=0.05,
+        description="Minimum evidence gain threshold for stopping.",
+    )
+
+    # --- Multi-Model Fabric (Phase 07) ---
+    multimodel_enabled: bool = Field(
+        default=False,
+        description="Whether multi-model fabric is enabled.",
+    )
+    multimodel_providers_config_path: str = Field(
+        default="configs/multimodel_providers.yaml",
+        description="Path to multi-model providers configuration.",
+    )
+    multimodel_routing_enabled: bool = Field(
+        default=True,
+        description="Whether capability-aware routing is enabled.",
+    )
+    multimodel_fallback_enabled: bool = Field(
+        default=True,
+        description="Whether provider fallback is enabled.",
+    )
+    multimodel_cross_verification_enabled: bool = Field(
+        default=True,
+        description="Whether cross-model verification is enabled.",
+    )
+    multimodel_telemetry_enabled: bool = Field(
+        default=True,
+        description="Whether telemetry collection is enabled.",
+    )
+    multimodel_call_ceiling: int = Field(
+        default=16,
+        description="Hard ceiling on logical LLM calls per run.",
+    )
+    multimodel_verifier_different_provider: bool = Field(
+        default=True,
+        description="Whether verifier must use different provider from synthesizer.",
+    )
+
+    # --- Memory & Self-Evolution (Phase 08) ---
+    memory_enabled: bool = Field(
+        default=False,
+        description="Whether persistent memory is enabled.",
+    )
+    memory_db_path: Path = Field(
+        default=REPO_ROOT / "data" / "memory" / "memory.db",
+        description="Path to SQLite memory database.",
+    )
+    memory_layers: list[str] = Field(
+        default_factory=lambda: [
+            "working",
+            "long_term_knowledge",
+            "research_history",
+            "source_memory",
+            "user_memory",
+            "vault_memory",
+        ],
+        description="Enabled memory layers.",
+    )
+    memory_max_records_per_layer: int = Field(
+        default=10000,
+        description="Max records per memory layer.",
+    )
+    memory_confidence_threshold: float = Field(
+        default=0.7,
+        description="Minimum confidence for memory promotion.",
+    )
+    graph_versioning_enabled: bool = Field(
+        default=True,
+        description="Whether graph versioning/deltas are enabled.",
+    )
+    graph_delta_retention_days: int = Field(
+        default=90,
+        description="Days to retain graph deltas.",
+    )
+
+    # --- Obsidian Full Integration (Phase 09) ---
+    obsidian_full_enabled: bool = Field(
+        default=False,
+        description="Whether full Obsidian integration is enabled.",
+    )
+    obsidian_classification_enabled: bool = Field(
+        default=True,
+        description="Whether 7-class classification is enabled.",
+    )
+    obsidian_hypothesis_conversion_enabled: bool = Field(
+        default=True,
+        description="Whether hypothesis-to-research conversion is enabled.",
+    )
+    obsidian_writeback_enabled: bool = Field(
+        default=True,
+        description="Whether write-back proposals are enabled.",
+    )
+    obsidian_vault_graph_alignment_enabled: bool = Field(
+        default=True,
+        description="Whether vault-graph alignment is enabled.",
+    )
+
+    # --- Multi-Agent Challenge (Phase 10) ---
+    multiagent_enabled: bool = Field(
+        default=False,
+        description="Whether multi-agent debate is enabled.",
+    )
+    multiagent_max_rounds: int = Field(
+        default=3,
+        description="Maximum debate rounds.",
+    )
+    multiagent_skeptic_threshold: float = Field(
+        default=0.7,
+        description="Confidence threshold to activate skeptic.",
+    )
+    multiagent_disagreement_threshold: float = Field(
+        default=0.3,
+        description="Disagreement severity threshold for targeted retrieval.",
+    )
+
+    # --- Multimodal Intelligence (Phase 11) ---
+    multimodal_enabled: bool = Field(
+        default=False,
+        description="Whether multimodal ingestion is enabled.",
+    )
+    multimodal_ocr_enabled: bool = Field(
+        default=True,
+        description="Whether OCR fallback is enabled.",
+    )
+    multimodal_table_extraction_enabled: bool = Field(
+        default=True,
+        description="Whether table extraction is enabled.",
+    )
+    multimodal_web_ingestion_enabled: bool = Field(
+        default=True,
+        description="Whether web page ingestion is enabled.",
+    )
+    multimodal_spreadsheet_enabled: bool = Field(
+        default=True,
+        description="Whether spreadsheet ingestion is enabled.",
+    )
+    multimodal_chart_extraction_enabled: bool = Field(
+        default=False,
+        description="Whether chart/image extraction is enabled (later stage).",
+    )
+
+    # --- UI & Evaluation (Phase 12) ---
+    ui_enabled: bool = Field(
+        default=False,
+        description="Whether research UI is enabled.",
+    )
+    ui_type: str = Field(
+        default="streamlit",
+        description="UI framework (streamlit, react).",
+    )
+    evaluation_enabled: bool = Field(
+        default=False,
+        description="Whether evaluation harness is enabled.",
+    )
+    benchmark_questions_path: str = Field(
+        default="benchmarks/questions.json",
+        description="Path to benchmark questions file.",
+    )
+    ablation_enabled: bool = Field(
+        default=True,
+        description="Whether ablation harness is enabled.",
+    )
+
     @property
     def providers_config_path(self) -> Path:
         return self.config_dir / "providers.yaml"
