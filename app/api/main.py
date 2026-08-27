@@ -1,12 +1,9 @@
-"""FastAPI application factory (Phase 00.2).
+"""FastAPI application factory (Phase 00.2 + 01 + 02).
 
-Boots the FastAPI app used by the ARGUS API surface. Scope for 00.2 is
-deliberately minimal: app factory, structured logging, request ID
-middleware, consistent error handling, and the `/health` liveness
-endpoint.
+Boots the FastAPI app used by the ARGUS API surface.
 
-Explicitly NOT wired up here (deferred to later phases): LLM gateway,
-retrieval, evidence graph, orchestration, authentication, rate limiting.
+Phase 01 adds the retrieval endpoint. Phase 02 adds the agentic query
+endpoint (plan/retrieve/synthesize loop over Phase 01 retrieval).
 """
 
 from __future__ import annotations
@@ -19,6 +16,8 @@ from fastapi import FastAPI
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
 from app.api.middleware import RequestIDMiddleware
+from app.api.orchestration import router as orchestration_router
+from app.api.retrieval import router as retrieval_router
 from app.config import get_settings
 from app.logging_config import configure_logging, get_logger
 
@@ -41,6 +40,8 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     app.include_router(health_router)
+    app.include_router(retrieval_router)
+    app.include_router(orchestration_router)
 
     return app
 

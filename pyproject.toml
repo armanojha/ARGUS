@@ -34,6 +34,8 @@ retrieval = [
     "faiss-cpu>=1.8",
     "rank-bm25>=0.2.2",
     "sentence-transformers>=2.6",
+    "pypdf>=4.0",
+    "pdfplumber>=0.11",
 ]
 
 # Evidence graph (Phase 03).

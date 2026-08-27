@@ -38,3 +38,7 @@ temp/
 .pytest_cache/
 .ruff_cache/
 .Opencode/
+
+# Data artifacts (generated)
+data/evidence.db
+data/indexes/

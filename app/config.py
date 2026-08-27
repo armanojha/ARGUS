@@ -1,4 +1,4 @@
-"""ARGUS core configuration (Phase 00.1 + 00.3).
+"""ARGUS core configuration (Phase 00.1 + 00.3 + 01).
 
 Loads runtime settings from environment variables / a local .env file via
 pydantic-settings, and provides small helpers to load the YAML config
@@ -68,6 +68,63 @@ class Settings(BaseSettings):
     llm_call_type: str = Field(
         default="general",
         description="Call type for policy routing (Phase 07).",
+    )
+
+    # --- Retrieval / Evidence Store (Phase 01) ---
+    evidence_db_path: Path = Field(
+        default=REPO_ROOT / "data" / "evidence.db",
+        description="Path to SQLite evidence store database.",
+    )
+    bm25_index_path: Path = Field(
+        default=REPO_ROOT / "data" / "indexes" / "bm25.pkl",
+        description="Path to BM25 index file.",
+    )
+    faiss_index_path: Path = Field(
+        default=REPO_ROOT / "data" / "indexes" / "faiss.index",
+        description="Path to FAISS vector index file.",
+    )
+    embedding_model: str = Field(
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        description="Local embedding model for vector retrieval.",
+    )
+    chunk_size: int = Field(
+        default=512,
+        description="Target chunk size in tokens for document chunking.",
+    )
+    chunk_overlap: int = Field(
+        default=64,
+        description="Overlap between adjacent chunks in tokens.",
+    )
+    retrieval_top_k: int = Field(
+        default=20,
+        description="Number of candidates to retrieve from each index before fusion.",
+    )
+    rerank_top_k: int = Field(
+        default=10,
+        description="Number of results to return after reranking.",
+    )
+
+    # --- Agentic Orchestration (Phase 02) ---
+    orchestration_max_iterations: int = Field(
+        default=3,
+        description="Hard ceiling on retrieval iterations per query, regardless of what the plan requests.",
+    )
+    orchestration_token_budget: int = Field(
+        default=6000,
+        description="Hard ceiling on accumulated evidence+usage token estimate per query, "
+        "regardless of what the plan requests.",
+    )
+    orchestration_default_subquestions: int = Field(
+        default=3,
+        description="Fallback subquestion count used if the planner LLM call fails.",
+    )
+    orchestration_retrieval_top_k: int = Field(
+        default=8,
+        description="Number of evidence candidates to retrieve per subquestion in the agentic loop.",
+    )
+    orchestration_llm_timeout: float = Field(
+        default=30.0,
+        description="Per-call timeout (seconds) for orchestration LLM calls (analysis/plan/assess/synthesis).",
     )
 
     @property
