@@ -162,6 +162,7 @@ class GraphEdge(BaseModel):
     valid_precision: TemporalPrecision = TemporalPrecision.UNKNOWN
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class GraphNode(BaseModel):

@@ -127,6 +127,24 @@ class Settings(BaseSettings):
         description="Per-call timeout (seconds) for orchestration LLM calls (analysis/plan/assess/synthesis).",
     )
 
+    # --- Evidence Graph (Phase 03) ---
+    graph_path: Path = Field(
+        default=REPO_ROOT / "data" / "graph" / "evidence_graph.pkl",
+        description="Path to persisted NetworkX graph file.",
+    )
+    graph_extraction_batch_size: int = Field(
+        default=10,
+        description="Number of chunks to process per extraction LLM call.",
+    )
+    graph_max_hops: int = Field(
+        default=2,
+        description="Maximum hops for graph-based multi-hop retrieval.",
+    )
+    graph_extraction_enabled: bool = Field(
+        default=True,
+        description="Whether to run LLM-based extraction during ingestion.",
+    )
+
     @property
     def providers_config_path(self) -> Path:
         return self.config_dir / "providers.yaml"
