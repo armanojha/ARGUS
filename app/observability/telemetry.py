@@ -7,14 +7,14 @@ Phase 12 surfaces it in the UI.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from abc import ABC, abstractmethod
+from dataclasses import field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # =============================================================================
 # Telemetry Event Types
@@ -74,7 +74,6 @@ class LLMCallTelemetry(BaseModel):
     error: str | None = None
     finish_reason: str | None = None
     # Context
-    call_type: str = "general"
     temperature: float = 0.0
     max_tokens: int | None = None
     used_structured_output: bool = False
@@ -293,25 +292,25 @@ class TelemetryCollectorInterface(ABC):
     async def record_orchestration_run(self, telemetry: Any) -> None:  # OrchestrationRunTelemetry
         ...
 
-@abstractmethod
+    @abstractmethod
     async def record_retrieval(self, telemetry: Any) -> None:  # RetrievalTelemetry
-        pass
+        ...
 
     @abstractmethod
     async def record_verification(self, telemetry: Any) -> None:  # VerificationTelemetry
-        pass
+        ...
 
     @abstractmethod
     async def record_graph_operation(self, telemetry: Any) -> None:  # GraphOperationTelemetry
-        pass
+        ...
 
     @abstractmethod
     async def record_memory_operation(self, telemetry: Any) -> None:  # MemoryOperationTelemetry
-        pass
+        ...
 
     @abstractmethod
     async def record_ingestion(self, telemetry: Any) -> None:  # IngestionTelemetry
-        pass
+        ...
 
     @abstractmethod
     async def record_error(self, telemetry: Any) -> None:  # ErrorTelemetry
@@ -369,21 +368,21 @@ def set_telemetry_factory(factory: Any) -> None:
 
 
 __all__ = [
-    "TelemetryEventType",
+    "DefaultTelemetryCollectorFactory",
+    "ErrorTelemetry",
+    "GraphOperationTelemetry",
+    "IngestionTelemetry",
     "LLMCallPhase",
     "LLMCallTelemetry",
     "LLMCallTelemetryBatch",
-    "OrchestrationStepTelemetry",
-    "OrchestrationRunTelemetry",
-    "RetrievalTelemetry",
-    "VerificationTelemetry",
-    "GraphOperationTelemetry",
     "MemoryOperationTelemetry",
-    "IngestionTelemetry",
-    "ErrorTelemetry",
-    "TelemetryCollectorInterface",
+    "OrchestrationRunTelemetry",
+    "OrchestrationStepTelemetry",
+    "RetrievalTelemetry",
     "TelemetryCollectorFactoryInterface",
-    "DefaultTelemetryCollectorFactory",
+    "TelemetryCollectorInterface",
+    "TelemetryEventType",
+    "VerificationTelemetry",
     "get_telemetry_factory",
     "set_telemetry_factory",
 ]

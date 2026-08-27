@@ -13,7 +13,7 @@ current value and return the full new list rather than a delta.
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from app.evidence.models import EvidenceRef
 from app.orchestration.models import QueryAnalysis, ResearchPlan
@@ -45,3 +45,13 @@ class OrchestrationState(TypedDict):
     # Output
     answer: str | None
     warnings: list[str]
+
+    # Phase 06 adaptive policy additions (not required by Phase 02 callers;
+    # the graph's `_initial_state` always populates them)
+    question_pattern: NotRequired[str | None]
+    retrieval_gain_history: NotRequired[list[float]]
+    user_early_stop: NotRequired[bool]
+    contradiction_signals: NotRequired[list[dict]]
+    stop_conditions_checked: NotRequired[list[dict]]
+    stop_condition_fired: NotRequired[str | None]
+    evidence_tasks: NotRequired[list[dict]]

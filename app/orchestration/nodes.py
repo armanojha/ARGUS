@@ -43,6 +43,7 @@ from app.orchestration.prompts import (
     build_synthesis_messages,
 )
 from app.orchestration.state import OrchestrationState
+from app.orchestration.stopping import stop_condition_to_reason
 from app.reranking.reranker import NoOpReranker, Reranker
 from app.retrieval.hybrid import HybridRetriever
 
@@ -197,15 +198,35 @@ def make_retrieve_node(
     retriever: HybridRetriever,
     reranker: Reranker | NoOpReranker,
     settings: Settings,
+    policy_router: Any | None = None,
 ) -> NodeFn:
     async def retrieve_node(state: OrchestrationState) -> dict:
         pending = list(state["pending_subquestions"])
         subquery = pending.pop(0) if pending else state["query"]
 
+        question_pattern = state.get("question_pattern")
+
         try:
-            results = retriever.search(subquery, top_k=settings.orchestration_retrieval_top_k)
-            if results:
-                results = reranker.rerank(subquery, results, top_k=settings.orchestration_retrieval_top_k)
+            if policy_router is not None and settings.retrieval_policy_enabled:
+                pattern = policy_router.classify_question(subquery)
+                if pattern is not None:
+                    question_pattern = pattern.value
+                results = await policy_router.execute_retrieval(
+                    subquery,
+                    pattern,
+                    retriever,
+                    top_k=settings.orchestration_retrieval_top_k,
+                    reranker=reranker,
+                )
+                if not results:
+                    # Deterministic fallback: plain hybrid pass. Never fabricate.
+                    results = retriever.search(subquery, top_k=settings.orchestration_retrieval_top_k)
+                    if results:
+                        results = reranker.rerank(subquery, results, top_k=settings.orchestration_retrieval_top_k)
+            else:
+                results = retriever.search(subquery, top_k=settings.orchestration_retrieval_top_k)
+                if results:
+                    results = reranker.rerank(subquery, results, top_k=settings.orchestration_retrieval_top_k)
         except Exception as exc:  # noqa: BLE001 - retrieval must never crash the loop
             logger.warning("orchestration_retrieval_failed", subquery=subquery, error=str(exc))
             results = []
@@ -217,6 +238,10 @@ def make_retrieve_node(
 
         consecutive_empty = state["consecutive_empty_retrievals"] + 1 if new_count == 0 else 0
 
+        prev_total = len(state["evidence"])
+        gain = (new_count / prev_total) if prev_total else (1.0 if new_count else 0.0)
+        gain_history = list(state.get("retrieval_gain_history") or []) + [round(gain, 4)]
+
         logger.info(
             "orchestration_retrieve_iteration",
             request_id=state["request_id"],
@@ -224,6 +249,7 @@ def make_retrieve_node(
             new_evidence=new_count,
             total_evidence=len(merged_evidence),
             iteration=state["iteration"] + 1,
+            pattern=question_pattern,
         )
 
         return {
@@ -233,12 +259,18 @@ def make_retrieve_node(
             "tokens_used": tokens_used,
             "iteration": state["iteration"] + 1,
             "consecutive_empty_retrievals": consecutive_empty,
+            "question_pattern": question_pattern,
+            "retrieval_gain_history": gain_history,
         }
 
     return retrieve_node
 
 
-def make_assess_node(router: LLMRouter, settings: Settings) -> NodeFn:
+def make_assess_node(
+    router: LLMRouter,
+    settings: Settings,
+    gap_detector: Any | None = None,
+) -> NodeFn:
     async def assess_node(state: OrchestrationState) -> dict:
         plan = state["plan"]
         assert plan is not None  # guaranteed by graph ordering (plan always runs before assess)
@@ -273,13 +305,44 @@ def make_assess_node(router: LLMRouter, settings: Settings) -> NodeFn:
                 "warnings": warnings,
             }
 
+        # Active evidence seeking (Phase 06.2): formulate targeted retrieval
+        # actions whenever the assessment concludes the evidence does not
+        # answer the question. Deterministic — never an LLM call.
+        gaps: list[dict[str, Any]] = []
+        if gap_detector is not None and not assessment.sufficient:
+            gaps = gap_detector.detect_gaps(state, plan, state["evidence"])
+            evidence_tasks = list(state.get("evidence_tasks") or []) + list(gaps)
+        else:
+            evidence_tasks = list(state.get("evidence_tasks") or [])
+
         if assessment.sufficient or not assessment.next_subquery:
+            if not assessment.sufficient and gap_detector is not None and gap_detector.should_re_retrieve(gaps):
+                # The assessor ran out of ideas but the policy sees a real
+                # evidence gap: queue its highest-priority targeted action.
+                top_gap = max(gaps, key=lambda g: g.get("priority", 0.0))
+                next_q = (top_gap.get("suggested_query") or "").strip()
+                already_issued = {q.strip().lower() for q in state["issued_subqueries"]}
+                pending = list(state["pending_subquestions"])
+                if next_q and next_q.lower() not in already_issued and next_q not in pending:
+                    pending.append(next_q)
+                    return {
+                        "sufficient": False,
+                        "pending_subquestions": pending,
+                        "evidence_tasks": evidence_tasks,
+                        "warnings": warnings,
+                    }
+
             stop_reason = (
                 StopReason.SUFFICIENT_EVIDENCE.value
                 if assessment.sufficient
                 else StopReason.NO_SUBQUESTIONS.value
             )
-            return {"sufficient": True, "stop_reason": stop_reason, "warnings": warnings}
+            return {
+                "sufficient": True,
+                "stop_reason": stop_reason,
+                "warnings": warnings,
+                "evidence_tasks": evidence_tasks,
+            }
 
         # Not sufficient, and a next query was proposed: queue it unless
         # it's a near-duplicate of one we've already issued.
@@ -294,11 +357,46 @@ def make_assess_node(router: LLMRouter, settings: Settings) -> NodeFn:
                 "sufficient": True,
                 "stop_reason": StopReason.NO_SUBQUESTIONS.value,
                 "warnings": warnings,
+                "evidence_tasks": evidence_tasks,
             }
 
-        return {"sufficient": False, "pending_subquestions": pending, "warnings": warnings}
+        return {
+            "sufficient": False,
+            "pending_subquestions": pending,
+            "warnings": warnings,
+            "evidence_tasks": evidence_tasks,
+        }
 
     return assess_node
+
+
+def make_stop_check_node(stopping_logic: Any | None) -> NodeFn:
+    """Evaluate the Phase 06 stopping logic after each assessment (V2 §5.4).
+
+    When no stopping logic is wired, the node is a no-op and the router
+    keeps the Phase 02 assess-based behavior unchanged.
+    """
+
+    async def stop_check_node(state: OrchestrationState) -> dict:
+        if stopping_logic is None:
+            return {}
+        decision = await stopping_logic.should_stop(state)
+        checked_all = list((decision.metadata or {}).get("checked", []))
+        fired = decision.condition.value if decision.condition is not None else None
+        if decision.should_stop:
+            reason = stop_condition_to_reason(decision.condition)
+            return {
+                "sufficient": True,
+                "stop_reason": reason.value if reason else state.get("stop_reason"),
+                "stop_conditions_checked": checked_all,
+                "stop_condition_fired": fired,
+            }
+        return {
+            "stop_conditions_checked": checked_all,
+            "stop_condition_fired": fired,
+        }
+
+    return stop_check_node
 
 
 _CITATION_MARKER_RE = re.compile(r"\[(\d+)\]")

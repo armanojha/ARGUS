@@ -19,16 +19,34 @@ from app.orchestration.models import (
     StopReason,
 )
 from app.orchestration.state import OrchestrationState
+from app.orchestration.stopping import (
+    AdaptiveStoppingLogic,
+    BudgetExhaustedChecker,
+    ClaimsSupportedChecker,
+    NegligibleEvidenceGainChecker,
+    NoUnresolvedContradictionChecker,
+    UserEarlyStopChecker,
+    build_stopping_logic,
+    stop_condition_to_reason,
+)
 
 __all__ = [
+    "AdaptiveStoppingLogic",
+    "BudgetExhaustedChecker",
+    "ClaimsSupportedChecker",
     "ComplexityLevel",
     "EvidenceAssessment",
+    "NegligibleEvidenceGainChecker",
+    "NoUnresolvedContradictionChecker",
     "OrchestrationCitation",
     "OrchestrationResult",
     "OrchestrationState",
     "QueryAnalysis",
     "ResearchPlan",
     "StopReason",
+    "UserEarlyStopChecker",
     "build_graph",
+    "build_stopping_logic",
     "run_query",
+    "stop_condition_to_reason",
 ]

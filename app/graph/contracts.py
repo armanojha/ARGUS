@@ -302,18 +302,18 @@ def set_graph_extension_factory(factory: Any) -> None:
 
 
 __all__ = [
+    "DefaultGraphExtensionFactory",
     # Phase 08
     "DeltaType",
     "GraphDelta",
     "GraphDeltaStoreInterface",
-    "VersionedGraphStoreInterface",
+    # Factory
+    "GraphExtensionFactoryInterface",
     # Phase 09
     "ObsidianNodeType",
     "VaultGraphAlignment",
     "VaultGraphAlignmentInterface",
-    # Factory
-    "GraphExtensionFactoryInterface",
-    "DefaultGraphExtensionFactory",
+    "VersionedGraphStoreInterface",
     "get_graph_extension_factory",
     "set_graph_extension_factory",
 ]

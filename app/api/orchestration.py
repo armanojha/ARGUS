@@ -23,6 +23,11 @@ class QueryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     query: str = Field(..., min_length=1, max_length=2000, description="The research question to answer.")
+    user_early_stop: bool = Field(
+        default=False,
+        description="Phase 06: request an explicit stop. No further retrieval/LLM work; "
+        "the loop synthesizes from the evidence gathered so far.",
+    )
 
 
 @router.post("/query", response_model=OrchestrationResult)
@@ -32,9 +37,15 @@ async def query(request: QueryRequest, http_request: Request) -> OrchestrationRe
     Runs Phase 02's bounded orchestration loop on top of the Phase 01
     hybrid retriever and the Phase 00.3 LLM gateway. Iteration and
     token budgets are enforced regardless of what the planner proposes.
+    With Phase 06 enabled, retrieval dispatch follows the adaptive
+    policy and stopping follows the full V2 §5.4 condition set.
     """
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
     request_id = getattr(http_request.state, "request_id", None)
-    return await run_query(request.query, request_id=request_id)
+    return await run_query(
+        request.query,
+        request_id=request_id,
+        user_early_stop=request.user_early_stop,
+    )

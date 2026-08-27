@@ -1,0 +1,124 @@
+# ARGUS Multi-Model Fabric — Call-Type Routing Policy (Phase 07).
+#
+# This configuration drives explicit model assignment per call type.
+# CRITICAL: This is EXPLICIT USER/ARCHITECTURAL CONFIGURATION ONLY.
+# ARGUS does NOT autonomously discover, rank, or choose models.
+# The project owner decides all model assignments.
+#
+# Model IDs must match what the provider expects (e.g., Groq requires
+# "openai/gpt-oss-120b" prefix; Gemini uses "gemini-2.5-flash-lite").
+#
+# Schema:
+# call_types:
+#   <call_type>:
+#     primary: "<provider>/<model>"
+#     fallbacks:
+#       - "<provider>/<model>"
+#       - "<provider>/<model>"
+# provider_fallbacks: ["provider1", "provider2", ...]
+#   Ordered list of providers to try if the primary provider fails entirely.
+
+call_types:
+  general:
+    primary: "groq/openai/gpt-oss-120b"
+    fallbacks:
+      - "groq/openai/gpt-oss-20b"
+      - "gemini/gemini-2.5-flash-lite"
+      - "cerebras/gpt-oss-120b"
+
+  query_analysis:
+    primary: "gemini/gemini-2.5-flash-lite"
+    fallbacks:
+      - "groq/openai/gpt-oss-20b"
+      - "cerebras/gpt-oss-120b"
+
+  research_planning:
+    primary: "gemini/gemini-2.5-flash"
+    fallbacks:
+      - "groq/openai/gpt-oss-120b"
+      - "cerebras/gpt-oss-120b"
+
+  evidence_extraction:
+    primary: "groq/openai/gpt-oss-120b"
+    fallbacks:
+      - "cerebras/gpt-oss-120b"
+      - "gemini/gemini-2.5-flash"
+
+  reasoning:
+    primary: "groq/openai/gpt-oss-120b"
+    fallbacks:
+      - "cerebras/gpt-oss-120b"
+      - "gemini/gemini-2.5-flash"
+
+  synthesis:
+    primary: "gemini/gemini-2.5-flash"
+    fallbacks:
+      - "groq/openai/gpt-oss-120b"
+      - "cerebras/gpt-oss-120b"
+
+  verification:
+    primary: "gemini/gemini-2.5-flash-lite"
+    fallbacks:
+      - "groq/openai/gpt-oss-20b"
+      - "cerebras/gpt-oss-120b"
+
+  revision:
+    primary: "gemini/gemini-2.5-flash-lite"
+    fallbacks:
+      - "groq/openai/gpt-oss-20b"
+      - "cerebras/gpt-oss-120b"
+
+provider_fallbacks:
+  - "groq"
+  - "gemini"
+  - "cerebras"
+
+# Quota tracking configuration (deterministic, configuration-driven)
+# Phase 07 implements basic quota awareness for free-tier providers.
+# Values are per-provider defaults; actual runtime values come from
+# provider responses (rate limit headers) or periodic checks.
+# Set to null to disable quota tracking for a provider.
+quota:
+  groq:
+    requests_per_minute: 30
+    requests_per_day: 1000
+    tokens_per_minute: 8000
+    tokens_per_day: 200000
+    enabled: true
+  gemini:
+    requests_per_minute: 15
+    requests_per_day: 1000
+    tokens_per_minute: 250000
+    tokens_per_day: 1000000
+    enabled: true
+  cerebras:
+    requests_per_minute: 10
+    requests_per_day: 500
+    tokens_per_minute: 50000
+    tokens_per_day: 1000000
+    enabled: true
+
+# Cross-model verification settings
+cross_model_verification:
+  enabled: true
+  # Verifier must use a different provider than synthesizer
+  verifier_must_differ_from_synthesizer: true
+  # If no different provider available, allow same provider with different model
+  allow_same_provider_different_model: true
+  # Preferred verifier providers (in order)
+  preferred_verifier_providers:
+    - "gemini"
+    - "groq"
+    - "cerebras"
+
+# Telemetry settings
+telemetry:
+  enabled: true
+  # Log routing decisions (provider, model, call_type, latency, tokens)
+  log_routing_decisions: true
+  # Track call count per run against ceiling
+  enforce_call_ceiling: true
+  # Hard ceiling on logical LLM calls per research run
+  call_ceiling: 16
+  # Warn when approaching ceiling
+  call_ceiling_warn_threshold: 12

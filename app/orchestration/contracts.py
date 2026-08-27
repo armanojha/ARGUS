@@ -193,8 +193,8 @@ class AgentActivationRule(str, Enum):
 class AgentMessage:
     """Message passed between agents."""
     from_agent: AgentRole
-    to_agent: AgentRole | None = None  # None = broadcast
     content: str
+    to_agent: AgentRole | None = None  # None = broadcast
     payload: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
@@ -329,26 +329,26 @@ def set_orchestration_extension_factory(factory: OrchestrationExtensionFactory) 
 
 
 __all__ = [
-    # Phase 06
-    "StopCondition",
-    "StopDecision",
-    "StopConditionChecker",
-    "StoppingLogicInterface",
+    "AgentActivationRule",
+    "AgentCoordinatorInterface",
+    "AgentInterface",
+    "AgentMessage",
+    # Phase 10
+    "AgentRole",
+    "DefaultOrchestrationExtensionFactory",
+    # Extensions
+    "ExtendedOrchestrationStateMixin",
+    "MemoryAwarePlannerInterface",
     # Phase 08
     "MemoryLayer",
     "MemoryRecord",
     "MemoryStoreInterface",
-    "MemoryAwarePlannerInterface",
-    # Phase 10
-    "AgentRole",
-    "AgentActivationRule",
-    "AgentMessage",
-    "AgentInterface",
-    "AgentCoordinatorInterface",
-    # Extensions
-    "ExtendedOrchestrationStateMixin",
     "OrchestrationExtensionFactory",
-    "DefaultOrchestrationExtensionFactory",
+    # Phase 06
+    "StopCondition",
+    "StopConditionChecker",
+    "StopDecision",
+    "StoppingLogicInterface",
     "get_orchestration_extension_factory",
     "set_orchestration_extension_factory",
 ]

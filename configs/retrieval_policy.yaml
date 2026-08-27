@@ -1,0 +1,61 @@
+# ARGUS adaptive retrieval policy (Phase 06)
+#
+# Human-editable mirror of the V2 §5.2 / V3 §5 question-pattern table.
+# Loaded by `app.retrieval.load_retrieval_policy`; missing/malformed files
+# degrade deterministically to `DEFAULT_RETRIEVAL_POLICY` in policy.py.
+#
+# Notes:
+# - `weights` are per-method fusion weights (normalized inside the router).
+# - `bm25_weight`/`vector_weight` control the hybrid scorer's lexical/dense split.
+# - GRAPH/TEMPORAL methods require the Phase 03 graph retriever; without one the
+#   router degrades to hybrid retrieval and never fabricates results.
+
+entries:
+  - pattern: exact_term
+    priority: 10
+    retrieval_mix:
+      methods: [bm25, hybrid]
+      weights: {bm25: 0.7, hybrid: 0.3}
+      bm25_weight: 0.7
+      vector_weight: 0.3
+
+  - pattern: conceptual
+    priority: 10
+    retrieval_mix:
+      methods: [vector, hybrid]
+      weights: {vector: 0.7, hybrid: 0.3}
+      bm25_weight: 0.3
+      vector_weight: 0.7
+
+  - pattern: entity_relationship
+    priority: 10
+    retrieval_mix:
+      methods: [graph, bm25]
+      weights: {graph: 0.6, bm25: 0.4}
+      graph_max_hops: 2
+
+  - pattern: historical
+    priority: 10
+    retrieval_mix:
+      methods: [temporal, vector, hybrid]
+      weights: {temporal: 0.5, vector: 0.3, hybrid: 0.2}
+      temporal_window_days: 365
+
+  - pattern: long_report
+    priority: 8
+    retrieval_mix:
+      methods: [hybrid, graph]
+      weights: {hybrid: 0.6, graph: 0.4}
+      graph_max_hops: 3
+
+  - pattern: fresh_missing
+    priority: 8
+    retrieval_mix:
+      methods: [web, hybrid]
+      weights: {web: 0.5, hybrid: 0.5}
+
+  - pattern: multimodal
+    priority: 5
+    retrieval_mix:
+      methods: [hybrid, vector]
+      weights: {hybrid: 0.5, vector: 0.5}

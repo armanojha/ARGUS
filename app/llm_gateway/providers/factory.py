@@ -16,11 +16,13 @@ import os
 from app.config import Settings, load_providers_config
 from app.llm_gateway.providers import get_provider_factory
 
-# Import side effect: registers "groq" in the provider registry. Add
+# Import side effect: registers providers in the provider registry. Add
 # further `import app.llm_gateway.providers.<name>` lines here as new
 # providers are implemented (never remove the explicit-registration
 # pattern in favor of auto-discovery — see model-policy rule).
 from app.llm_gateway.providers import groq as _groq  # noqa: F401
+from app.llm_gateway.providers import gemini as _gemini  # noqa: F401
+from app.llm_gateway.providers import cerebras as _cerebras  # noqa: F401
 from app.llm_gateway.providers.exceptions import ConfigurationError
 from app.llm_gateway.providers.openai_compatible import OpenAICompatibleProvider
 

@@ -107,7 +107,7 @@ class AgentMessageType(str, Enum):
 
 
 @dataclass(frozen=True)
-class AgentMessage:
+class AgentInterface:
     """Interface for a specialized agent.
 
     Phase 10 implements concrete agents. The orchestration graph
@@ -271,7 +271,6 @@ __all__ = [
     "AgentCoordinatorInterface",
     "AgentFactoryInterface",
     "AgentInterface",
-    "AgentMessage",
     "AgentMessageType",
     "AgentRole",
     "DefaultAgentFactory",

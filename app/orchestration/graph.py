@@ -18,6 +18,8 @@ individual nodes stay dependency-injected and gateway-agnostic.
 
 from __future__ import annotations
 
+from typing import Any
+
 from langgraph.graph import END, StateGraph
 
 from app.config import Settings, get_settings
@@ -31,12 +33,16 @@ from app.orchestration.nodes import (
     make_assess_node,
     make_plan_node,
     make_retrieve_node,
+    make_stop_check_node,
     make_synthesize_node,
 )
 from app.orchestration.state import OrchestrationState
+from app.orchestration.stopping import build_stopping_logic
 from app.reranking import get_reranker
 from app.reranking.reranker import NoOpReranker, Reranker
 from app.retrieval.hybrid import HybridRetriever, get_hybrid_retriever
+from app.retrieval.router import get_retrieval_policy_router
+from app.retrieval.seeking import get_adaptive_gap_detector
 
 logger = get_logger("argus.orchestration.graph")
 
@@ -52,22 +58,41 @@ def build_graph(
     retriever: HybridRetriever,
     reranker: Reranker | NoOpReranker,
     settings: Settings,
+    policy_router: Any | None = None,
+    gap_detector: Any | None = None,
+    stopping_logic: Any | None = None,
 ):
-    """Compile the orchestration StateGraph. Cheap; safe to call per-request."""
+    """Compile the orchestration StateGraph. Cheap; safe to call per-request.
+
+    Phase 06 wiring (all deterministic, all optional so Phase 02 callers
+    keep working unchanged):
+      * `policy_router`   — adaptive retrieval dispatch on each retrieve node.
+      * `gap_detector`    — active evidence seeking on each assess node.
+      * `stopping_logic`  — full V2 §5.4 stop-condition evaluation after each
+                            assessment (the stop_check node).
+    """
     workflow = StateGraph(OrchestrationState)
 
     workflow.add_node("analyze", make_analyze_node(router, settings))  # type: ignore
     workflow.add_node("plan", make_plan_node(router, settings))  # type: ignore
-    workflow.add_node("retrieve", make_retrieve_node(retriever, reranker, settings))  # type: ignore
-    workflow.add_node("assess", make_assess_node(router, settings))  # type: ignore
+    workflow.add_node(
+        "retrieve", make_retrieve_node(retriever, reranker, settings, policy_router=policy_router)  # type: ignore
+    )
+    workflow.add_node(  # type: ignore
+        "assess", make_assess_node(router, settings, gap_detector=gap_detector)
+    )
+    workflow.add_node(  # type: ignore
+        "stop_check", make_stop_check_node(stopping_logic)
+    )
     workflow.add_node("synthesize", make_synthesize_node(router, settings))  # type: ignore
 
     workflow.set_entry_point("analyze")
     workflow.add_edge("analyze", "plan")
     workflow.add_edge("plan", "retrieve")
     workflow.add_edge("retrieve", "assess")
+    workflow.add_edge("assess", "stop_check")
     workflow.add_conditional_edges(
-        "assess", _route_after_assess, {"retrieve": "retrieve", "synthesize": "synthesize"}
+        "stop_check", _route_after_assess, {"retrieve": "retrieve", "synthesize": "synthesize"}
     )
     workflow.add_edge("synthesize", END)
 
@@ -92,6 +117,14 @@ def _initial_state(query: str, request_id: str | None, settings: Settings) -> Or
         stop_reason=None,
         answer=None,
         warnings=[],
+        # Phase 06 adaptive policy fields (populated as the run proceeds)
+        question_pattern=None,
+        retrieval_gain_history=[],
+        user_early_stop=False,
+        contradiction_signals=[],
+        stop_conditions_checked=[],
+        stop_condition_fired=None,
+        evidence_tasks=[],
     )
 
 
@@ -139,6 +172,10 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
         token_usage_estimate=final_state["tokens_used"],
         request_id=final_state["request_id"],
         warnings=final_state["warnings"],
+        question_pattern=final_state.get("question_pattern"),
+        stop_condition=final_state.get("stop_condition_fired"),
+        stop_decisions=final_state.get("stop_conditions_checked") or [],
+        evidence_tasks=final_state.get("evidence_tasks") or [],
     )
 
 
@@ -146,10 +183,14 @@ async def run_query(
     query: str,
     *,
     request_id: str | None = None,
+    user_early_stop: bool = False,
     router: LLMRouter | None = None,
     retriever: HybridRetriever | None = None,
     reranker: Reranker | NoOpReranker | None = None,
     settings: Settings | None = None,
+    policy_router: Any | None = None,
+    gap_detector: Any | None = None,
+    stopping_logic: Any | None = None,
 ) -> OrchestrationResult:
     """Run one query through the Agentic RAG loop end to end.
 
@@ -157,6 +198,11 @@ async def run_query(
     Phase 01 if not provided, ensures retrieval indexes are current,
     builds and invokes the graph, and maps the final state onto
     `OrchestrationResult` (including provenance-preserving citations).
+
+    Phase 06 components are built from settings toggles when not injected:
+      * `policy_router`  — `settings.retrieval_policy_enabled`
+      * `gap_detector`   — `settings.active_evidence_seeking_enabled`
+      * `stopping_logic` — `settings.stopping_logic_enabled`
     """
     settings = settings or get_settings()
     router = router or get_router()
@@ -166,8 +212,25 @@ async def run_query(
     # Build indexes once up front rather than per retrieval iteration.
     retriever.ensure_indexes()
 
-    graph = build_graph(router, retriever, reranker, settings)
+    if policy_router is None and settings.retrieval_policy_enabled:
+        policy_router = get_retrieval_policy_router()
+    if gap_detector is None and settings.active_evidence_seeking_enabled:
+        gap_detector = get_adaptive_gap_detector()
+    if stopping_logic is None and settings.stopping_logic_enabled:
+        stopping_logic = build_stopping_logic(settings)
+
+    graph = build_graph(
+        router,
+        retriever,
+        reranker,
+        settings,
+        policy_router=policy_router,
+        gap_detector=gap_detector,
+        stopping_logic=stopping_logic,
+    )
     initial_state = _initial_state(query, request_id, settings)
+    if user_early_stop:
+        initial_state["user_early_stop"] = True
 
     logger.info("orchestration_run_started", request_id=request_id, query=query[:100])
     final_state: OrchestrationState = await graph.ainvoke(initial_state)
@@ -176,6 +239,7 @@ async def run_query(
         request_id=request_id,
         iterations=final_state["iteration"],
         stop_reason=final_state["stop_reason"],
+        stop_condition=final_state.get("stop_condition_fired"),
         evidence_count=len(final_state["evidence"]),
     )
 

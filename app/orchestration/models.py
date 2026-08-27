@@ -100,6 +100,11 @@ class StopReason(str, Enum):
     NO_NEW_EVIDENCE = "no_new_evidence"
     ASSESSMENT_ERROR = "assessment_error"
     NO_SUBQUESTIONS = "no_subquestions"
+    # Phase 06 adaptive policy stop conditions (V2 §5.4)
+    CLAIMS_SUPPORTED = "claims_supported"
+    NO_UNRESOLVED_CONTRADICTION = "no_unresolved_contradiction"
+    NEGLIGIBLE_EVIDENCE_GAIN = "negligible_evidence_gain"
+    USER_EARLY_STOP = "user_early_stop"
 
 
 class OrchestrationCitation(BaseModel):
@@ -136,3 +141,17 @@ class OrchestrationResult(BaseModel):
     token_usage_estimate: int
     request_id: str | None = None
     warnings: list[str] = Field(default_factory=list, description="Non-fatal degradations, e.g. a fallback plan was used.")
+    # Phase 06 adaptive policy traceability (additive; empty when policy off)
+    question_pattern: str | None = Field(
+        default=None, description="Question pattern selected by the Phase 06 policy router, if enabled."
+    )
+    stop_condition: str | None = Field(
+        default=None, description="Which Phase 06 stop condition fired, if any (V2 §5.4)."
+    )
+    stop_decisions: list[dict[str, Any]] = Field(
+        default_factory=list, description="Per-condition stop evaluations from the last policy stop check."
+    )
+    evidence_tasks: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Targeted retrieval actions formulated by active evidence seeking.",
+    )

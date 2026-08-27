@@ -110,10 +110,71 @@ GROQ_CAPABILITIES = ProviderCapabilities(
     preferred_call_types=["query_analysis", "research_planning", "synthesis"],
 )
 
+# Default capabilities for the Gemini provider (Phase 07)
+GEMINI_CAPABILITIES = ProviderCapabilities(
+    structured_output=True,
+    tool_calling=True,
+    streaming=False,
+    vision=False,
+    max_context_tokens=1_048_576,
+    max_output_tokens=8_192,
+    supports_parallel_tools=True,
+    requires_tool_choice_auto=False,
+    # Phase 07 metadata
+    latency_p50_ms=800,
+    quality_score=0.88,
+    cost_per_1k_input_tokens=0.0,
+    cost_per_1k_output_tokens=0.0,
+    quota_remaining=None,
+    quota_reset_seconds=None,
+    supported_call_types=[
+        "general",
+        "query_analysis",
+        "research_planning",
+        "evidence_extraction",
+        "reasoning",
+        "synthesis",
+        "verification",
+        "revision",
+    ],
+    preferred_call_types=["query_analysis", "research_planning", "synthesis", "verification", "revision"],
+)
+
+# Default capabilities for the Cerebras provider (Phase 07)
+CEREBRAS_CAPABILITIES = ProviderCapabilities(
+    structured_output=True,
+    tool_calling=True,
+    streaming=False,
+    vision=False,
+    max_context_tokens=131_072,
+    max_output_tokens=8_192,
+    supports_parallel_tools=True,
+    requires_tool_choice_auto=False,
+    # Phase 07 metadata
+    latency_p50_ms=300,
+    quality_score=0.85,
+    cost_per_1k_input_tokens=0.0,
+    cost_per_1k_output_tokens=0.0,
+    quota_remaining=None,
+    quota_reset_seconds=None,
+    supported_call_types=[
+        "general",
+        "query_analysis",
+        "research_planning",
+        "evidence_extraction",
+        "reasoning",
+        "synthesis",
+        "verification",
+        "revision",
+    ],
+    preferred_call_types=["evidence_extraction", "reasoning", "synthesis"],
+)
+
 # Capability registry for Phase 07 router
 CAPABILITY_REGISTRY: dict[str, ProviderCapabilities] = {
     "groq": GROQ_CAPABILITIES,
-    # Additional providers will be registered by Phase 07
+    "gemini": GEMINI_CAPABILITIES,
+    "cerebras": CEREBRAS_CAPABILITIES,
 }
 
 

@@ -291,6 +291,25 @@ class EvidenceStore:
 
     # -- Bulk retrieval ----------------------------------------------------
 
+    def get_chunks_by_document_metadata(self, key: str, value: Any) -> list[Chunk]:
+        """Return chunks whose *document* metadata contains ``key == value``.
+
+        Used by Phase 06 to locate ingested types of content (e.g. Obsidian
+        personal-context notes) without scanning every chunk. Document-level
+        metadata matching keeps the query small and index-friendly.
+        """
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT c.* FROM chunks c
+                JOIN documents d ON d.id = c.document_id
+                WHERE json_extract(d.metadata, ?) = ?
+                ORDER BY d.source_id, c.ordinal
+                """,
+                (f"$.{key}", json.dumps(value, ensure_ascii=False)),
+            ).fetchall()
+        return [self._row_to_chunk(row) for row in rows]
+
     def get_all_chunk_ids(self) -> list[UUID]:
         """Return all chunk IDs ordered by document_id and ordinal."""
         with self._conn() as conn:

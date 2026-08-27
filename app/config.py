@@ -214,6 +214,14 @@ class Settings(BaseSettings):
         default=0.05,
         description="Minimum evidence gain threshold for stopping.",
     )
+    active_seeking_min_priority: float = Field(
+        default=0.5,
+        description="Minimum evidence-gap priority before active re-retrieval is triggered.",
+    )
+    active_seeking_quality_threshold: float = Field(
+        default=0.4,
+        description="Top retrieved score below this flags an evidence-quality gap.",
+    )
 
     # --- Multi-Model Fabric (Phase 07) ---
     multimodel_enabled: bool = Field(

@@ -260,21 +260,21 @@ def set_memory_factory(factory: Any) -> None:
 
 
 __all__ = [
-    # Enums
-    "MemoryLayer",
-    "MemoryScope",
-    # Models
-    "MemoryRecord",
-    "MemoryQuery",
-    "MemorySearchResult",
-    "VaultMemoryRecord",
-    # Interfaces
-    "MemoryStoreInterface",
-    "MemoryAwarePlannerInterface",
-    "VaultMemoryInterface",
-    "MemoryFactoryInterface",
     # Factory
     "DefaultMemoryFactory",
+    "MemoryAwarePlannerInterface",
+    "MemoryFactoryInterface",
+    # Enums
+    "MemoryLayer",
+    "MemoryQuery",
+    # Models
+    "MemoryRecord",
+    "MemoryScope",
+    "MemorySearchResult",
+    # Interfaces
+    "MemoryStoreInterface",
+    "VaultMemoryInterface",
+    "VaultMemoryRecord",
     "get_memory_factory",
     "set_memory_factory",
 ]
