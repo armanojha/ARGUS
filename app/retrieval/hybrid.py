@@ -5,8 +5,6 @@ Combines BM25 lexical retrieval with FAISS dense vector retrieval.
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from app.config import get_settings
 from app.evidence.models import EvidenceRef
 from app.evidence.store import EvidenceStore, get_evidence_store
@@ -42,16 +40,12 @@ class HybridRetriever:
         # Assign embedding indices if needed
         assign_embedding_indices(self.store)
 
-        # Get all chunks from store
-        with self.store._conn() as conn:
-            rows = conn.execute(
-                "SELECT id FROM chunks ORDER BY document_id, ordinal"
-            ).fetchall()
-        if not rows:
+        # Get all chunk IDs from store via public API
+        chunk_ids = self.store.get_all_chunk_ids()
+        if not chunk_ids:
             logger.warning("no_chunks_to_index")
             return
 
-        chunk_ids = [UUID(row["id"]) for row in rows]
         chunks = self.store.get_chunks_by_ids(chunk_ids)
 
         # Build BM25 index (force rebuild)

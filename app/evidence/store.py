@@ -289,6 +289,16 @@ class EvidenceStore:
             ).fetchall()
         return [self._row_to_chunk(row) for row in rows]
 
+    # -- Bulk retrieval ----------------------------------------------------
+
+    def get_all_chunk_ids(self) -> list[UUID]:
+        """Return all chunk IDs ordered by document_id and ordinal."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT id FROM chunks ORDER BY document_id, ordinal"
+            ).fetchall()
+        return [UUID(row["id"]) for row in rows]
+
     # -- Citation / EvidenceRef -------------------------------------------
 
     def get_evidence_refs(self, chunk_ids: list[UUID], scores: list[float]) -> list[EvidenceRef]:
