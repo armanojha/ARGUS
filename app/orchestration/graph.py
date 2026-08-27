@@ -1,18 +1,19 @@
-"""Agentic RAG orchestration graph (Phase 02 + 08 Memory Integration).
+"""Agentic RAG orchestration graph (Phase 02 / Phase 06 policy / Phase 08 memory hook).
 
 Builds and runs the LangGraph state machine:
 
-    analyze -> plan -> [memory_enhance] -> retrieve -> assess -+-> retrieve (loop)
-                                                             +-> synthesize -> END
+    analyze -> plan -> [memory_enhance] -> retrieve -> assess -> stop_check -+-> retrieve (loop)
+                                                                             +-> synthesize -> END
 
-No checkpointer is configured — each `run_query()` call is a single
+No checkpointer is configured; each `run_query()` call is a single
 in-memory execution with no cross-request persistence. That's
 deliberate: Phase 02 is bounded, single-shot orchestration, not
 long-running agent memory (memory is a later phase per the vault's
 phase boundary).
 
-This module is the only place that wires the LLM gateway (Phase 00.3)
-and hybrid retriever (Phase 01) together for the agentic loop —
+This module is the only place that wires the LLM gateway (Phase 00.3),
+hybrid retriever (Phase 01), the adaptive policy (Phase 06), and the
+optional memory store (Phase 08) together for the agentic loop;
 individual nodes stay dependency-injected and gateway-agnostic.
 """
 
@@ -24,7 +25,6 @@ from langgraph.graph import END, StateGraph
 
 from app.config import Settings, get_settings
 from app.llm_gateway import get_router
-from app.llm_gateway.routing.router import LLMRouter
 from app.logging_config import get_logger
 from app.orchestration.models import OrchestrationCitation, OrchestrationResult, StopReason
 from app.orchestration.nodes import (
@@ -53,14 +53,38 @@ def _route_after_assess(state: OrchestrationState) -> str:
     return "retrieve"
 
 
+async def _memory_enhance_node(state: OrchestrationState, memory_store: Any) -> dict:
+    """Enhance the research plan using persistent memory."""
+    plan = state.get("plan")
+    query = state.get("query")
+    if not plan or not query:
+        return {}
+
+    if memory_store is None:
+        return {}
+
+    try:
+        from app.memory.planner_integration import create_memory_aware_planner
+        planner = await create_memory_aware_planner(memory_store)
+        enhanced_plan = await planner.enhance_plan_with_memory(plan, query, memory_store)
+        if enhanced_plan is not plan:
+            logger.info("plan_enhanced_with_memory", request_id=state["request_id"])
+            return {"plan": enhanced_plan}
+    except Exception as exc:  # noqa: BLE001 - memory enhancement is non-critical
+        logger.warning("memory_enhance_failed", error=str(exc), request_id=state["request_id"])
+
+    return {}
+
+
 def build_graph(
-    router: LLMRouter,
+    router: Any,  # LLMRouter | MultiModelRouter (gateway-agnostic wiring)
     retriever: HybridRetriever,
     reranker: Reranker | NoOpReranker,
     settings: Settings,
     policy_router: Any | None = None,
     gap_detector: Any | None = None,
     stopping_logic: Any | None = None,
+    memory_store: Any | None = None,
 ):
     """Compile the orchestration StateGraph. Cheap; safe to call per-request.
 
@@ -70,11 +94,15 @@ def build_graph(
       * `gap_detector`    — active evidence seeking on each assess node.
       * `stopping_logic`  — full V2 §5.4 stop-condition evaluation after each
                             assessment (the stop_check node).
+    Phase 08 wiring (optional):
+      * `memory_store`    — persistent memory for plan enhancement.
     """
     workflow = StateGraph(OrchestrationState)
 
     workflow.add_node("analyze", make_analyze_node(router, settings))  # type: ignore
     workflow.add_node("plan", make_plan_node(router, settings))  # type: ignore
+    if memory_store is not None:
+        workflow.add_node("memory_enhance", lambda s: _memory_enhance_node(s, memory_store))  # type: ignore
     workflow.add_node(
         "retrieve", make_retrieve_node(retriever, reranker, settings, policy_router=policy_router)  # type: ignore
     )
@@ -88,7 +116,11 @@ def build_graph(
 
     workflow.set_entry_point("analyze")
     workflow.add_edge("analyze", "plan")
-    workflow.add_edge("plan", "retrieve")
+    if memory_store is not None:
+        workflow.add_edge("plan", "memory_enhance")
+        workflow.add_edge("memory_enhance", "retrieve")
+    else:
+        workflow.add_edge("plan", "retrieve")
     workflow.add_edge("retrieve", "assess")
     workflow.add_edge("assess", "stop_check")
     workflow.add_conditional_edges(
@@ -184,7 +216,7 @@ async def run_query(
     *,
     request_id: str | None = None,
     user_early_stop: bool = False,
-    router: LLMRouter | None = None,
+    router: Any = None,  # LLMRouter | MultiModelRouter — accepts any LLM-gateway router
     retriever: HybridRetriever | None = None,
     reranker: Reranker | NoOpReranker | None = None,
     settings: Settings | None = None,
@@ -203,6 +235,11 @@ async def run_query(
       * `policy_router`  — `settings.retrieval_policy_enabled`
       * `gap_detector`   — `settings.active_evidence_seeking_enabled`
       * `stopping_logic` — `settings.stopping_logic_enabled`
+
+    Phase 08 component (optional, non-fatal):
+      * `memory_store`   — `settings.memory_enabled`. Imported lazily so a
+                           still-in-progress memory module can never break
+                           the Phase 02/06 loop.
     """
     settings = settings or get_settings()
     router = router or get_router()
@@ -219,6 +256,20 @@ async def run_query(
     if stopping_logic is None and settings.stopping_logic_enabled:
         stopping_logic = build_stopping_logic(settings)
 
+    # Phase 08: initialize memory system if enabled (non-fatal when the
+    # memory module is unavailable or in progress — the loop still runs).
+    memory_store: Any = None
+    if getattr(settings, "memory_enabled", False):
+        try:
+            from app.memory import get_memory_factory, initialize_memory_system
+
+            initialize_memory_system()
+            factory = get_memory_factory()
+            if hasattr(factory, "create_memory_store"):
+                memory_store = factory.create_memory_store()
+        except Exception as exc:  # noqa: BLE001 - memory is an optional enhancement
+            logger.warning("memory_system_unavailable", error=str(exc))
+
     graph = build_graph(
         router,
         retriever,
@@ -227,6 +278,7 @@ async def run_query(
         policy_router=policy_router,
         gap_detector=gap_detector,
         stopping_logic=stopping_logic,
+        memory_store=memory_store,
     )
     initial_state = _initial_state(query, request_id, settings)
     if user_early_stop:
