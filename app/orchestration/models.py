@@ -1,0 +1,138 @@
+"""Agentic RAG data models (Phase 02).
+
+Typed schemas for the orchestration loop: query complexity analysis,
+the ResearchPlan produced by the planner, the sufficiency assessment
+used to decide whether to retrieve again, and the final result returned
+to callers. All LLM-produced structures flow through these Pydantic
+models (via the LLM gateway's `response_format`) so the graph never
+trusts free-form model output for control flow.
+
+None of these models are a database of record — they describe a single
+in-flight query's control state. Durable evidence/provenance remains in
+the Phase 01 `EvidenceStore`.
+"""
+
+from __future__ import annotations
+
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ComplexityLevel(str, Enum):
+    """Coarse complexity bucket used for gating planner depth."""
+
+    SIMPLE = "simple"
+    MODERATE = "moderate"
+    COMPLEX = "complex"
+
+
+class QueryAnalysis(BaseModel):
+    """Fast structured pass over the raw query (sub-phase 02.2).
+
+    Cheap, single LLM call. Used only to size the plan (how many
+    subquestions to ask for) — it does not itself decide retrieval or
+    models.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    complexity: ComplexityLevel
+    reasoning: str = Field(description="One or two sentences on why this complexity was assigned.")
+    suggested_subquestion_count: int = Field(ge=1, le=6)
+
+
+class ResearchPlan(BaseModel):
+    """Structured research plan produced by the planner node (V2 §5.1).
+
+    Fields mirror the vault's Phase 02 spec. `token_budget` and
+    `iteration_budget` are always clamped by the orchestrator to the
+    configured hard ceilings (`Settings.orchestration_token_budget` /
+    `orchestration_max_iterations`) after the plan is produced — the
+    planner LLM proposes them, it does not have the final word.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    objective: str = Field(description="The single overall research objective, restated from the query.")
+    entities: list[str] = Field(default_factory=list, description="Key named entities/topics involved.")
+    time_window: str | None = Field(default=None, description="Relevant time window, if any (free text).")
+    subquestions: list[str] = Field(default_factory=list, description="Decomposed subquestions to retrieve for.")
+    evidence_type: str = Field(default="general", description="Kind of evidence sought, e.g. 'factual', 'comparative'.")
+    preferred_retrieval_methods: list[str] = Field(
+        default_factory=lambda: ["hybrid"],
+        description="Retrieval modes to prefer, e.g. 'hybrid', 'bm25', 'vector'.",
+    )
+    required_sources: list[str] = Field(default_factory=list, description="Specific sources the plan calls out, if any.")
+    risk_level: str = Field(default="low", description="Coarse risk/uncertainty label for the question, e.g. 'low'/'medium'/'high'.")
+    token_budget: int = Field(default=6000, ge=1, description="Proposed token budget; clamped by orchestrator config.")
+    iteration_budget: int = Field(default=2, ge=1, description="Proposed retrieval-iteration budget; clamped by orchestrator config.")
+    stopping_condition: str = Field(
+        default="Stop once every subquestion has supporting evidence or the budget is exhausted.",
+        description="Free-text description of when the loop should stop.",
+    )
+
+
+class EvidenceAssessment(BaseModel):
+    """Sufficiency check produced after each retrieval iteration (sub-phase 02.3/02.5).
+
+    Drives the retrieve/synthesize branch. `next_subquery` is only
+    consulted when `sufficient` is false and the iteration budget has
+    not been exhausted.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sufficient: bool = Field(description="Whether accumulated evidence adequately covers the plan's objective.")
+    reasoning: str = Field(description="One or two sentences explaining the sufficiency judgement.")
+    next_subquery: str | None = Field(
+        default=None,
+        description="If not sufficient, the next retrieval query to run. Null if no further query is useful.",
+    )
+
+
+class StopReason(str, Enum):
+    """Why the orchestration loop stopped, for observability/acceptance checks."""
+
+    SUFFICIENT_EVIDENCE = "sufficient_evidence"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    NO_NEW_EVIDENCE = "no_new_evidence"
+    ASSESSMENT_ERROR = "assessment_error"
+    NO_SUBQUESTIONS = "no_subquestions"
+
+
+class OrchestrationCitation(BaseModel):
+    """A citation surfaced in the final answer, tracing back to Phase 01 evidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ref_id: int = Field(description="1-based citation marker used in the synthesized answer, e.g. '[2]'.")
+    chunk_id: str
+    document_id: str
+    source_id: str
+    source_path: str
+    source_type: str
+    text: str
+    page_start: int | None = None
+    page_end: int | None = None
+    section_path: str | None = None
+    score: float
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class OrchestrationResult(BaseModel):
+    """Final result of a query → plan → retrieve → synthesize run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str
+    plan: ResearchPlan
+    answer: str
+    citations: list[OrchestrationCitation]
+    iterations_used: int
+    sub_queries_issued: list[str]
+    stop_reason: StopReason
+    token_usage_estimate: int
+    request_id: str | None = None
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal degradations, e.g. a fallback plan was used.")
