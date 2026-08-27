@@ -1,0 +1,1 @@
+"""Obsidian tests package (Phase 05)."""

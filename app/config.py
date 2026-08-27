@@ -43,10 +43,6 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", description="Logging level (e.g. DEBUG, INFO, WARNING).")
     data_dir: Path = Field(default=REPO_ROOT / "data", description="Root directory for data artifacts.")
     config_dir: Path = Field(default=REPO_ROOT / "configs", description="Directory containing YAML config stubs.")
-    obsidian_vault_path: str = Field(
-        default="",
-        description="Path to the user's Obsidian vault. Empty until Phase 05 wires ingestion.",
-    )
 
     # --- LLM Gateway (Phase 00.3) ---
     llm_provider: str = Field(
@@ -165,6 +161,32 @@ class Settings(BaseSettings):
     verification_max_re_retrieval_cycles: int = Field(
         default=1,
         description="Max additional retrieval cycles (MVP: 1).",
+    )
+
+    # --- Obsidian Ingestion (Phase 05) ---
+    obsidian_enabled: bool = Field(
+        default=False,
+        description="Whether Obsidian vault ingestion is enabled.",
+    )
+    obsidian_vault_path: str = Field(
+        default="",
+        description="Path to the user's Obsidian vault. Empty until Phase 05 wires ingestion.",
+    )
+    obsidian_write_back_root: str = Field(
+        default="90_ARGUS",
+        description="Write-back root directory name within the vault (per V3 §4.3).",
+    )
+    obsidian_incremental_sync: bool = Field(
+        default=True,
+        description="Whether to use incremental sync (only process changed files).",
+    )
+    obsidian_exclude_patterns: list[str] = Field(
+        default_factory=lambda: ["90_ARGUS/**", ".obsidian/**", ".git/**", ".trash/**"],
+        description="Glob patterns to exclude from vault scanning.",
+    )
+    obsidian_chunking_strategy: str = Field(
+        default="obsidian_sections_v1",
+        description="Chunking strategy for Obsidian notes.",
     )
 
     @property

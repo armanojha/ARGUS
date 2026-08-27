@@ -74,9 +74,9 @@ def test_providers_config_loads_groq_entry():
     assert groq["capabilities"]["tool_calling"] is True
 
 
-def test_obsidian_stub_loads_and_is_disabled_by_default():
+def test_obsidian_config_loads_with_expected_fields():
     settings = get_settings()
     data = load_obsidian_config(settings)
     assert isinstance(data, dict)
-    assert data.get("enabled") is False
+    assert data.get("enabled") is True  # Phase 05 implemented
     assert data.get("write_back_root") == "90_ARGUS"
