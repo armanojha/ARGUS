@@ -41,13 +41,18 @@ class TestSQLiteMemoryStore:
         yield db_path
         # Cleanup
         if db_path.exists():
-            db_path.unlink()
+            try:
+                db_path.unlink()
+            except PermissionError:
+                pass  # Windows may lock the file briefly
 
     @pytest.fixture
     def memory_store(self, temp_db):
         """Create a memory store with temp database."""
         store = MemoryStore(db_path=temp_db, max_records_per_layer=100)
         yield store
+        # Close the connection pool to release the file lock
+        store.close()
 
     @pytest.fixture
     def sample_record(self):
@@ -200,13 +205,17 @@ class TestSQLiteMemoryStore:
     @pytest.mark.asyncio
     async def test_promote_memory(self, memory_store, sample_record):
         """Test promoting a memory to higher confidence."""
-        sample_record.confidence = 0.6
-        await memory_store.store(sample_record)
+        # Create a new record with lower confidence (can't modify frozen record)
+        low_conf_record = MemoryRecord(
+            **sample_record.model_dump(exclude={"confidence"}),
+            confidence=0.6,
+        )
+        await memory_store.store(low_conf_record)
 
-        promoted = await memory_store.promote_memory(str(sample_record.id), 0.9, "Verified by multiple sources")
+        promoted = await memory_store.promote_memory(str(low_conf_record.id), 0.9, "Verified by multiple sources")
         assert promoted is True
 
-        retrieved = await memory_store.get_by_id(str(sample_record.id))
+        retrieved = await memory_store.get_by_id(str(low_conf_record.id))
         assert retrieved.confidence == 0.9
 
     @pytest.mark.asyncio
@@ -476,8 +485,13 @@ class TestMemoryAwarePlanner:
             db_path = Path(f.name)
         store = MemoryStore(db_path=db_path, max_records_per_layer=100)
         yield store
+        # Close the connection pool to release the file lock
+        store.close()
         if db_path.exists():
-            db_path.unlink()
+            try:
+                db_path.unlink()
+            except PermissionError:
+                pass
 
     @pytest.fixture
     def planner(self, memory_store):
@@ -557,12 +571,13 @@ class TestMemoryFactory:
         assert hasattr(store, 'store')
         assert hasattr(store, 'retrieve')
 
-    def test_initialize_and_shutdown(self):
+    @pytest.mark.asyncio
+    async def test_initialize_and_shutdown(self):
         """Test memory system initialization and shutdown."""
         # This uses global state, so just test it doesn't crash
-        factory = initialize_memory_system()
+        factory = await initialize_memory_system()
         assert factory is not None
-        shutdown_memory_system()
+        await shutdown_memory_system()
         factory2 = get_memory_factory()
         assert isinstance(factory2, DefaultMemoryFactory)
 

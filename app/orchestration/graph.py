@@ -257,7 +257,7 @@ async def run_query(
         try:
             from app.memory import get_memory_factory, initialize_memory_system
 
-            initialize_memory_system()
+            await initialize_memory_system()
             factory = get_memory_factory()
             if hasattr(factory, "create_memory_store"):
                 memory_store = factory.create_memory_store()

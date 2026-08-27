@@ -229,7 +229,7 @@ class Settings(BaseSettings):
         description="Whether multi-model fabric is enabled.",
     )
     multimodel_providers_config_path: str = Field(
-        default="configs/multimodel_providers.yaml",
+        default="configs/providers.yaml",
         description="Path to multi-model providers configuration.",
     )
     multimodel_routing_enabled: bool = Field(

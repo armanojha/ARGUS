@@ -39,12 +39,20 @@ class MemoryScope(str, Enum):
     VAULT = "vault"             # Specific to a vault (Phase 09)
 
 
+class MemoryPromotionStatus(str, Enum):
+    """Status of a memory record in the promotion pipeline."""
+    PROVISIONAL = "provisional"       # Low confidence, awaiting verification
+    PROMOTED = "promoted"             # High confidence, auto-promoted
+    REJECTED = "rejected"             # Contradicted or invalidated
+    ARCHIVED = "archived"             # Superseded by newer memory
+
+
 class MemoryRecord(BaseModel):
     """A single memory record with full provenance.
 
     All memory records trace back to evidence chunks.
     """
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     id: UUID
     layer: MemoryLayer
@@ -70,7 +78,7 @@ class MemoryRecord(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     # Phase 08 extensions
-    promotion_status: str = "provisional"
+    promotion_status: MemoryPromotionStatus = MemoryPromotionStatus.PROVISIONAL
     version: int = 1
     supersedes_id: UUID | None = None
     superseded_by_id: UUID | None = None

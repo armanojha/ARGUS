@@ -25,7 +25,7 @@ logger = get_logger("argus.memory.factory")
 class MemoryFactory(MemoryFactoryInterface):
     """Factory for creating memory components (Phase 08 implementation)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._memory_store: MemoryStore | None = None
         self._version_manager: GraphVersionManager | None = None
 
@@ -57,6 +57,8 @@ class MemoryFactory(MemoryFactoryInterface):
 
     def close(self) -> None:
         """Close all components."""
+        if self._memory_store is not None:
+            self._memory_store.close()
         self._memory_store = None
         self._version_manager = None
 
@@ -80,10 +82,18 @@ class NullMemoryStore(MemoryStoreInterface):
         return False
 
     async def get_stats(self) -> dict:
-        return {"enabled": False, "total_records": 0}
+        return {
+            "enabled": False,
+            "total_records": 0,
+            "layer_counts": {},
+            "promotion_counts": {},
+            "scope_counts": {},
+            "avg_confidence": 0.0,
+            "db_size_bytes": 0,
+        }
 
 
-def initialize_memory_system() -> MemoryFactory:
+async def initialize_memory_system() -> MemoryFactory:
     """Initialize the memory system and register the factory."""
     settings = get_settings()
     if not settings.memory_enabled:
@@ -93,8 +103,9 @@ def initialize_memory_system() -> MemoryFactory:
         factory = MemoryFactory()
         # Verify store can be created
         store = factory.create_memory_store()
-        stats = store.get_stats() if hasattr(store, 'get_stats') else {}
-        logger.info("memory_system_initialized", stats=stats)
+        if hasattr(store, 'get_stats'):
+            stats = await store.get_stats()
+            logger.info("memory_system_initialized", stats=stats)
 
     set_memory_factory(factory)
     return factory
@@ -105,7 +116,7 @@ def get_memory_factory_instance() -> MemoryFactory | DefaultMemoryFactory:
     return get_memory_factory()
 
 
-def shutdown_memory_system() -> None:
+async def shutdown_memory_system() -> None:
     """Shutdown the memory system."""
     factory = get_memory_factory()
     if hasattr(factory, 'close'):

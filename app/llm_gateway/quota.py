@@ -243,6 +243,12 @@ async def close_quota_tracker() -> None:
     _quota_tracker = None
 
 
+def reset_quota_tracker() -> None:
+    """Reset the global quota tracker for test isolation."""
+    global _quota_tracker
+    _quota_tracker = None
+
+
 def update_quota_from_response(provider_name: str, response: CompletionResponse) -> None:
     """Update quota tracker from a completion response.
 

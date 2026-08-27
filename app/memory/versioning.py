@@ -187,7 +187,8 @@ class GraphVersionManager:
         retention_days: int | None = None,
     ):
         settings = get_settings()
-        self.db_path = db_path or (settings.data_dir / "memory" / "graph_deltas.db")
+        # Use the same database as MemoryStore so all tables live in one file.
+        self.db_path = db_path or settings.memory_db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.confidence_threshold = confidence_threshold or settings.memory_confidence_threshold
         self.retention_days = retention_days or settings.graph_delta_retention_days

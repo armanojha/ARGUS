@@ -52,8 +52,8 @@ def mock_providers():
 def router(mock_providers, monkeypatch):
     """Create a MultiModelRouter with mock providers."""
     # Reset quota tracker for test isolation
-    import app.llm_gateway.quota as quota_module
-    quota_module._quota_tracker = None
+    from app.llm_gateway.quota import reset_quota_tracker
+    reset_quota_tracker()
 
     settings = Settings(
         multimodel_enabled=True,

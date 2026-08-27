@@ -2,6 +2,10 @@
 
 Provides persistent multi-layer memory storage with full provenance.
 Uses SQLite per D-003 (consistent with Evidence Store).
+
+Also hosts the versioning schema (graph_deltas, delta_chain,
+claim_versions) so that the memory store and the graph version
+manager share a single database.
 """
 
 from __future__ import annotations
@@ -13,40 +17,20 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from app.config import get_settings
 from app.logging_config import get_logger
 from app.memory.interfaces import (
     MemoryLayer,
+    MemoryPromotionStatus,
     MemoryQuery,
     MemoryRecord,
     MemoryScope,
     MemoryStoreInterface,
 )
-from app.memory.versioning import DeltaType, GraphDelta
-from pydantic import BaseModel, ConfigDict, Field
 
 logger = get_logger("argus.memory.store")
-
-
-class GraphVersion(BaseModel):
-    """A versioned snapshot of the graph state at a point in time."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    id: UUID = Field(default_factory=uuid4)
-    version_number: int
-    description: str
-    # Deltas included in this version
-    delta_ids: list[UUID] = Field(default_factory=list)
-    # Graph statistics at this version
-    node_counts: dict[str, int] = Field(default_factory=dict)
-    edge_count: int = 0
-    # Parent version
-    parent_version_id: UUID | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    created_by_query: str | None = None
 
 
 SCHEMA_SQL = """
@@ -83,42 +67,6 @@ CREATE INDEX IF NOT EXISTS idx_memory_source_query ON memory_records(source_quer
 CREATE INDEX IF NOT EXISTS idx_memory_created_at ON memory_records(created_at);
 CREATE INDEX IF NOT EXISTS idx_memory_supersedes ON memory_records(supersedes_id);
 
--- Graph Deltas: versioned changes to the evidence graph
-CREATE TABLE IF NOT EXISTS graph_deltas (
-    id TEXT PRIMARY KEY,
-    delta_type TEXT NOT NULL,
-    target_id TEXT NOT NULL,
-    target_type TEXT NOT NULL,
-    new_data TEXT NOT NULL DEFAULT '{}',
-    old_data TEXT,
-    supporting_chunk_ids TEXT NOT NULL DEFAULT '[]',
-    source_query TEXT,
-    confidence REAL NOT NULL DEFAULT 1.0,
-    is_provisional INTEGER NOT NULL DEFAULT 1,
-    version INTEGER NOT NULL DEFAULT 1,
-    previous_delta_id TEXT,
-    created_at TEXT NOT NULL
-);
-
--- Indexes for graph deltas
-CREATE INDEX IF NOT EXISTS idx_delta_target ON graph_deltas(target_id);
-CREATE INDEX IF NOT EXISTS idx_delta_type ON graph_deltas(delta_type);
-CREATE INDEX IF NOT EXISTS idx_delta_provisional ON graph_deltas(is_provisional);
-CREATE INDEX IF NOT EXISTS idx_delta_created_at ON graph_deltas(created_at);
-
--- Graph Versions: versioned snapshots
-CREATE TABLE IF NOT EXISTS graph_versions (
-    id TEXT PRIMARY KEY,
-    version_number INTEGER NOT NULL UNIQUE,
-    description TEXT NOT NULL,
-    delta_ids TEXT NOT NULL DEFAULT '[]',
-    node_counts TEXT NOT NULL DEFAULT '{}',
-    edge_count INTEGER NOT NULL DEFAULT 0,
-    parent_version_id TEXT,
-    created_by_query TEXT,
-    created_at TEXT NOT NULL
-);
-
 -- Memory-Tags association for efficient tag queries
 CREATE TABLE IF NOT EXISTS memory_tags (
     memory_id TEXT NOT NULL,
@@ -134,6 +82,65 @@ CREATE TABLE IF NOT EXISTS memory_chunks (
     PRIMARY KEY (memory_id, chunk_id),
     FOREIGN KEY (memory_id) REFERENCES memory_records(id) ON DELETE CASCADE
 );
+
+-- =============================================================================
+-- Versioning tables (Phase 08.2) — shared with GraphVersionManager
+-- =============================================================================
+
+-- Graph deltas: versioned changes to the evidence graph
+CREATE TABLE IF NOT EXISTS graph_deltas (
+    id TEXT PRIMARY KEY,
+    delta_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'provisional',
+    target_id TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    previous_state TEXT,  -- JSON
+    new_state TEXT,       -- JSON
+    supporting_chunk_ids TEXT NOT NULL DEFAULT '[]',
+    source_query TEXT,
+    confidence REAL NOT NULL DEFAULT 0.5,
+    valid_from TEXT,
+    valid_to TEXT,
+    metadata TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    promoted_at TEXT,
+    promoted_by TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_delta_target ON graph_deltas(target_id, target_type);
+CREATE INDEX IF NOT EXISTS idx_delta_status ON graph_deltas(status);
+CREATE INDEX IF NOT EXISTS idx_delta_type ON graph_deltas(delta_type);
+CREATE INDEX IF NOT EXISTS idx_delta_created_at ON graph_deltas(created_at);
+CREATE INDEX IF NOT EXISTS idx_delta_confidence ON graph_deltas(confidence);
+
+-- Delta chain: links deltas that modify the same target
+CREATE TABLE IF NOT EXISTS delta_chain (
+    id TEXT PRIMARY KEY,
+    target_id TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    delta_id TEXT NOT NULL,
+    sequence_num INTEGER NOT NULL,
+    FOREIGN KEY (delta_id) REFERENCES graph_deltas(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chain_target ON delta_chain(target_id, target_type);
+CREATE INDEX IF NOT EXISTS idx_chain_sequence ON delta_chain(target_id, target_type, sequence_num);
+
+-- Claim version history (for easy inspection of claim evolution)
+CREATE TABLE IF NOT EXISTS claim_versions (
+    id TEXT PRIMARY KEY,
+    claim_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    delta_id TEXT NOT NULL,
+    claim_state TEXT NOT NULL,  -- Full claim JSON at this version
+    confidence REAL NOT NULL,
+    is_current BOOLEAN NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (delta_id) REFERENCES graph_deltas(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_claim_version_claim ON claim_versions(claim_id);
+CREATE INDEX IF NOT EXISTS idx_claim_version_current ON claim_versions(claim_id, is_current);
 """
 
 
@@ -148,19 +155,23 @@ def _json_loads(text: str) -> Any:
 
 
 def _serialize_tags(tags: list[str]) -> str:
-    return _json_dumps(tags)
+    return json.dumps(tags, ensure_ascii=False)
 
 
 def _deserialize_tags(text: str) -> list[str]:
-    return _json_loads(text)
+    if not text:
+        return []
+    return json.loads(text)
 
 
 def _serialize_uuids(uuids: list[str]) -> str:
-    return _json_dumps(uuids)
+    return json.dumps(uuids, ensure_ascii=False)
 
 
 def _deserialize_uuids(text: str) -> list[str]:
-    return _json_loads(text)
+    if not text:
+        return []
+    return json.loads(text)
 
 
 class MemoryStore(MemoryStoreInterface):
@@ -171,6 +182,7 @@ class MemoryStore(MemoryStoreInterface):
         self.db_path = db_path or settings.memory_db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.max_records_per_layer = max_records_per_layer or settings.memory_max_records_per_layer
+        self._conn_pool: sqlite3.Connection | None = None
         self._init_db()
 
     def _init_db(self) -> None:
@@ -180,12 +192,32 @@ class MemoryStore(MemoryStoreInterface):
 
     @contextmanager
     def _conn(self) -> Iterator[sqlite3.Connection]:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        """Get a database connection (pooled across calls).
+
+        On success the caller is expected to commit explicitly.
+        On exception the connection is rolled back so the pool
+        stays in a clean state.
+        """
+        if self._conn_pool is None:
+            self._conn_pool = sqlite3.connect(self.db_path)
+            self._conn_pool.row_factory = sqlite3.Row
         try:
-            yield conn
-        finally:
-            conn.close()
+            yield self._conn_pool
+        except Exception:
+            try:
+                self._conn_pool.rollback()
+            except sqlite3.Error:
+                logger.debug("rollback_failed", exc_info=True)
+            raise
+
+    def close(self) -> None:
+        """Close the connection pool."""
+        if self._conn_pool is not None:
+            try:
+                self._conn_pool.close()
+            except sqlite3.Error:
+                logger.debug("pool_close_failed", exc_info=True)
+            self._conn_pool = None
 
     # -- MemoryRecord operations -------------------------------------------------
 
@@ -219,7 +251,7 @@ class MemoryStore(MemoryStoreInterface):
                     _json_dumps(record.metadata),
                     record.created_at.isoformat(),
                     record.updated_at.isoformat(),
-                    record.promotion_status,
+                    record.promotion_status.value,
                     record.version,
                     str(record.supersedes_id) if record.supersedes_id else None,
                     str(record.superseded_by_id) if record.superseded_by_id else None,
@@ -243,38 +275,46 @@ class MemoryStore(MemoryStoreInterface):
                     "UPDATE memory_records SET superseded_by_id = ? WHERE id = ?",
                     (str(record.id), str(record.supersedes_id)),
                 )
+            # Enforce layer limits within the same transaction
+            self._enforce_layer_limit_sync(conn, record.layer)
             conn.commit()
-        # Enforce layer limits
-        await self._enforce_layer_limit(record.layer)
         logger.debug("memory_stored", memory_id=str(record.id), layer=record.layer.value)
 
-    async def _enforce_layer_limit(self, layer: MemoryLayer) -> None:
-        """Enforce max records per layer by removing oldest lowest-confidence records."""
-        with self._conn() as conn:
-            count_row = conn.execute(
-                "SELECT COUNT(*) as count FROM memory_records WHERE layer = ?",
-                (layer.value,),
-            ).fetchone()
-            count = count_row["count"] if count_row else 0
+    def _enforce_layer_limit_sync(self, conn: sqlite3.Connection, layer: MemoryLayer) -> None:
+        """Enforce max records per layer (synchronous, within existing transaction).
 
-            if count > self.max_records_per_layer:
-                # Delete oldest lowest-confidence records to make room
-                excess = count - self.max_records_per_layer
-                conn.execute(
-                    """
-                    DELETE FROM memory_records
+        Deletes the oldest lowest-confidence records that exceed the layer
+        limit.  Must be called inside an open connection context so the
+        DELETE is part of the same transaction as the INSERT.
+        """
+        count_row = conn.execute(
+            "SELECT COUNT(*) as count FROM memory_records WHERE layer = ?",
+            (layer.value,),
+        ).fetchone()
+        count = count_row["count"] if count_row else 0
+
+        if count > self.max_records_per_layer:
+            excess = count - self.max_records_per_layer
+            conn.execute(
+                """
+                DELETE FROM memory_records
+                WHERE layer = ?
+                AND id IN (
+                    SELECT id FROM memory_records
                     WHERE layer = ?
-                    AND id IN (
-                        SELECT id FROM memory_records
-                        WHERE layer = ?
-                        ORDER BY confidence ASC, created_at ASC
-                        LIMIT ?
-                    )
-                    """,
-                    (layer.value, layer.value, excess),
+                    ORDER BY confidence ASC, created_at ASC
+                    LIMIT ?
                 )
-                conn.commit()
-                logger.info("memory_layer_pruned", layer=layer.value, removed=excess)
+                """,
+                (layer.value, layer.value, excess),
+            )
+            logger.info("memory_layer_pruned", layer=layer.value, removed=excess)
+
+    async def _enforce_layer_limit(self, layer: MemoryLayer) -> None:
+        """Enforce max records per layer (async wrapper for backward compat)."""
+        with self._conn() as conn:
+            self._enforce_layer_limit_sync(conn, layer)
+            conn.commit()
 
     async def retrieve(self, query: MemoryQuery) -> list[MemoryRecord]:
         """Retrieve relevant memories for a query."""
@@ -373,7 +413,7 @@ class MemoryStore(MemoryStoreInterface):
                     _serialize_tags(record.tags),
                     _json_dumps(record.metadata),
                     record.updated_at.isoformat(),
-                    record.promotion_status,
+                    record.promotion_status.value,
                     record.version,
                     str(record.supersedes_id) if record.supersedes_id else None,
                     str(record.superseded_by_id) if record.superseded_by_id else None,
@@ -407,118 +447,25 @@ class MemoryStore(MemoryStoreInterface):
             logger.debug("memory_deleted", memory_id=record_id)
         return deleted
 
-    # -- Graph Delta operations --------------------------------------------------
+    async def promote_memory(self, record_id: str, new_confidence: float, reason: str = "") -> bool:
+        """Promote a memory record to higher confidence."""
+        record = await self.get_by_id(record_id)
+        if not record:
+            return False
 
-    async def store_delta(self, delta: GraphDelta) -> None:
-        """Store a graph delta."""
-        with self._conn() as conn:
-            conn.execute(
-                """
-                INSERT INTO graph_deltas (
-                    id, delta_type, target_id, target_type, new_data, old_data,
-                    supporting_chunk_ids, source_query, confidence,
-                    is_provisional, version, previous_delta_id, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    str(delta.id),
-                    delta.delta_type.value,
-                    str(delta.target_id),
-                    delta.target_type,
-                    _json_dumps(delta.new_data),
-                    _json_dumps(delta.old_data) if delta.old_data else None,
-                    _serialize_uuids(delta.supporting_chunk_ids),
-                    delta.source_query,
-                    delta.confidence,
-                    1 if delta.is_provisional else 0,
-                    delta.version,
-                    str(delta.previous_delta_id) if delta.previous_delta_id else None,
-                    delta.created_at.isoformat(),
-                ),
-            )
-            conn.commit()
-        logger.debug("graph_delta_stored", delta_id=str(delta.id), type=delta.delta_type.value)
+        if new_confidence <= record.confidence:
+            return False
 
-    async def get_deltas_for_target(self, target_id: UUID, target_type: str) -> list[GraphDelta]:
-        """Get all deltas for a specific target, ordered by version."""
-        with self._conn() as conn:
-            rows = conn.execute(
-                """
-                SELECT * FROM graph_deltas
-                WHERE target_id = ? AND target_type = ?
-                ORDER BY version ASC
-                """,
-                (str(target_id), target_type),
-            ).fetchall()
-        return [self._row_to_delta(row) for row in rows]
-
-    async def get_provisional_deltas(self, target_type: str | None = None) -> list[GraphDelta]:
-        """Get all provisional (low-confidence) deltas, optionally filtered by type."""
-        with self._conn() as conn:
-            if target_type:
-                rows = conn.execute(
-                    "SELECT * FROM graph_deltas WHERE is_provisional = 1 AND target_type = ? ORDER BY created_at DESC",
-                    (target_type,),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM graph_deltas WHERE is_provisional = 1 ORDER BY created_at DESC"
-                ).fetchall()
-        return [self._row_to_delta(row) for row in rows]
-
-    async def promote_delta(self, delta_id: UUID) -> bool:
-        """Mark a delta as promoted (no longer provisional)."""
-        with self._conn() as conn:
-            cursor = conn.execute(
-                "UPDATE graph_deltas SET is_provisional = 0 WHERE id = ?",
-                (str(delta_id),),
-            )
-            conn.commit()
-            return cursor.rowcount > 0
-
-    # -- Graph Version operations ------------------------------------------------
-
-    async def store_version(self, version: GraphVersion) -> None:
-        """Store a graph version snapshot."""
-        with self._conn() as conn:
-            conn.execute(
-                """
-                INSERT INTO graph_versions (
-                    id, version_number, description, delta_ids, node_counts,
-                    edge_count, parent_version_id, created_by_query, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    str(version.id),
-                    version.version_number,
-                    version.description,
-                    _serialize_uuids([str(d) for d in version.delta_ids]),
-                    _json_dumps(version.node_counts),
-                    version.edge_count,
-                    str(version.parent_version_id) if version.parent_version_id else None,
-                    version.created_by_query,
-                    version.created_at.isoformat(),
-                ),
-            )
-            conn.commit()
-        logger.debug("graph_version_stored", version_id=str(version.id), number=version.version_number)
-
-    async def get_latest_version(self) -> GraphVersion | None:
-        """Get the latest graph version."""
-        with self._conn() as conn:
-            row = conn.execute(
-                "SELECT * FROM graph_versions ORDER BY version_number DESC LIMIT 1"
-            ).fetchone()
-        return self._row_to_version(row) if row else None
-
-    async def get_version(self, version_number: int) -> GraphVersion | None:
-        """Get a specific graph version by number."""
-        with self._conn() as conn:
-            row = conn.execute(
-                "SELECT * FROM graph_versions WHERE version_number = ?",
-                (version_number,),
-            ).fetchone()
-        return self._row_to_version(row) if row else None
+        dump = record.model_dump(exclude={"confidence", "promotion_status", "updated_at"})
+        updated_record = MemoryRecord(
+            **dump,
+            confidence=new_confidence,
+            promotion_status="promoted",
+            updated_at=datetime.now(UTC),
+        )
+        await self.update(updated_record)
+        logger.info("memory_promoted", record_id=record_id, new_confidence=new_confidence, reason=reason)
+        return True
 
     # -- Stats ------------------------------------------------------------------
 
@@ -563,26 +510,6 @@ class MemoryStore(MemoryStoreInterface):
             "db_size_bytes": db_size,
         }
 
-    async def promote_memory(self, record_id: str, new_confidence: float, reason: str = "") -> bool:
-        """Promote a memory record to higher confidence."""
-        record = await self.get_by_id(record_id)
-        if not record:
-            return False
-
-        if new_confidence <= record.confidence:
-            return False
-
-        dump = record.model_dump(exclude={"confidence", "promotion_status", "updated_at"})
-        updated_record = MemoryRecord(
-            **dump,
-            confidence=new_confidence,
-            promotion_status="promoted",
-            updated_at=datetime.now(UTC),
-        )
-        await self.update(updated_record)
-        logger.info("memory_promoted", record_id=record_id, new_confidence=new_confidence, reason=reason)
-        return True
-
     # -- Helpers -----------------------------------------------------------------
 
     def _row_to_record(self, row: sqlite3.Row) -> MemoryRecord:
@@ -603,40 +530,10 @@ class MemoryStore(MemoryStoreInterface):
             metadata=_json_loads(row["metadata"]),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
-            promotion_status=row["promotion_status"],
+            promotion_status=MemoryPromotionStatus(row["promotion_status"]),
             version=row["version"],
             supersedes_id=UUID(row["supersedes_id"]) if row["supersedes_id"] else None,
             superseded_by_id=UUID(row["superseded_by_id"]) if row["superseded_by_id"] else None,
-        )
-
-    def _row_to_delta(self, row: sqlite3.Row) -> GraphDelta:
-        return GraphDelta(
-            id=UUID(row["id"]),
-            delta_type=DeltaType(row["delta_type"]),
-            target_id=UUID(row["target_id"]),
-            target_type=row["target_type"],
-            new_data=_json_loads(row["new_data"]),
-            old_data=_json_loads(row["old_data"]) if row["old_data"] else None,
-            supporting_chunk_ids=_deserialize_uuids(row["supporting_chunk_ids"]),
-            source_query=row["source_query"],
-            confidence=row["confidence"],
-            is_provisional=bool(row["is_provisional"]),
-            version=row["version"],
-            previous_delta_id=UUID(row["previous_delta_id"]) if row["previous_delta_id"] else None,
-            created_at=datetime.fromisoformat(row["created_at"]),
-        )
-
-    def _row_to_version(self, row: sqlite3.Row) -> GraphVersion:
-        return GraphVersion(
-            id=UUID(row["id"]),
-            version_number=row["version_number"],
-            description=row["description"],
-            delta_ids=[UUID(d) for d in _deserialize_uuids(row["delta_ids"])],
-            node_counts=_json_loads(row["node_counts"]),
-            edge_count=row["edge_count"],
-            parent_version_id=UUID(row["parent_version_id"]) if row["parent_version_id"] else None,
-            created_by_query=row["created_by_query"],
-            created_at=datetime.fromisoformat(row["created_at"]),
         )
 
 
@@ -655,4 +552,6 @@ def get_memory_store() -> MemoryStore:
 def close_memory_store() -> None:
     """Close the singleton memory store (for testing)."""
     global _store
+    if _store is not None:
+        _store.close()
     _store = None

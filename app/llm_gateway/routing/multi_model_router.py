@@ -90,6 +90,14 @@ class MultiModelRouter:
         self._providers: dict[str, LLMProvider] = providers or {}
         self._provider_cache: dict[str, LLMProvider] = {}
         self._initialized = False
+        # Cache cross-model verification settings to avoid re-reading YAML
+        from app.config import load_yaml_config
+        policy_path = self._settings.config_dir / "model_policy.yaml"
+        policy_data = load_yaml_config(policy_path)
+        cross_verification = policy_data.get("cross_model_verification", {})
+        self._verifier_must_differ = cross_verification.get("verifier_must_differ_from_synthesizer", True)
+        self._allow_same_provider_diff_model = cross_verification.get("allow_same_provider_different_model", True)
+        self._preferred_verifiers = cross_verification.get("preferred_verifier_providers", ["gemini", "groq", "cerebras"])
 
     async def _ensure_initialized(self) -> None:
         """Lazy-initialize all configured providers."""
@@ -151,7 +159,24 @@ class MultiModelRouter:
     def _resolve_model_chain(self, call_type: str) -> list[ModelSpec]:
         """Resolve the full model chain (primary + fallbacks) for a call type."""
         model_chain = self._policy.get_model_chain(call_type)
-        return [ModelSpec.parse(spec) for spec in model_chain if spec]
+        results = []
+        for spec in model_chain:
+            if not spec:
+                logger.warning(
+                    "model_policy_empty_spec",
+                    call_type=call_type,
+                )
+                continue
+            try:
+                results.append(ModelSpec.parse(spec))
+            except ValueError as exc:
+                logger.warning(
+                    "model_policy_invalid_spec",
+                    call_type=call_type,
+                    spec=spec,
+                    error=str(exc),
+                )
+        return results
 
     def _get_provider_fallbacks(self) -> list[str]:
         """Get provider-level fallback chain."""
@@ -359,7 +384,9 @@ class MultiModelRouter:
 
         # Try the selected model, then fall through fallbacks
         attempt = 0
-        while True:
+        max_routing_attempts = len(self._policy.get_model_chain(call_type)) + len(self._policy.provider_fallbacks) + 1
+        max_routing_attempts = max(max_routing_attempts, 3)  # At least 3 attempts
+        while attempt < max_routing_attempts:
             attempt += 1
             try:
                 return await self._execute_with_telemetry(
@@ -428,6 +455,7 @@ class MultiModelRouter:
         start_time = time.time()
         error_code = None
         success = False
+        response = None
 
         try:
             response = await provider.complete(
@@ -460,8 +488,12 @@ class MultiModelRouter:
             raise
         finally:
             latency_ms = int((time.time() - start_time) * 1000)
-            prompt_tokens = response.usage.prompt_tokens if success and response.usage else None
-            completion_tokens = response.usage.completion_tokens if success and response.usage else None
+            if success and response and response.usage:
+                prompt_tokens = response.usage.prompt_tokens
+                completion_tokens = response.usage.completion_tokens
+            else:
+                prompt_tokens = None
+                completion_tokens = None
 
             record_routing_decision(
                 call_type=call_type,
@@ -498,12 +530,10 @@ class MultiModelRouter:
         """
         await self._ensure_initialized()
 
-        # Get cross-model verification settings
-        policy_data = self._load_model_policy_raw()
-        cross_verification = policy_data.get("cross_model_verification", {})
-        verifier_must_differ = cross_verification.get("verifier_must_differ_from_synthesizer", True)
-        allow_same_provider_diff_model = cross_verification.get("allow_same_provider_different_model", True)
-        preferred_verifiers = cross_verification.get("preferred_verifier_providers", ["gemini", "groq", "cerebras"])
+        # Use cached cross-model verification settings
+        verifier_must_differ = self._verifier_must_differ
+        allow_same_provider_diff_model = self._allow_same_provider_diff_model
+        preferred_verifiers = self._preferred_verifiers
 
         # Determine excluded provider
         exclude_provider = synthesizer_provider if verifier_must_differ else None
@@ -614,11 +644,6 @@ class MultiModelRouter:
                     break
 
         raise last_error or ConfigurationError("Cross-model verification failed: no available verifier")
-
-    def _load_model_policy_raw(self) -> dict[str, Any]:
-        from app.config import load_yaml_config
-        policy_path = self._settings.config_dir / "model_policy.yaml"
-        return load_yaml_config(policy_path)
 
     async def aclose(self) -> None:
         """Close all provider connections."""
