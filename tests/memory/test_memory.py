@@ -294,7 +294,8 @@ class TestGraphVersionManager:
 
         recorded = version_manager.record_delta(delta)
         assert recorded.id == delta.id
-        assert recorded.status == DeltaStatus.PROVISIONAL
+        # High confidence (0.8 > 0.7 threshold) gets auto-promoted
+        assert recorded.status == DeltaStatus.PROMOTED
 
     def test_auto_promote_high_confidence(self, version_manager):
         """Test that high-confidence deltas are auto-promoted."""

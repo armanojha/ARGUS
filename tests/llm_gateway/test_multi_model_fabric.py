@@ -196,38 +196,6 @@ class TestQuotaTracker:
 class TestMultiModelRouter:
     """Test MultiModelRouter routing logic."""
 
-    @pytest.fixture
-    def mock_providers(self):
-        """Create mock providers for testing."""
-        return {
-            "groq": MockProvider(),
-            "gemini": MockProvider(),
-            "cerebras": MockProvider(),
-        }
-
-    @pytest.fixture
-    def router(self, mock_providers, monkeypatch):
-        """Create a MultiModelRouter with mock providers."""
-        settings = Settings(
-            multimodel_enabled=True,
-            multimodel_providers_config_path="configs/model_policy.yaml",
-        )
-
-        # Mock provider creation to return our mocks
-        async def mock_create_provider_instance(self, provider_name, config):
-            return mock_providers[provider_name]
-
-        monkeypatch.setattr(
-            MultiModelRouter,
-            "_create_provider_instance",
-            mock_create_provider_instance,
-        )
-
-        router = MultiModelRouter(settings=settings)
-        router._provider_cache = mock_providers
-        router._initialized = True
-        return router
-
     @pytest.mark.asyncio
     async def test_router_selects_primary_for_call_type(self, router):
         """Router should select primary model for call type."""
