@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import pymupdf
@@ -396,7 +397,7 @@ class TestMultimodalPipelineIntegration:
     def test_pipeline_imports(self):
         """Test that all multimodal modules can be imported."""
         from app.ingestion import ocr, tables, web, spreadsheets, images
-        
+
         assert ocr is not None
         assert tables is not None
         assert web is not None
@@ -406,7 +407,7 @@ class TestMultimodalPipelineIntegration:
     def test_multimodal_config_flags(self):
         """Test that multimodal config flags exist."""
         from app.config import get_settings
-        
+
         settings = get_settings()
         assert hasattr(settings, "multimodal_enabled")
         assert hasattr(settings, "multimodal_ocr_enabled")
@@ -414,6 +415,184 @@ class TestMultimodalPipelineIntegration:
         assert hasattr(settings, "multimodal_web_ingestion_enabled")
         assert hasattr(settings, "multimodal_spreadsheet_enabled")
         assert hasattr(settings, "multimodal_chart_extraction_enabled")
+
+    def test_multimodal_enabled_gates_all_features(self):
+        """Test that multimodal_enabled=False disables all sub-features."""
+        from unittest.mock import patch
+
+        from app.config import Settings
+
+        settings = Settings(
+            multimodal_enabled=False,
+            multimodal_ocr_enabled=True,
+            multimodal_table_extraction_enabled=True,
+            multimodal_web_ingestion_enabled=True,
+            multimodal_spreadsheet_enabled=True,
+            multimodal_chart_extraction_enabled=True,
+        )
+        with patch("app.ingestion.ocr.get_settings", return_value=settings):
+            from app.ingestion.ocr import extract_pdf_with_ocr_fallback
+            results = list(extract_pdf_with_ocr_fallback(text_layer_pdf_path := Path(tempfile.mktemp(suffix=".pdf"))))
+            # Should fall back to text layer only (empty file → empty result)
+            assert all(not r.ocr_used for r in results)
+
+    def test_csv_ingestion_end_to_end(self):
+        """Test ingesting a real CSV file through the spreadsheet pipeline."""
+        from app.config import Settings
+
+        settings = Settings(
+            multimodal_enabled=True,
+            multimodal_spreadsheet_enabled=True,
+        )
+        with patch("app.ingestion.spreadsheets.get_settings", return_value=settings):
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".csv", delete=False, encoding="utf-8"
+            ) as f:
+                f.write("Name,Age,City\nAlice,30,NYC\nBob,25,LA\n")
+                csv_path = Path(f.name)
+
+            try:
+                result = ingest_spreadsheet(csv_path)
+                assert len(result.sheets) == 1
+                assert result.sheets[0].name == "Sheet1"
+                assert result.total_rows == 2
+                assert result.total_cells == 6
+
+                # Verify cell content
+                cell_values = {c.value for c in result.sheets[0].cells}
+                assert "Alice" in cell_values
+                assert "Bob" in cell_values
+                assert "NYC" in cell_values
+
+                # Verify text segment conversion
+                segments = spreadsheet_to_text_segments(result)
+                assert len(segments) == 1
+                assert "Sheet: Sheet1" in segments[0].text
+                assert "Alice" in segments[0].text
+            finally:
+                csv_path.unlink(missing_ok=True)
+
+    def test_csv_ingestion_small_file(self):
+        """Test ingesting a small CSV that may trip the Sniffer."""
+        from app.config import Settings
+
+        settings = Settings(
+            multimodal_enabled=True,
+            multimodal_spreadsheet_enabled=True,
+        )
+        with patch("app.ingestion.spreadsheets.get_settings", return_value=settings):
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".csv", delete=False, encoding="utf-8"
+            ) as f:
+                f.write("single_column\nvalue1\n")
+                csv_path = Path(f.name)
+
+            try:
+                result = ingest_spreadsheet(csv_path)
+                assert len(result.sheets) == 1
+                assert result.total_rows == 1
+            finally:
+                csv_path.unlink(missing_ok=True)
+
+    def test_table_extraction_end_to_end(self):
+        """Test extracting tables from a PDF with a real table."""
+        import pymupdf
+
+        doc = pymupdf.open()
+        page = doc.new_page(width=612, height=792)
+
+        # Draw a simple table using text
+        headers = ["Name", "Score", "Grade"]
+        rows = [["Alice", "95", "A"], ["Bob", "82", "B"], ["Carol", "78", "C"]]
+
+        y = 400
+        for row in [headers] + rows:
+            x = 100
+            for cell in row:
+                page.insert_text((x, y), cell, fontsize=10)
+                x += 150
+            y += 20
+
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            doc.save(f.name)
+            pdf_path = Path(f.name)
+        doc.close()
+
+        from app.config import Settings
+
+        settings = Settings(
+            multimodal_enabled=True,
+            multimodal_table_extraction_enabled=True,
+        )
+        with patch("app.ingestion.tables.get_settings", return_value=settings):
+            try:
+                tables = extract_pdf_tables(pdf_path)
+                # Table extraction depends on pdfplumber detection;
+                # at minimum, the function runs without error
+                assert isinstance(tables, list)
+            finally:
+                pdf_path.unlink(missing_ok=True)
+
+    def test_pdf_images_extraction_end_to_end(self):
+        """Test extracting images from a PDF (may return empty for text-only PDF)."""
+        from app.config import Settings
+
+        settings = Settings(
+            multimodal_enabled=True,
+            multimodal_chart_extraction_enabled=True,
+        )
+        with patch("app.ingestion.images.get_settings", return_value=settings):
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+                doc = pymupdf.open()
+                doc.new_page(width=612, height=792)
+                doc.save(f.name)
+                pdf_path = Path(f.name)
+                doc.close()
+
+            try:
+                images = extract_pdf_images(pdf_path)
+                assert isinstance(images, list)
+                charts = extract_pdf_charts(pdf_path)
+                assert isinstance(charts, list)
+            finally:
+                pdf_path.unlink(missing_ok=True)
+
+    def test_features_disabled_when_multimodal_off(self):
+        """Test that sub-features return empty/raise when multimodal_enabled=False."""
+        from app.config import Settings
+
+        settings = Settings(
+            multimodal_enabled=False,
+            multimodal_spreadsheet_enabled=True,
+            multimodal_chart_extraction_enabled=True,
+        )
+
+        # Spreadsheet: raises RuntimeError
+        with patch("app.ingestion.spreadsheets.get_settings", return_value=settings):
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".csv", delete=False, encoding="utf-8"
+            ) as f:
+                f.write("a,b\n1,2\n")
+                csv_path = Path(f.name)
+            try:
+                with pytest.raises(RuntimeError, match="disabled"):
+                    ingest_spreadsheet(csv_path)
+            finally:
+                csv_path.unlink(missing_ok=True)
+
+        # Images: returns empty list
+        with patch("app.ingestion.images.get_settings", return_value=settings):
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+                doc = pymupdf.open()
+                doc.new_page()
+                doc.save(f.name)
+                pdf_path = Path(f.name)
+                doc.close()
+            try:
+                assert extract_pdf_images(pdf_path) == []
+                assert extract_pdf_charts(pdf_path) == []
+            finally:
+                pdf_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

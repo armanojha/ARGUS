@@ -128,7 +128,7 @@ def extract_pdf_with_ocr_fallback(
     """
     settings = get_settings()
     
-    if not settings.multimodal_ocr_enabled:
+    if not settings.multimodal_enabled or not settings.multimodal_ocr_enabled:
         logger.info("ocr_disabled_via_config")
         # Fall back to text layer only
         texts = extract_pdf_text_layer(pdf_path)

@@ -41,12 +41,17 @@ def _read_csv_file(file_path: Path) -> list[list[Any]]:
     """Read CSV file and return as list of rows."""
     rows = []
     with open(file_path, "r", encoding="utf-8", newline="") as f:
-        # Try to detect delimiter
         sample = f.read(1024)
         f.seek(0)
-        sniffer = csv.Sniffer()
-        delimiter = sniffer.sniff(sample).delimiter
-        
+
+        delimiter = ","
+        if sample.strip():
+            try:
+                sniffer = csv.Sniffer()
+                delimiter = sniffer.sniff(sample).delimiter
+            except csv.Error:
+                pass
+
         reader = csv.reader(f, delimiter=delimiter)
         for row in reader:
             rows.append(row)
@@ -121,7 +126,7 @@ def ingest_spreadsheet(file_path: Path) -> SpreadsheetResult:
     """
     settings = get_settings()
     
-    if not settings.multimodal_spreadsheet_enabled:
+    if not settings.multimodal_enabled or not settings.multimodal_spreadsheet_enabled:
         raise RuntimeError("Spreadsheet ingestion disabled via configuration")
     
     file_path = Path(file_path)

@@ -40,9 +40,6 @@ def _extract_table_cells(pdf_table: list[list[str]], page_num: int, table_idx: i
     if not pdf_table:
         return cells
     
-    # First row as headers if it looks like a header row
-    _ = pdf_table[0] if pdf_table else []
-    
     for row_idx, row in enumerate(pdf_table):
         for col_idx, cell_value in enumerate(row):
             cell = TableCell(
@@ -84,7 +81,7 @@ def extract_pdf_tables(pdf_path: Path) -> list[ExtractedTable]:
     """
     settings = get_settings()
     
-    if not settings.multimodal_table_extraction_enabled:
+    if not settings.multimodal_enabled or not settings.multimodal_table_extraction_enabled:
         logger.info("table_extraction_disabled_via_config")
         return []
     

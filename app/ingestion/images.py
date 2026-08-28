@@ -139,17 +139,27 @@ def _extract_images_from_pdf(pdf_path: Path) -> list[ExtractedImage]:
 
 def _extract_charts_from_pdf(pdf_path: Path) -> list[ExtractedChart]:
     """Extract charts from PDF.
-    
-    This is a placeholder implementation. A full implementation would:
-    1. Use image extraction to get chart images
-    2. Use a vision model (via LLM gateway) to detect chart type and extract data
-    3. Store model description and extracted data points
-    
-    For now, we extract images that look like charts based on size/position.
+
+    .. note::
+
+       This is a **placeholder** implementation deferred to a later stage.
+       A full implementation would:
+
+       1. Use image extraction to get chart images.
+       2. Use a vision model (via the LLM Gateway) to classify chart type
+          and extract data points.
+       3. Store the model-generated description and extracted values.
+
+       The current skeleton uses size/position heuristics to identify images
+       that may be charts.  ``chart_type`` is always ``ChartType.OTHER``,
+       ``data_points`` is always empty, and ``model_description`` is always
+       ``None``.  This is intentional — vision-model integration is out of
+       scope for the initial Phase 11 deliverable.
     """
     charts = []
-    
-    if not get_settings().multimodal_chart_extraction_enabled:
+
+    settings = get_settings()
+    if not settings.multimodal_enabled or not settings.multimodal_chart_extraction_enabled:
         return charts
     
     # Extract all images first
@@ -187,22 +197,22 @@ def _extract_charts_from_pdf(pdf_path: Path) -> list[ExtractedChart]:
 def extract_pdf_images(pdf_path: Path) -> list[ExtractedImage]:
     """Extract all images from a PDF document."""
     settings = get_settings()
-    
-    if not settings.multimodal_chart_extraction_enabled:
+
+    if not settings.multimodal_enabled or not settings.multimodal_chart_extraction_enabled:
         logger.info("image_extraction_disabled_via_config")
         return []
-    
+
     return _extract_images_from_pdf(pdf_path)
 
 
 def extract_pdf_charts(pdf_path: Path) -> list[ExtractedChart]:
     """Extract charts from a PDF document."""
     settings = get_settings()
-    
-    if not settings.multimodal_chart_extraction_enabled:
+
+    if not settings.multimodal_enabled or not settings.multimodal_chart_extraction_enabled:
         logger.info("chart_extraction_disabled_via_config")
         return []
-    
+
     return _extract_charts_from_pdf(pdf_path)
 
 

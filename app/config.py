@@ -337,23 +337,23 @@ class Settings(BaseSettings):
     # --- Multimodal Intelligence (Phase 11) ---
     multimodal_enabled: bool = Field(
         default=False,
-        description="Whether multimodal ingestion is enabled.",
+        description="Master switch for multimodal ingestion. When False, all sub-features are disabled regardless of their individual flags.",
     )
     multimodal_ocr_enabled: bool = Field(
         default=True,
-        description="Whether OCR fallback is enabled.",
+        description="Whether OCR fallback is enabled (requires multimodal_enabled=True).",
     )
     multimodal_table_extraction_enabled: bool = Field(
         default=True,
-        description="Whether table extraction is enabled.",
+        description="Whether table extraction is enabled (requires multimodal_enabled=True).",
     )
     multimodal_web_ingestion_enabled: bool = Field(
         default=True,
-        description="Whether web page ingestion is enabled.",
+        description="Whether web page ingestion is enabled (requires multimodal_enabled=True).",
     )
     multimodal_spreadsheet_enabled: bool = Field(
         default=True,
-        description="Whether spreadsheet ingestion is enabled.",
+        description="Whether spreadsheet ingestion is enabled (requires multimodal_enabled=True).",
     )
     multimodal_chart_extraction_enabled: bool = Field(
         default=False,

@@ -167,12 +167,20 @@ def _extract_main_content(soup: BeautifulSoup) -> str:
 
 def fetch_web_page(url: str, timeout: int = 30) -> WebPageResult:
     """Fetch and parse a web page with full metadata extraction.
-    
+
+    .. note::
+
+       This function uses synchronous ``requests.get``.  The rest of the
+       codebase is async (httpx in the LLM Gateway).  This is acceptable
+       for now because web ingestion is invoked from the sync ingestion
+       pipeline.  A future migration to httpx should be considered when
+       async pipeline support is added.
+
     Returns WebPageResult with canonical URL, content, and metadata.
     """
     settings = get_settings()
     
-    if not settings.multimodal_web_ingestion_enabled:
+    if not settings.multimodal_enabled or not settings.multimodal_web_ingestion_enabled:
         raise RuntimeError("Web ingestion disabled via configuration")
     
     # Normalize URL
