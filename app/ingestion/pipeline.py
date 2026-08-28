@@ -586,45 +586,7 @@ class IngestionPipeline:
                     ),
                 )
 
-        logger.info(
-            "text_file_ingested",
-            document_id=str(document.id),
-            chunk_count=len(chunks),
-        )
-        return document
-                    document.checksum,
-                    document.chunking_strategy,
-                    _json_dumps(document.metadata),
-                    document.created_at.isoformat(),
-                ),
-            )
-            for chunk in chunks:
-                conn.execute(
-                    """
-                    INSERT INTO chunks (id, document_id, ordinal, text, token_count,
-                        page_start, page_end, char_start, char_end, section_path,
-                        embedding_index, bm25_doc_id, metadata, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        str(chunk.id),
-                        str(chunk.document_id),
-                        chunk.ordinal,
-                        chunk.text,
-                        chunk.token_count,
-                        chunk.page_start,
-                        chunk.page_end,
-                        chunk.char_start,
-                        chunk.char_end,
-                        chunk.section_path,
-                        chunk.embedding_index,
-                        chunk.bm25_doc_id,
-                        _json_dumps(chunk.metadata),
-                        chunk.created_at.isoformat(),
-                    ),
-                )
-
-        logger.info(
+logger.info(
             "text_file_ingested",
             document_id=str(document.id),
             chunk_count=len(chunks),

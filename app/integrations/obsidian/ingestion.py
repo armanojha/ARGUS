@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from app.config import get_settings
@@ -38,8 +39,8 @@ class ObsidianIngestionPipeline:
         vault_root: Path,
         store: EvidenceStore | None = None,
         manifest_path: Path | None = None,
-        classifier: object | None = None,
-        aligner: object | None = None,
+        classifier: Any = None,
+        aligner: Any = None,
         enable_hypothesis_objectives: bool = False,
     ):
         self.vault_root = Path(vault_root).resolve()
@@ -50,7 +51,7 @@ class ObsidianIngestionPipeline:
         self._enable_hypothesis_objectives = enable_hypothesis_objectives
 
         # Phase 09.1 extension points (backward compatible: absent by default).
-        self.classifier: object | None = classifier
+        self.classifier: Any = classifier
         if self.classifier is None and (
             self.settings.obsidian_full_enabled and self.settings.obsidian_classification_enabled
         ):

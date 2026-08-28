@@ -190,8 +190,8 @@ class VaultGraphAligner:
             "aligned": len(results),
             "failed": failed,
             "entities": len({r.entity_id for r in results}),
-            "claims": sum(1 for r in results if r.claim_id),
-            "edges": sum(r.edges_added for r in results),
+            "claims": sum(bool(r.claim_id) for r in results),
+            "edges": sum(int(r.edges_added) for r in results),
             "results": results,
         }
 

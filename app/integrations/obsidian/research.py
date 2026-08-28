@@ -113,9 +113,9 @@ class HypothesisResearchRunner:
         outcome.citations = list(result.citations or [])
 
         scores = [
-            getattr(c, "score", None)
+            float(c.score)
             for c in outcome.citations
-            if isinstance(getattr(c, "score", None), (int, float))
+            if isinstance(c.score, (int, float))
         ]
         if scores:
             outcome.confidence = round(sum(scores) / len(scores), 4)
