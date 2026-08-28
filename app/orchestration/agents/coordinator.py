@@ -138,6 +138,19 @@ class AgentCoordinator(AgentCoordinatorInterface):
         agent_messages: list[dict[str, Any]] = []
         round_num = 0
 
+        # Convert agent_messages to list of AgentMessage for process() calls
+        def _get_agent_messages() -> list[AgentMessage]:
+            return [
+                AgentMessage(
+                    from_agent=AgentRole(msg["from_agent"]),
+                    content=msg["content"],
+                    to_agent=AgentRole(msg["to_agent"]) if msg["to_agent"] else None,
+                    payload=msg["payload"],
+                    timestamp=msg["timestamp"],
+                )
+                for msg in agent_messages
+            ]
+
         # Store initial debate state
         state_dict = dict(state)
         state_dict["agent_messages"] = agent_messages
@@ -167,7 +180,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
                     continue
 
                 try:
-                    agent_output = await agent.process(state_dict, round_messages + agent_messages)  # type: ignore[arg-type]
+                    agent_output = await agent.process(state_dict, round_messages + _get_agent_messages())  # type: ignore[arg-type]
                     round_messages.extend(agent_output)
 
                     # Log agent output
@@ -223,7 +236,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
                                     new_evidence.extend(results)
                             if new_evidence:
                                 # Merge new evidence, deduplicating by chunk_id
-                                existing_by_id = {e.chunk_id: e for e in state_dict["evidence"]}
+                                existing_by_id = {e.chunk_id: e for e in state_dict["evidence"]}  # type: ignore[attr-defined]
                                 for e in new_evidence:
                                     existing_by_id[e.chunk_id] = e
                                 state_dict["evidence"] = list(existing_by_id.values())  # type: ignore[assignment]

@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from pypdf import PdfWriter
+import pymupdf
 
 from app.ingestion.ocr import (
     extract_pdf_text_layer,
@@ -23,54 +23,43 @@ from app.ingestion.images import extract_pdf_images, extract_pdf_charts, images_
 
 
 def _create_text_pdf() -> bytes:
-    """Create a valid PDF with text content using pypdf."""
-    writer = PdfWriter()
-    # Add a blank page
-    page = writer.add_blank_page(width=612, height=792)
-    # Add text content using annotations
-    writer.add_annotation(page_number=0, annotation={
-        "/Subtype": "/FreeText",
-        "/Contents": "This is a test PDF with text layer.",
-        "/Rect": [100, 750, 500, 770],
-    })
-    writer.add_annotation(page_number=0, annotation={
-        "/Subtype": "/FreeText",
-        "/Contents": "It contains multiple lines of text.",
-        "/Rect": [100, 730, 500, 750],
-    })
+    """Create a valid PDF with text content using PyMuPDF."""
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_text((100, 750), "This is a test PDF with text layer.", fontsize=12)
+    page.insert_text((100, 730), "It contains multiple lines of text.", fontsize=12)
     
     buffer = io.BytesIO()
-    writer.write(buffer)
+    doc.save(buffer)
     return buffer.getvalue()
 
 
 def _create_scanned_pdf() -> bytes:
     """Create a PDF without extractable text (simulated scanned PDF)."""
-    writer = PdfWriter()
-    # Add a blank page with no text content
-    writer.add_blank_page(width=612, height=792)
+    doc = pymupdf.open()
+    doc.new_page(width=612, height=792)
     
     buffer = io.BytesIO()
-    writer.write(buffer)
+    doc.save(buffer)
     return buffer.getvalue()
 
 
 @pytest.fixture
 def text_layer_pdf_path():
     """Create a temp PDF file with text layer."""
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
-        f.write(_create_text_pdf())
-        yield Path(f.name)
-    Path(f.name).unlink(missing_ok=True)
+    temp_path = Path(tempfile.mktemp(suffix=".pdf"))
+    temp_path.write_bytes(_create_text_pdf())
+    yield temp_path
+    temp_path.unlink(missing_ok=True)
 
 
 @pytest.fixture
 def scanned_pdf_path():
     """Create a temp PDF file without text layer (simulated scanned)."""
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
-        f.write(_create_scanned_pdf())
-        yield Path(f.name)
-    Path(f.name).unlink(missing_ok=True)
+    temp_path = Path(tempfile.mktemp(suffix=".pdf"))
+    temp_path.write_bytes(_create_scanned_pdf())
+    yield temp_path
+    temp_path.unlink(missing_ok=True)
 
 
 class TestOCRFallback:
@@ -78,9 +67,11 @@ class TestOCRFallback:
 
     def test_extract_pdf_text_layer(self, text_layer_pdf_path, scanned_pdf_path):
         """Test extracting text layer from PDF."""
-        # PDF with text layer should return text (may be empty if FreeText not extracted)
+        # PDF with text layer should return text
         texts = extract_pdf_text_layer(text_layer_pdf_path)
         assert len(texts) == 1
+        assert "test PDF with text layer" in texts[0]
+        assert "multiple lines of text" in texts[0]
         
         # Scanned PDF (no text layer) should return minimal/empty text
         scanned_texts = extract_pdf_text_layer(scanned_pdf_path)
@@ -90,11 +81,8 @@ class TestOCRFallback:
 
     def test_has_usable_text_layer(self, text_layer_pdf_path, scanned_pdf_path):
         """Test detecting usable text layer."""
-        # PDF with text layer - check if detectable
-        # Note: FreeText annotations may not be extracted as regular text
-        # This tests the logic doesn't crash
-        result = has_usable_text_layer(text_layer_pdf_path, min_chars_per_page=10)
-        assert isinstance(result, bool)
+        # PDF with text layer should be detected as usable
+        assert has_usable_text_layer(text_layer_pdf_path, min_chars_per_page=10) is True
         
         # Scanned PDF should not be detected as usable
         assert has_usable_text_layer(scanned_pdf_path, min_chars_per_page=10) is False
@@ -107,12 +95,14 @@ class TestOCRFallback:
         results = list(extract_pdf_with_ocr_fallback(text_layer_pdf_path, min_chars_per_page=10))
         assert len(results) == 1
         assert results[0].ocr_used is False
+        assert "test PDF with text layer" in results[0].text
         
         # Scanned PDF: should attempt OCR (will fail without tesseract, but fallback logic tested)
         results = list(extract_pdf_with_ocr_fallback(scanned_pdf_path, min_chars_per_page=10))
         assert len(results) == 1
         # Without tesseract, it falls back to text layer (empty)
         assert results[0].ocr_used is False
+        assert results[0].text.strip() == ""
 
     def test_ocr_result_structure(self):
         """Test OCRResult structure."""
@@ -130,7 +120,8 @@ class TestOCRFallback:
     def test_extract_pdf_segments_with_ocr(self, text_layer_pdf_path):
         """Test extracting segments with OCR fallback."""
         segments = extract_pdf_segments_with_ocr(text_layer_pdf_path)
-        assert len(segments) >= 0  # May be 0 if no extractable text
+        assert len(segments) >= 1
+        assert "test PDF with text layer" in segments[0].text
 
 
 class TestTableExtraction:
