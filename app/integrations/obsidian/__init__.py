@@ -1,6 +1,10 @@
 """Obsidian Integration exports (Phase 05 + Phase 09 full integration)."""
 
-from app.integrations.obsidian.alignment import GraphAlignmentResult, VaultGraphAligner, VaultMemoryCoordinator
+from app.integrations.obsidian.alignment import (
+    GraphAlignmentResult,
+    VaultGraphAligner,
+    VaultMemoryCoordinator,
+)
 from app.integrations.obsidian.classifier import (
     RuleBasedHypothesisConverter,
     RuleBasedObsidianClassifier,
@@ -40,27 +44,14 @@ from app.integrations.obsidian.sync import SyncManager
 from app.integrations.obsidian.writer import ObsidianWriter
 
 __all__ = [
-    # Taxonomy
     "CLASSIFICATION_RULES",
     "ClassificationResult",
     "ClassificationRule",
-    "KnowledgeClass",
-    "NoteTreatmentRule",
-    # Phase 09.1 classification
-    "RuleBasedHypothesisConverter",
-    "RuleBasedObsidianClassifier",
-    "extract_hypothesis_text",
-    # Phase 09.2 research
+    "GraphAlignmentResult",
     "HypothesisResearchOutcome",
     "HypothesisResearchRunner",
-    "ObsidianResearchCoordinator",
-    # Phase 09.3 alignment + vault memory
-    "GraphAlignmentResult",
-    "VaultGraphAligner",
-    "VaultMemoryCoordinator",
-    # Phase 09.4 safe write-back
-    "WriteBackProposalManager",
-    # Phase 05 base
+    "KnowledgeClass",
+    "NoteTreatmentRule",
     "NoteType",
     "ObsidianCallout",
     "ObsidianCodeBlock",
@@ -68,15 +59,22 @@ __all__ = [
     "ObsidianIngestionPipeline",
     "ObsidianIngestionResult",
     "ObsidianNoteRecord",
+    "ObsidianResearchCoordinator",
     "ObsidianSection",
     "ObsidianTag",
     "ObsidianWikilink",
     "ObsidianWriter",
     "ParsedObsidianNote",
     "ResearchCaptureNote",
+    "RuleBasedHypothesisConverter",
+    "RuleBasedObsidianClassifier",
     "SyncManager",
     "SyncManifest",
+    "VaultGraphAligner",
+    "VaultMemoryCoordinator",
     "VaultScanner",
+    "WriteBackProposalManager",
+    "extract_hypothesis_text",
     "ingest_obsidian_vault",
     "parse_obsidian_note",
 ]

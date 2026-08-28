@@ -7,12 +7,10 @@ and retains URI/date provenance.
 from __future__ import annotations
 
 import hashlib
-import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, Optional
-from urllib.parse import urljoin, urlparse
+from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID
 
 import requests
@@ -20,7 +18,7 @@ from bs4 import BeautifulSoup
 
 from app.config import get_settings
 from app.ingestion.chunking import TextSegment
-from app.ingestion.multimodal import WebPage, MultimodalType
+from app.ingestion.multimodal import MultimodalType, WebPage
 from app.logging_config import get_logger
 
 logger = get_logger("argus.ingestion.web")
@@ -306,9 +304,9 @@ def is_valid_web_url(url: str) -> bool:
 
 __all__ = [
     "WebPageResult",
+    "compute_web_page_checksum",
     "fetch_web_page",
+    "is_valid_web_url",
     "web_page_to_multimodal",
     "web_page_to_text_segments",
-    "compute_web_page_checksum",
-    "is_valid_web_url",
 ]

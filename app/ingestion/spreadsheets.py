@@ -9,9 +9,9 @@ from __future__ import annotations
 import csv
 import hashlib
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 import openpyxl
@@ -19,7 +19,7 @@ import pandas as pd
 
 from app.config import get_settings
 from app.ingestion.chunking import TextSegment
-from app.ingestion.multimodal import Spreadsheet, SpreadsheetCell, SpreadsheetSheet, MultimodalType
+from app.ingestion.multimodal import MultimodalType, Spreadsheet, SpreadsheetCell, SpreadsheetSheet
 from app.logging_config import get_logger
 
 logger = get_logger("argus.ingestion.spreadsheets")
@@ -266,9 +266,9 @@ def is_valid_spreadsheet(file_path: Path) -> bool:
 
 __all__ = [
     "SpreadsheetResult",
+    "compute_spreadsheet_checksum",
     "ingest_spreadsheet",
+    "is_valid_spreadsheet",
     "spreadsheet_to_multimodal",
     "spreadsheet_to_text_segments",
-    "compute_spreadsheet_checksum",
-    "is_valid_spreadsheet",
 ]

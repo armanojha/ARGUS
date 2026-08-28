@@ -14,12 +14,26 @@ from app.config import get_settings
 from app.evidence.models import Document, Source, SourceType
 from app.evidence.store import EvidenceStore, _json_dumps, get_evidence_store
 from app.ingestion.chunking import TextSegment, chunk_by_sections
-from app.ingestion.pdf import extract_pdf_segments, extract_pdf_text
+from app.ingestion.images import (
+    charts_to_text_segments,
+    extract_pdf_charts,
+    extract_pdf_images,
+    images_to_text_segments,
+)
 from app.ingestion.ocr import extract_pdf_segments_with_ocr, extract_pdf_text_for_checksum
-from app.ingestion.tables import extract_pdf_tables, tables_to_multimodal, tables_to_text_segments
-from app.ingestion.web import fetch_web_page, web_page_to_multimodal, web_page_to_text_segments, compute_web_page_checksum, is_valid_web_url
-from app.ingestion.spreadsheets import ingest_spreadsheet, spreadsheet_to_multimodal, spreadsheet_to_text_segments, compute_spreadsheet_checksum, is_valid_spreadsheet
-from app.ingestion.images import extract_pdf_images, extract_pdf_charts, images_to_multimodal, charts_to_multimodal, images_to_text_segments, charts_to_text_segments
+from app.ingestion.spreadsheets import (
+    compute_spreadsheet_checksum,
+    ingest_spreadsheet,
+    is_valid_spreadsheet,
+    spreadsheet_to_text_segments,
+)
+from app.ingestion.tables import extract_pdf_tables, tables_to_text_segments
+from app.ingestion.web import (
+    compute_web_page_checksum,
+    fetch_web_page,
+    is_valid_web_url,
+    web_page_to_text_segments,
+)
 from app.logging_config import get_logger
 
 logger = get_logger("argus.ingestion.pipeline")
@@ -584,9 +598,9 @@ class IngestionPipeline:
                         _json_dumps(chunk.metadata),
                         chunk.created_at.isoformat(),
                     ),
-                )
+)
 
-logger.info(
+        logger.info(
             "text_file_ingested",
             document_id=str(document.id),
             chunk_count=len(chunks),

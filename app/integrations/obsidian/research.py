@@ -29,6 +29,17 @@ from app.logging_config import get_logger
 
 logger = get_logger("argus.obsidian.research")
 
+
+def _citation_to_dict(c: object) -> dict[str, Any]:
+    """Best-effort serialize a citation to a plain dict for report files."""
+    dump = getattr(c, "model_dump", None)
+    if callable(dump):
+        result = dump()
+        if isinstance(result, dict):
+            return result
+        return {"value": result}
+    return {"value": c}
+
 _RESEARCH_DRIVING_CLASSES = {"hypothesis", "task_question"}
 
 
@@ -279,7 +290,7 @@ class ObsidianResearchCoordinator:
             status="completed" if outcome.status in {"verified", "partial"} else outcome.status,
             query=outcome.research_objective,
             answer=outcome.answer or "No answer was produced.",
-            citations=[getattr(c, "model_dump", lambda: c)() if hasattr(c, "model_dump") else c for c in outcome.citations],
+            citations=[_citation_to_dict(c) for c in outcome.citations],
             confidence=outcome.confidence,
             caveats=outcome.caveats,
             sources=[outcome.source_note_path],
@@ -291,7 +302,7 @@ class ObsidianResearchCoordinator:
             research_id=outcome.research_id,
             title=f"Evidence for {title}",
             evidence_summary=evidence_summary,
-            citations=[getattr(c, "model_dump", lambda: c)() if hasattr(c, "model_dump") else c for c in outcome.citations],
+            citations=[_citation_to_dict(c) for c in outcome.citations],
         )
         self.writer.write_research_trace(
             research_id=outcome.research_id,

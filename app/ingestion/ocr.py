@@ -6,11 +6,10 @@ Uses Tesseract via pytesseract with graceful fallback if unavailable.
 
 from __future__ import annotations
 
-import logging
 import shutil
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Optional
 
 import pdfplumber
 from PIL import Image
@@ -27,8 +26,8 @@ class OCRResult:
     """Result of OCR processing on a PDF page."""
     page_number: int
     text: str
-    language: Optional[str] = None
-    confidence: Optional[float] = None
+    language: str | None = None
+    confidence: float | None = None
     ocr_used: bool = True
 
 
@@ -80,7 +79,7 @@ def _pdf_page_to_image(page, dpi: int = 300) -> Image.Image:
     return im.original
 
 
-def _run_tesseract_ocr(image: Image.Image, languages: list[str]) -> tuple[str, Optional[float]]:
+def _run_tesseract_ocr(image: Image.Image, languages: list[str]) -> tuple[str, float | None]:
     """Run Tesseract OCR on a PIL Image.
     
     Returns tuple of (extracted_text, confidence).
@@ -243,9 +242,9 @@ def extract_pdf_text_for_checksum(pdf_path: Path) -> str:
 
 __all__ = [
     "OCRResult",
-    "extract_pdf_text_layer",
-    "has_usable_text_layer",
-    "extract_pdf_with_ocr_fallback",
     "extract_pdf_segments_with_ocr",
     "extract_pdf_text_for_checksum",
+    "extract_pdf_text_layer",
+    "extract_pdf_with_ocr_fallback",
+    "has_usable_text_layer",
 ]

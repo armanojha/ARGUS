@@ -7,24 +7,21 @@ triggers targeted retrieval when agents disagree materially.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from app.config import Settings
-from app.llm_gateway.providers.exceptions import LLMProviderError
 from app.llm_gateway.routing.router import LLMRouter
 from app.logging_config import get_logger
 from app.orchestration.agents.agents import create_agents
 from app.orchestration.contracts import (
-    AgentActivationRule,
     AgentCoordinatorInterface,
     AgentInterface,
     AgentMessage,
     AgentRole,
     OrchestrationState,
 )
-from app.retrieval.hybrid import HybridRetriever
 from app.reranking.reranker import NoOpReranker, Reranker
+from app.retrieval.hybrid import HybridRetriever
 
 logger = get_logger("argus.orchestration.agents.coordinator")
 
@@ -55,7 +52,6 @@ class AgentCoordinator(AgentCoordinatorInterface):
 
         plan = state.get("plan")
         evidence = state.get("evidence", [])
-        query = state.get("query", "")
 
         # Always activate Researcher and Verifier
         active_roles = [AgentRole.RESEARCHER, AgentRole.VERIFIER]
@@ -142,7 +138,6 @@ class AgentCoordinator(AgentCoordinatorInterface):
 
         # Initialize debate state in the orchestration state
         agent_messages: list[dict[str, Any]] = []
-        debate_active = True
         round_num = 0
 
         # Store initial debate state

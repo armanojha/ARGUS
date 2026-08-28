@@ -6,14 +6,10 @@ Connects narrative claims to chart/table/image evidence (multimodal claim retrie
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import io
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
 from uuid import UUID
 
 import pdfplumber
@@ -324,13 +320,13 @@ def compute_image_hash(image_bytes: bytes) -> str:
 
 
 __all__ = [
-    "ExtractedImage",
     "ExtractedChart",
-    "extract_pdf_images",
-    "extract_pdf_charts",
-    "images_to_multimodal",
+    "ExtractedImage",
     "charts_to_multimodal",
-    "images_to_text_segments",
     "charts_to_text_segments",
     "compute_image_hash",
+    "extract_pdf_charts",
+    "extract_pdf_images",
+    "images_to_multimodal",
+    "images_to_text_segments",
 ]

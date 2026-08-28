@@ -6,15 +6,14 @@ Extends the basic table extraction in pdf.py with richer semantic models.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 from uuid import UUID
 
 import pdfplumber
 
 from app.config import get_settings
-from app.ingestion.multimodal import Table, TableCell, MultimodalType
+from app.ingestion.multimodal import MultimodalType, Table, TableCell
 from app.logging_config import get_logger
 
 logger = get_logger("argus.ingestion.tables")

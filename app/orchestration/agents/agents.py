@@ -8,10 +8,7 @@ from __future__ import annotations
 
 import json
 from abc import ABC
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -305,10 +302,10 @@ Extract the key claims, summarize the evidence, assess confidence, and identify 
             confidence = 0.0
         else:
             content = (
-                f"Key Claims:\n" + "\n".join(f"- {c}" for c in output.key_claims) +
+                "Key Claims:\n" + "\n".join(f"- {c}" for c in output.key_claims) +
                 f"\n\nEvidence Summary:\n{output.evidence_summary}" +
                 f"\n\nConfidence: {output.confidence:.2f}" +
-                f"\n\nGaps:\n" + "\n".join(f"- {g}" for g in output.gaps)
+                "\n\nGaps:\n" + "\n".join(f"- {g}" for g in output.gaps)
             )
             confidence = output.confidence
 
@@ -347,7 +344,6 @@ class SkepticAgent(BaseAgent):
         state: OrchestrationState,
         messages: list[AgentMessage],
     ) -> list[AgentMessage]:
-        plan = state.get("plan")
         evidence = state.get("evidence", [])
         query = state.get("query", "")
         request_id = state.get("request_id")
@@ -403,8 +399,8 @@ Challenge the strongest claims. Identify specific weaknesses, needed counter-evi
             severity = 0.0
         else:
             content = (
-                f"Challenges:\n" + "\n".join(f"- {c}" for c in output.challenges) +
-                f"\n\nCounter-Evidence Needed:\n" + "\n".join(f"- {c}" for c in output.counter_evidence_needed) +
+                "Challenges:\n" + "\n".join(f"- {c}" for c in output.challenges) +
+                "\n\nCounter-Evidence Needed:\n" + "\n".join(f"- {c}" for c in output.counter_evidence_needed) +
                 f"\n\nConfidence in Flaws: {output.confidence:.2f}" +
                 f"\n\nSeverity: {output.severity:.2f}"
             )
@@ -445,7 +441,6 @@ class AlternativeHypothesisAgent(BaseAgent):
         state: OrchestrationState,
         messages: list[AgentMessage],
     ) -> list[AgentMessage]:
-        plan = state.get("plan")
         evidence = state.get("evidence", [])
         query = state.get("query", "")
         request_id = state.get("request_id")
@@ -507,8 +502,8 @@ Propose alternative explanations for the evidence. What competing theories exist
             distinctiveness = 0.0
         else:
             content = (
-                f"Alternative Explanations:\n" + "\n".join(f"- {a}" for a in output.alternative_explanations) +
-                f"\n\nSupporting Evidence for Alternatives:\n" + "\n".join(f"- {e}" for e in output.supporting_evidence_for_alternatives) +
+                "Alternative Explanations:\n" + "\n".join(f"- {a}" for a in output.alternative_explanations) +
+                "\n\nSupporting Evidence for Alternatives:\n" + "\n".join(f"- {e}" for e in output.supporting_evidence_for_alternatives) +
                 f"\n\nConfidence: {output.confidence:.2f}" +
                 f"\n\nDistinctiveness: {output.distinctiveness:.2f}"
             )
@@ -595,7 +590,7 @@ Verify this claim against the evidence. Return structured verification result.""
                 Message(role=MessageRole.USER, content=user_prompt),
             ]
 
-            output, error = await self._safe_structured_call(msgs, VerifierOutput, request_id)
+            output, _error = await self._safe_structured_call(msgs, VerifierOutput, request_id)
 
             if output is not None:
                 verification_results.append({
@@ -700,7 +695,7 @@ Synthesize the debate into a final answer. Resolve disagreements, weight claims 
                 f"Resolution:\n{output.resolution}\n\n"
                 f"Final Answer:\n{output.final_answer}\n\n"
                 f"Key Disagreements Resolved:\n" + "\n".join(f"- {d}" for d in output.key_disagreements_resolved) +
-                f"\n\nRemaining Uncertainties:\n" + "\n".join(f"- {u}" for u in output.remaining_uncertainties) +
+                "\n\nRemaining Uncertainties:\n" + "\n".join(f"- {u}" for u in output.remaining_uncertainties) +
                 f"\n\nConfidence: {output.confidence:.2f}"
             )
             should_continue = output.should_continue_debate

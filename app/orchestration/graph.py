@@ -28,6 +28,7 @@ from langgraph.graph import END, StateGraph
 from app.config import Settings, get_settings
 from app.llm_gateway import get_router
 from app.logging_config import get_logger
+from app.orchestration.agents.coordinator import AgentCoordinator, create_agent_coordinator
 from app.orchestration.models import OrchestrationCitation, OrchestrationResult, StopReason
 from app.orchestration.nodes import (
     extract_cited_indices,
@@ -38,7 +39,6 @@ from app.orchestration.nodes import (
     make_stop_check_node,
     make_synthesize_node,
 )
-from app.orchestration.agents.coordinator import AgentCoordinator, create_agent_coordinator
 from app.orchestration.state import OrchestrationState
 from app.orchestration.stopping import build_stopping_logic
 from app.reranking import get_reranker

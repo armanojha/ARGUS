@@ -60,7 +60,7 @@ class ObsidianIngestionPipeline:
             self.classifier = RuleBasedObsidianClassifier()
 
         # Phase 09.3 graph alignment (backward compatible: absent by default).
-        self.aligner: object | None = aligner
+        self.aligner: Any = aligner
         if self.aligner is None and (
             self.settings.obsidian_full_enabled and self.settings.obsidian_vault_graph_alignment_enabled
         ):
