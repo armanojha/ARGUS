@@ -91,12 +91,10 @@ class IngestionPipeline:
 
         # 3. Check for existing document version
         existing_doc = self.store.get_latest_document_for_source(source.id)
-        if existing_doc and existing_doc.chunking_strategy == chunking_strategy:
-            # Verify checksum matches
-            doc_checksum = hashlib.sha256(full_text.encode()).hexdigest()
-            if existing_doc.checksum == doc_checksum:
-                logger.info("document_unchanged", document_id=str(existing_doc.id))
-                return existing_doc
+        doc_checksum = hashlib.sha256(full_text.encode()).hexdigest()
+        if existing_doc and existing_doc.chunking_strategy == chunking_strategy and existing_doc.checksum == doc_checksum:
+            logger.info("document_unchanged", document_id=str(existing_doc.id))
+            return existing_doc
 
         # 4. Extract text segments with provenance (OCR fallback for scanned PDFs)
         segments = extract_pdf_segments_with_ocr(pdf_path)
@@ -257,10 +255,9 @@ class IngestionPipeline:
         # 4. Check for existing document version
         existing_doc = self.store.get_latest_document_for_source(source.id)
         doc_checksum = source_checksum
-        if existing_doc and existing_doc.chunking_strategy == chunking_strategy:
-            if existing_doc.checksum == doc_checksum:
-                logger.info("document_unchanged", document_id=str(existing_doc.id))
-                return existing_doc
+        if existing_doc and existing_doc.chunking_strategy == chunking_strategy and existing_doc.checksum == doc_checksum:
+            logger.info("document_unchanged", document_id=str(existing_doc.id))
+            return existing_doc
 
         # 5. Extract text segments with provenance
         segments = web_page_to_text_segments(web_result)
