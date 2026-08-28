@@ -109,7 +109,7 @@ def _run_tesseract_ocr(image: Image.Image, languages: list[str]) -> tuple[str, f
     except ImportError:
         logger.warning("pytesseract not available for OCR")
         return "", None
-    except Exception as e:
+    except (OSError, ValueError, RuntimeError) as e:
         logger.warning("tesseract_ocr_failed", error=str(e))
         return "", None
 
@@ -188,7 +188,7 @@ def extract_pdf_with_ocr_fallback(
                             text=text_layer,
                             ocr_used=False,
                         )
-                except Exception as e:
+                except (OSError, ValueError, RuntimeError) as e:
                     logger.warning("ocr_page_failed", page=page_num, error=str(e))
                     # Fall back to text layer even if minimal
                     yield OCRResult(

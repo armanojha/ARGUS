@@ -41,7 +41,7 @@ def _extract_table_cells(pdf_table: list[list[str]], page_num: int, table_idx: i
         return cells
     
     # First row as headers if it looks like a header row
-    headers = pdf_table[0] if pdf_table else []
+    _ = pdf_table[0] if pdf_table else []
     
     for row_idx, row in enumerate(pdf_table):
         for col_idx, cell_value in enumerate(row):
@@ -166,11 +166,10 @@ def _find_table_caption(page, bbox: tuple[float, float, float, float] | None) ->
                 lines = [l.strip() for l in texts.split("\n") if l.strip()]
                 for line in lines:
                     # Check if line looks like a caption
-                    if any(keyword in line.lower() for keyword in ["table", "figure", "chart"]):
-                        if len(line) < 200:
-                            return line
-    except Exception:
-        pass
+                    if any(keyword in line.lower() for keyword in ["table", "figure", "chart"]) and len(line) < 200:
+                        return line
+    except (OSError, ValueError, AttributeError) as e:
+        logger.warning("caption_extraction_failed", error=str(e))
     
     return None
 

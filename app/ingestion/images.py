@@ -18,6 +18,7 @@ from PIL import Image as PILImage
 from app.config import get_settings
 from app.ingestion.chunking import TextSegment
 from app.ingestion.multimodal import Chart, ChartDataPoint, ChartType, MultimodalType
+from app.ingestion.multimodal import Image as MultimodalImage
 from app.logging_config import get_logger
 
 logger = get_logger("argus.ingestion.images")
@@ -130,7 +131,7 @@ def _extract_images_from_pdf(pdf_path: Path) -> list[ExtractedImage]:
                         bbox=bbox,
                         page_region=page_region,
                     ))
-                except Exception as e:
+                except (OSError, ValueError, KeyError) as e:
                     logger.warning("image_extraction_failed", page=page_num, idx=img_idx, error=str(e))
     
     return images
@@ -210,12 +211,12 @@ def images_to_multimodal(
     document_id: UUID,
     source_path: str,
     source_chunk_ids: list[UUID] | None = None,
-) -> list[Image]:
+) -> list[MultimodalImage]:
     """Convert ExtractedImage objects to Multimodal Image objects."""
     multimodal_images = []
     
     for img in images:
-        multimodal = Image(
+        multimodal = MultimodalImage(
             id=UUID(int=0),  # Will be assigned by store
             source_path=source_path,
             content_type=MultimodalType.IMAGE,
