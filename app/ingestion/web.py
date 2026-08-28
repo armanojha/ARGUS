@@ -108,15 +108,21 @@ def _parse_date(date_str: str | None) -> datetime | None:
     
     for fmt in formats:
         try:
-            return datetime.strptime(date_str, fmt)
+            dt = datetime.strptime(date_str, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+            return dt
         except ValueError:
             continue
     
     # Try parsing with dateutil if available
     try:
         from dateutil import parser
-        return parser.parse(date_str)
-    except Exception:
+        dt = parser.parse(date_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt
+    except (ValueError, TypeError, ImportError):
         pass
     
     return None
@@ -298,7 +304,7 @@ def is_valid_web_url(url: str) -> bool:
     try:
         parsed = urlparse(url)
         return parsed.scheme in ("http", "https") and bool(parsed.netloc)
-    except Exception:
+    except (ValueError, AttributeError):
         return False
 
 
