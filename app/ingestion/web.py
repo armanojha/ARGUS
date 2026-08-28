@@ -295,6 +295,13 @@ def web_page_to_text_segments(result: WebPageResult) -> list[TextSegment]:
         char_start=0,
         char_end=len(result.text_content),
         section_path=result.canonical_url,
+        metadata={
+            "multimodal_type": "web",
+            "url": result.url,
+            "source_uri": result.canonical_url,
+            "retrieved_date": result.retrieved_date.isoformat(),
+            "title": result.title,
+        },
     ))
     
     return segments

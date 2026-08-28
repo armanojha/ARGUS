@@ -392,6 +392,7 @@ class EvidenceStore:
                 section_path=chunk.section_path,
                 score=score,
                 rank=rank,
+                metadata=dict(chunk.metadata),
             ))
         return refs
 

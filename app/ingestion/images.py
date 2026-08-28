@@ -297,6 +297,15 @@ def images_to_text_segments(images: list[ExtractedImage]) -> list[TextSegment]:
             char_start=None,
             char_end=None,
             section_path=f"Image {img.image_index + 1}",
+            metadata={
+                "multimodal_type": "image",
+                "image_index": img.image_index,
+                "page": img.page_number,
+                "region": img.page_region,
+                "width": img.width,
+                "height": img.height,
+                "format": img.format,
+            },
         ))
     
     return segments
@@ -320,6 +329,14 @@ def charts_to_text_segments(charts: list[ExtractedChart]) -> list[TextSegment]:
             char_start=None,
             char_end=None,
             section_path=f"Chart {chart.chart_index + 1}",
+            metadata={
+                "multimodal_type": "chart",
+                "chart_index": chart.chart_index,
+                "page": chart.page_number,
+                "chart_type": chart.chart_type.value,
+                "title": chart.title,
+                "bbox": list(chart.bbox) if chart.bbox else None,
+            },
         ))
     
     return segments

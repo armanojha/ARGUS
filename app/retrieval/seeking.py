@@ -242,7 +242,7 @@ class ObsidianHypothesisSeeker:
         from app.evidence.store import get_evidence_store
 
         settings = get_settings()
-        if not settings.obsidian_enabled and self._store is None:
+        if not settings.obsidian_enabled and not settings.obsidian_full_enabled and self._store is None:
             return []
         store = self._store or get_evidence_store()
         found: list[dict[str, Any]] = []
@@ -250,10 +250,13 @@ class ObsidianHypothesisSeeker:
             text = chunk.text.strip()
             match = _HYPOTHESIS_MARKER_RE.search(text)
             hypothesis = (match.group(2) or match.group(1)).strip() if match else None
-            if not hypothesis:
-                continue
             tags = chunk.metadata.get("tags") or []
-            if match or any("hypothesis" in str(t).lower() for t in tags):
+            classified_hypothesis = chunk.metadata.get("knowledge_class") == "hypothesis"
+            # Phase 09 classifier-annotated hypothesis chunks may not contain the
+            # marker line in this section; fall back to the chunk text itself.
+            if not hypothesis and classified_hypothesis and text:
+                hypothesis = text
+            if hypothesis and (match or any("hypothesis" in str(t).lower() for t in tags) or classified_hypothesis):
                 found.append({
                     "text": hypothesis,
                     "chunk_id": chunk.id,
@@ -274,7 +277,9 @@ def get_adaptive_gap_detector(
 ) -> AdaptiveEvidenceGapDetector:
     """Create the Phase 06 gap detector (with Obsidian seeker when enabled)."""
     settings = settings or get_settings()
-    if hypothesis_seeker is None and settings.active_evidence_seeking_enabled and settings.obsidian_enabled:
+    if hypothesis_seeker is None and settings.active_evidence_seeking_enabled and (
+        settings.obsidian_enabled or settings.obsidian_full_enabled
+    ):
         hypothesis_seeker = ObsidianHypothesisSeeker()
     return AdaptiveEvidenceGapDetector(settings=settings, hypothesis_seeker=hypothesis_seeker)
 

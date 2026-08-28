@@ -274,9 +274,46 @@ class ObsidianResearchCoordinator:
             context=frontmatter,
         )
         outcome = await self.runner.run(objective)
+        await self._verify_outcome(outcome)
         if write_outputs:
             self._write_research_outputs(outcome, title=note.file_stem)
         return outcome
+
+    async def _verify_outcome(self, outcome: HypothesisResearchOutcome) -> None:
+        """Cross-check the heuristic research outcome against Phase 04 verification.
+
+        The Phase 09.2 ``run()`` heuristic marks a grounded answer as
+        "verified" purely from retrieval results; calling ``verify_result``
+        here ensures a hypothesis only stays/moves to "verified" after an
+        actual claim-to-evidence verification pass (and can be downgraded to
+        "contradicted"). Non-fatal: if no router is available the heuristic
+        outcome is preserved and ``validation`` explains why.
+        """
+        router = getattr(self.runner, "router", None)
+        if router is None:
+            try:
+                from app.llm_gateway import get_router
+
+                router = get_router()
+            except Exception as exc:  # noqa: BLE001 - verification is a cross-check
+                logger.warning("hypothesis_verifier_unavailable", error=str(exc))
+                router = None
+        if router is None:
+            outcome.validation = "skipped; no LLM router available for verification"
+            return
+        try:
+            from app.evidence.store import get_evidence_store
+            from app.graph.store import get_graph_store
+
+            await self.runner.verify_result(
+                outcome,
+                evidence_store=get_evidence_store(),
+                router=router,
+                graph_store=get_graph_store(),
+            )
+        except Exception as exc:  # noqa: BLE001 - verification is non-fatal
+            logger.warning("hypothesis_verification_skipped", research_id=outcome.research_id, error=str(exc))
+            outcome.validation = f"verification unavailable: {exc}"
 
     def _write_research_outputs(self, outcome: HypothesisResearchOutcome, title: str) -> None:
         """Write research capture / evidence report / trace to 90_ARGUS."""

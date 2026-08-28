@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.config import Settings
+from app.llm_gateway.routing.multi_model_router import MultiModelRouter
 from app.llm_gateway.routing.router import LLMRouter
 from app.logging_config import get_logger
 from app.orchestration.agents.agents import create_agents
@@ -31,7 +32,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
 
     def __init__(
         self,
-        router: LLMRouter,
+        router: LLMRouter | MultiModelRouter,
         settings: Settings,
         retriever: HybridRetriever,
         reranker: Reranker | NoOpReranker,
@@ -78,8 +79,13 @@ class AgentCoordinator(AgentCoordinatorInterface):
             should_activate_alt_hyp = True
             logger.info("multi_agent_activate_high_uncertainty")
 
-        # Rule 4: Researcher confidence below threshold (from previous round)
-        # This would be checked after Researcher runs in a round
+        # Rule 4: Researcher/evidence confidence below the skeptic threshold.
+        # Low average evidence score signals the researcher cannot ground its
+        # answer confidently -> surface skepticism and an alternative hypothesis.
+        if evidence and self._below_skeptic_threshold(evidence):
+            should_activate_skeptic = True
+            should_activate_alt_hyp = True
+            logger.info("multi_agent_activate_low_confidence")
 
         if should_activate_skeptic:
             active_roles.append(AgentRole.SKEPTIC)

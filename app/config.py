@@ -359,6 +359,10 @@ class Settings(BaseSettings):
         default=False,
         description="Whether chart/image extraction is enabled (later stage).",
     )
+    ocr_languages: list[str] = Field(
+        default_factory=lambda: ["eng"],
+        description="Languages passed to tesseract/pytesseract for OCR fallback (Phase 11).",
+    )
 
     # --- UI & Evaluation (Phase 12) ---
     ui_enabled: bool = Field(

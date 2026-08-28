@@ -6,6 +6,7 @@ Provides token-aware chunking with overlap, preserving section/page context.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 from app.config import get_settings
@@ -24,6 +25,7 @@ class TextSegment:
     char_start: int | None = None
     char_end: int | None = None
     section_path: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 def estimate_tokens(text: str) -> int:
@@ -87,6 +89,7 @@ def chunk_text(
         char_start = chunk_char_start
         char_end = chunk_char_end
         section_path = None
+        metadata: dict[str, Any] = {}
 
         for seg_idx, seg_start, seg_end in segment_bounds:
             seg = segments[seg_idx]
@@ -98,6 +101,8 @@ def chunk_text(
                     page_end = seg.page_end
                 if section_path is None and seg.section_path:
                     section_path = seg.section_path
+                if seg.metadata:
+                    metadata.update(seg.metadata)
 
         chunk = Chunk(
             document_id=document_id,
@@ -109,6 +114,7 @@ def chunk_text(
             char_start=char_start,
             char_end=char_end,
             section_path=section_path,
+            metadata=metadata,
         )
         if not chunk_text.strip():
             ordinal += 1
@@ -163,6 +169,7 @@ def chunk_by_sections(
             char_start=seg.char_start,
             char_end=seg.char_end,
             section_path=seg.section_path,
+            metadata=seg.metadata or {},
         )
         chunks.append(chunk)
         ordinal += 1

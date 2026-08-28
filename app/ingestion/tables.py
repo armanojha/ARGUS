@@ -238,6 +238,13 @@ def tables_to_text_segments(tables: list[ExtractedTable]) -> list:
                 char_start=None,
                 char_end=None,
                 section_path=f"Table {table.table_index + 1}",
+                metadata={
+                    "multimodal_type": "table",
+                    "table_index": table.table_index,
+                    "page": table.page_number,
+                    "caption": table.caption,
+                    "bbox": list(table.bbox) if table.bbox else None,
+                },
             ))
     
     return segments

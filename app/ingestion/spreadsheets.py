@@ -252,6 +252,13 @@ def spreadsheet_to_text_segments(result: SpreadsheetResult) -> list[TextSegment]
                 char_start=None,
                 char_end=None,
                 section_path=f"Sheet: {sheet.name}",
+                metadata={
+                    "multimodal_type": "spreadsheet",
+                    "sheet": sheet.name,
+                    "rows": sheet.rows,
+                    "cols": sheet.cols,
+                    "cell_count": len(sheet.cells),
+                },
             ))
     
     return segments
