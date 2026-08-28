@@ -567,6 +567,88 @@ class TestAgentCoordinator:
         assert disagreement is not None
         assert disagreement["skeptic_severity"] == 0.8
 
+    @pytest.mark.asyncio
+    async def test_coordinator_activates_below_skeptic_threshold(self, mock_coordinator):
+        """Weakly grounded evidence below multiagent_skeptic_threshold activates Skeptic."""
+        from uuid import uuid4
+
+        from app.evidence.models import EvidenceRef, SourceType
+
+        evidence = [
+            EvidenceRef(
+                chunk_id=uuid4(),
+                document_id=uuid4(),
+                source_id=uuid4(),
+                source_path=f"doc{i}.txt",
+                source_type=SourceType.TEXT,
+                text=f"Weak evidence {i}",
+                score=0.4,  # avg 0.4 < skeptic_threshold 0.7
+                rank=i,
+            )
+            for i in range(1, 4)
+        ]
+
+        state = OrchestrationState(
+            request_id="test-low-confidence",
+            query="Weakly grounded question",
+            max_iterations=3,
+            token_budget=6000,
+            plan=None,
+            pending_subquestions=[],
+            issued_subqueries=[],
+            evidence=evidence,
+            consecutive_empty_retrievals=0,
+            iteration=1,
+            tokens_used=100,
+            sufficient=False,
+            stop_reason=None,
+            answer=None,
+            warnings=[],
+        )
+
+        active_roles = mock_coordinator.should_activate_agents(state)
+        assert AgentRole.SKEPTIC in active_roles
+        assert AgentRole.ALTERNATIVE_HYPOTHESIS in active_roles
+
+    def test_coordinator_merge_evidence_keeps_highest_score(self):
+        """Re-retrieved evidence may add or raise but never lower a chunk's score."""
+        from uuid import uuid4
+
+        from app.evidence.models import EvidenceRef, SourceType
+
+        chunk_id = uuid4()
+        doc_id = uuid4()
+        source_id = uuid4()
+        make_ref = lambda score, rank: EvidenceRef(  # noqa: E731
+            chunk_id=chunk_id,
+            document_id=doc_id,
+            source_id=source_id,
+            source_path="doc.txt",
+            source_type=SourceType.TEXT,
+            text="shared chunk",
+            score=score,
+            rank=rank,
+        )
+        existing = [
+            make_ref(0.9, 1),
+            EvidenceRef(
+                chunk_id=uuid4(),
+                document_id=doc_id,
+                source_id=source_id,
+                source_path="doc.txt",
+                source_type=SourceType.TEXT,
+                text="other chunk",
+                score=0.5,
+                rank=2,
+            ),
+        ]
+        incoming = [make_ref(0.4, 9)]  # lower-scoring copy of the same chunk
+
+        merged = AgentCoordinator._merge_evidence(existing, incoming)
+        by_chunk = {e.chunk_id: e.score for e in merged}
+        assert by_chunk[chunk_id] == 0.9  # higher score preserved, not overwritten
+        assert merged[0].score >= merged[1].score  # sorted by score descending
+
 
 class TestMultiAgentIntegration:
     """Integration tests for multi-agent debate flow."""

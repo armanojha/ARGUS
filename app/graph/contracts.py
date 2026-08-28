@@ -194,10 +194,13 @@ class VaultGraphAlignment(BaseModel):
 
 
 class VaultGraphAlignmentInterface(ABC):
-    """Interface for vault-graph alignment.
+    """DEPRECATED interface for vault-graph alignment (kept for spec reference).
 
-    Phase 09 implements this. It maintains the mapping between
-    Obsidian notes and Evidence Graph nodes.
+    The implemented aligner is ``VaultGraphAligner`` in
+    ``app/integrations/obsidian/alignment.py``, wired directly into the
+    Phase 09 ingestion pipeline (``app/integrations/obsidian/ingestion.py``).
+    Its signature (note, chunk_ids, knowledge_class, ...) is the source of
+    truth. New code should use ``VaultGraphAligner``, not this stub.
     """
 
     @abstractmethod

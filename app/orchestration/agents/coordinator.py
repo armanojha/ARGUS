@@ -118,6 +118,16 @@ class AgentCoordinator(AgentCoordinatorInterface):
         avg_score = sum(e.score for e in evidence) / len(evidence)
         return avg_score < 0.5
 
+    def _below_skeptic_threshold(self, evidence: list[Any]) -> bool:
+        """True when the average evidence score is below the skeptic threshold.
+
+        Uses ``multiagent_skeptic_threshold`` (V2 §10.1: "Researcher confidence
+        below threshold -> activate Skeptic"). Deliberately strict (``<``) so
+        reserves the extra agent budget for genuinely weak grounding.
+        """
+        avg_score = sum(e.score for e in evidence) / len(evidence)
+        return avg_score < self._skeptic_threshold
+
     async def run_debate(
         self,
         state: OrchestrationState,
@@ -241,11 +251,14 @@ class AgentCoordinator(AgentCoordinatorInterface):
                                     results = self._reranker.rerank(query, results, top_k=3)
                                     new_evidence.extend(results)
                             if new_evidence:
-                                # Merge new evidence, deduplicating by chunk_id
-                                existing_by_id = {e.chunk_id: e for e in state_dict["evidence"]}  # type: ignore[attr-defined]
-                                for e in new_evidence:
-                                    existing_by_id[e.chunk_id] = e
-                                state_dict["evidence"] = list(existing_by_id.values())  # type: ignore[assignment]
+                                # Merge new evidence, deduplicating by chunk_id. Keep
+                                # the highest score per chunk so a lower-scoring
+                                # re-retrieved copy can never reduce evidence quality
+                                # (consistent with the Phase 02 evidence merge).
+                                state_dict["evidence"] = self._merge_evidence(
+                                    state_dict["evidence"],
+                                    new_evidence,
+                                )
                                 logger.info("multi_agent_evidence_injected", count=len(new_evidence))
                     except Exception as exc:  # noqa: BLE001 - targeted retrieval is non-critical
                         logger.warning("multi_agent_targeted_retrieval_failed", error=str(exc))
@@ -268,6 +281,21 @@ class AgentCoordinator(AgentCoordinatorInterface):
         )
 
         return state_dict  # type: ignore[return-value]
+
+    @staticmethod
+    def _merge_evidence(existing: list[Any], incoming: list[Any]) -> list[Any]:
+        """Deduplicate evidence by chunk_id, keeping the highest score per chunk.
+
+        Mirrors the Phase 02 evidence merge: re-retrieved evidence can add or
+        replace a chunk but may never *lower* its score. Results are returned
+        sorted by score descending so the top of the list stays the strongest.
+        """
+        by_chunk: dict[Any, Any] = {}
+        for item in list(existing) + list(incoming):
+            current = by_chunk.get(item.chunk_id)
+            if current is None or item.score > current.score:
+                by_chunk[item.chunk_id] = item
+        return sorted(by_chunk.values(), key=lambda e: e.score, reverse=True)
 
     def _detect_disagreement(
         self,
@@ -349,7 +377,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
 
 
 def create_agent_coordinator(
-    router: LLMRouter,
+    router: LLMRouter | MultiModelRouter,
     settings: Settings,
     retriever: HybridRetriever,
     reranker: Reranker | NoOpReranker,
