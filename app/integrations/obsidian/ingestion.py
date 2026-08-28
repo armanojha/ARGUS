@@ -38,12 +38,33 @@ class ObsidianIngestionPipeline:
         vault_root: Path,
         store: EvidenceStore | None = None,
         manifest_path: Path | None = None,
+        classifier: object | None = None,
+        aligner: object | None = None,
     ):
         self.vault_root = Path(vault_root).resolve()
         self.store = store or get_evidence_store()
         self.settings = get_settings()
         self.scanner = VaultScanner(self.vault_root)
         self.sync_manager = SyncManager(self.vault_root, manifest_path)
+
+        # Phase 09.1 extension points (backward compatible: absent by default).
+        self.classifier: object | None = classifier
+        if self.classifier is None and (
+            self.settings.obsidian_full_enabled and self.settings.obsidian_classification_enabled
+        ):
+            from app.integrations.obsidian.classifier import RuleBasedObsidianClassifier
+
+            self.classifier = RuleBasedObsidianClassifier()
+
+        # Phase 09.3 graph alignment (backward compatible: absent by default).
+        self.aligner: object | None = aligner
+        if self.aligner is None and (
+            self.settings.obsidian_full_enabled and self.settings.obsidian_vault_graph_alignment_enabled
+        ):
+            from app.graph.store import get_graph_store
+            from app.integrations.obsidian.alignment import VaultGraphAligner
+
+            self.aligner = VaultGraphAligner(get_graph_store())
 
     def ingest_vault(
         self,
@@ -95,6 +116,18 @@ class ObsidianIngestionPipeline:
 
                 result.chunks_created += len(record.chunk_ids)
 
+                # Phase 09.1/09.2: expose classification and hypothesis objectives.
+                if record.knowledge_class:
+                    result.notes_classified += 1
+                if (
+                    record.knowledge_class in {"hypothesis", "task_question"}
+                    and self.settings.obsidian_full_enabled
+                    and self.settings.obsidian_hypothesis_conversion_enabled
+                ):
+                    objective = self._build_hypothesis_objective(note, record)
+                    if objective is not None:
+                        result.hypothesis_objectives.append(objective)
+
             except Exception as e:  # noqa: BLE001
                 logger.error("note_ingestion_failed", path=note.vault_relative_path, error=str(e))
                 result.notes_failed += 1
@@ -134,6 +167,14 @@ class ObsidianIngestionPipeline:
         """Ingest a single parsed Obsidian note into the evidence store."""
         # 1. Create or get source
         source = self._upsert_source(note)
+
+        # Phase 09.1: classify the note (no LLM; deterministic).
+        knowledge_class: str | None = None
+        treatment_rule: str | None = None
+        if self.classifier is not None:
+            classification = self._classify(note)
+            knowledge_class = classification.knowledge_class
+            treatment_rule = classification.treatment_rule
 
         # 2. Check for existing document version
         existing_doc = self.store.get_latest_document_for_source(source.id)
@@ -176,6 +217,8 @@ class ObsidianIngestionPipeline:
                 "vault_path": str(self.vault_root),
                 "note_path": note.vault_relative_path,
                 "note_type": note.note_type.value,
+                "knowledge_class": knowledge_class,
+                "treatment_rule": treatment_rule,
                 "frontmatter_title": note.frontmatter.title,
                 "tags": note.frontmatter.tags,
                 "chunk_count": len(chunks),
@@ -193,6 +236,8 @@ class ObsidianIngestionPipeline:
             chunk.metadata.update({
                 "vault_relative_path": note.vault_relative_path,
                 "note_type": note.note_type.value,
+                "knowledge_class": knowledge_class,
+                "treatment_rule": treatment_rule,
                 "section_path": chunk.section_path,
             })
             chunk_ids.append(chunk.id)
@@ -210,9 +255,23 @@ class ObsidianIngestionPipeline:
             frontmatter=note.frontmatter,
             tags=note.frontmatter.tags,
             wikilink_targets=[w.target for w in note.wikilinks],
+            knowledge_class=knowledge_class,
+            treatment_rule=treatment_rule,
             file_modified=note.file_modified,
             file_size=note.file_size,
         )
+
+        # Phase 09.3: align note with the evidence graph (best-effort).
+        if self.aligner is not None and knowledge_class is not None:
+            try:
+                self.aligner.align_note(
+                    note,
+                    chunk_ids,
+                    knowledge_class=knowledge_class,
+                    treatment_rule=treatment_rule,
+                )
+            except Exception as exc:  # noqa: BLE001 - alignment must not break ingestion
+                logger.warning("note_alignment_failed", note=note.vault_relative_path, error=str(exc))
 
         logger.info(
             "note_ingested",

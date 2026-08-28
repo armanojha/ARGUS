@@ -1,9 +1,9 @@
-"""Agentic RAG orchestration graph (Phase 02 / Phase 06 policy / Phase 08 memory hook).
+"""Agentic RAG orchestration graph (Phase 02 / Phase 06 policy / Phase 08 memory hook / Phase 10 multi-agent).
 
 Builds and runs the LangGraph state machine:
 
     analyze -> plan -> [memory_enhance] -> retrieve -> assess -> stop_check -+-> retrieve (loop)
-                                                                             +-> synthesize -> END
+                                                                              +-> [debate] -> synthesize -> END
 
 No checkpointer is configured; each `run_query()` call is a single
 in-memory execution with no cross-request persistence. That's
@@ -12,9 +12,10 @@ long-running agent memory (memory is a later phase per the vault's
 phase boundary).
 
 This module is the only place that wires the LLM gateway (Phase 00.3),
-hybrid retriever (Phase 01), the adaptive policy (Phase 06), and the
-optional memory store (Phase 08) together for the agentic loop;
-individual nodes stay dependency-injected and gateway-agnostic.
+hybrid retriever (Phase 01), the adaptive policy (Phase 06), the
+optional memory store (Phase 08), and the multi-agent coordinator (Phase 10)
+together for the agentic loop; individual nodes stay dependency-injected
+and gateway-agnostic.
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ from app.orchestration.nodes import (
     make_stop_check_node,
     make_synthesize_node,
 )
+from app.orchestration.agents.coordinator import AgentCoordinator, create_agent_coordinator
 from app.orchestration.state import OrchestrationState
 from app.orchestration.stopping import build_stopping_logic
 from app.reranking import get_reranker
@@ -77,6 +79,37 @@ async def _memory_enhance_node(state: OrchestrationState, memory_store: Any) -> 
     return {}
 
 
+async def _debate_node(state: OrchestrationState, agent_coordinator: AgentCoordinator) -> dict:
+    """Run multi-agent debate for high-risk/uncertainty questions (Phase 10)."""
+    if agent_coordinator is None:
+        return {}
+
+    try:
+        logger.info("multi_agent_debate_node_started", request_id=state["request_id"])
+        updated_state = await agent_coordinator.run_debate(state)
+        logger.info("multi_agent_debate_node_finished", request_id=state["request_id"])
+
+        # Extract judge's final answer if available
+        agent_messages = updated_state.get("agent_messages", [])
+        judge_answer = ""
+        for msg_dict in reversed(agent_messages):
+            if msg_dict.get("from_agent") == "judge":
+                judge_answer = msg_dict.get("payload", {}).get("final_answer", "")
+                if judge_answer:
+                    break
+
+        return {
+            "agent_messages": updated_state.get("agent_messages", []),
+            "agent_round": updated_state.get("agent_round", 0),
+            "debate_active": updated_state.get("debate_active", False),
+            "disagreement_detected": updated_state.get("disagreement_detected", False),
+            "answer": judge_answer if judge_answer else state.get("answer"),
+        }
+    except Exception as exc:  # noqa: BLE001 - debate is non-critical, fall back to normal synthesis
+        logger.warning("multi_agent_debate_failed", error=str(exc), request_id=state["request_id"])
+        return {"debate_active": False}
+
+
 def build_graph(
     router: Any,  # LLMRouter | MultiModelRouter (gateway-agnostic wiring)
     retriever: HybridRetriever,
@@ -86,6 +119,7 @@ def build_graph(
     gap_detector: Any | None = None,
     stopping_logic: Any | None = None,
     memory_store: Any | None = None,
+    agent_coordinator: AgentCoordinator | None = None,
 ):
     """Compile the orchestration StateGraph. Cheap; safe to call per-request.
 
@@ -97,18 +131,20 @@ def build_graph(
                             assessment (the stop_check node).
     Phase 08 wiring (optional):
       * `memory_store`    — persistent memory for plan enhancement.
+    Phase 10 wiring (optional):
+      * `agent_coordinator` — multi-agent debate for high-risk questions.
     """
     workflow = StateGraph(OrchestrationState)
 
     workflow.add_node("analyze", make_analyze_node(router, settings))  # type: ignore
     workflow.add_node("plan", make_plan_node(router, settings))  # type: ignore
     if memory_store is not None:
-        # The node is async; bind the store without hiding the coroutine
-        # behind a sync lambda (langgraph awaits async node functions).
         workflow.add_node("memory_enhance", partial(_memory_enhance_node, memory_store=memory_store))  # type: ignore
     workflow.add_node("retrieve", make_retrieve_node(retriever, reranker, settings, policy_router=policy_router))  # type: ignore
     workflow.add_node("assess", make_assess_node(router, settings, gap_detector=gap_detector))  # type: ignore
     workflow.add_node("stop_check", make_stop_check_node(stopping_logic))  # type: ignore
+    if agent_coordinator is not None:
+        workflow.add_node("debate", partial(_debate_node, agent_coordinator=agent_coordinator))  # type: ignore
     workflow.add_node("synthesize", make_synthesize_node(router, settings))  # type: ignore
 
     workflow.set_entry_point("analyze")
@@ -120,9 +156,29 @@ def build_graph(
         workflow.add_edge("plan", "retrieve")
     workflow.add_edge("retrieve", "assess")
     workflow.add_edge("assess", "stop_check")
-    workflow.add_conditional_edges(
-        "stop_check", _route_after_assess, {"retrieve": "retrieve", "synthesize": "synthesize"}
-    )
+
+    # Route after stop_check: if debate is enabled and agents should activate, go to debate
+    # otherwise go directly to synthesize
+    def _route_after_stop_check(state: OrchestrationState) -> str:
+        if state["sufficient"]:
+            if agent_coordinator is not None and settings.multiagent_enabled:
+                # Check if agents should activate for this state
+                active_roles = agent_coordinator.should_activate_agents(state)
+                if len(active_roles) > 2:  # More than just Researcher + Verifier + Judge
+                    return "debate"
+            return "synthesize"
+        return "retrieve"
+
+    if agent_coordinator is not None:
+        workflow.add_conditional_edges(
+            "stop_check", _route_after_stop_check, {"retrieve": "retrieve", "synthesize": "synthesize", "debate": "debate"}
+        )
+        workflow.add_edge("debate", "synthesize")
+    else:
+        workflow.add_conditional_edges(
+            "stop_check", _route_after_assess, {"retrieve": "retrieve", "synthesize": "synthesize"}
+        )
+
     workflow.add_edge("synthesize", END)
 
     return workflow.compile()

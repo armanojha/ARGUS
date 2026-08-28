@@ -192,6 +192,9 @@ tags: [argus, evidence-report]
         a content copy. Requires an explicit `user_decision` and refuses to
         write into the 90_ARGUS write-back area.
         """
+        if not user_decision:
+            logger.info("research_promotion_skipped", reason="user_decision=false")
+            return None
         from app.integrations.obsidian.models import ResearchCaptureNote
 
         parsed = ResearchCaptureNote.model_validate(capture) if isinstance(capture, dict) else capture

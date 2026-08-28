@@ -148,6 +148,9 @@ class ObsidianNoteRecord(BaseModel):
     frontmatter: ObsidianFrontmatter | None = None
     tags: list[str] = Field(default_factory=list)
     wikilink_targets: list[str] = Field(default_factory=list)
+    # Phase 09.1: 7-class knowledge taxonomy
+    knowledge_class: str | None = None
+    treatment_rule: str | None = None
     ingested_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_synced: datetime = Field(default_factory=lambda: datetime.now(UTC))
     file_modified: datetime
@@ -182,6 +185,8 @@ class ObsidianIngestionResult(BaseModel):
     notes_unchanged: int = 0
     notes_deleted: int = 0
     notes_failed: int = 0
+    notes_classified: int = 0
+    hypothesis_objectives: list[Any] = Field(default_factory=list)  # HypothesisResearchObjective
     chunks_created: int = 0
     chunks_updated: int = 0
     errors: list[str] = Field(default_factory=list)
@@ -268,6 +273,13 @@ class ResearchCaptureNote(BaseModel):
             body_lines.append("## Claims")
             for claim in self.claims:
                 body_lines.append(f"- {claim}")
+            body_lines.append("")
+
+        if self.sources:
+            body_lines.append("## Linked Sources")
+            for source in self.sources:
+                stem = Path(source).stem
+                body_lines.append(f"- [[{stem}|{source}]]")
             body_lines.append("")
 
         body_lines.append("---")
