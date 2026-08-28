@@ -21,6 +21,7 @@ class SourceType(str, Enum):
     MARKDOWN = "markdown"
     TEXT = "text"
     HTML = "html"
+    SPREADSHEET = "spreadsheet"
     OTHER = "other"
 
 
