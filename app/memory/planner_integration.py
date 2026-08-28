@@ -15,6 +15,7 @@ from app.memory.interfaces import (
     MemoryAwarePlannerInterface,
     MemoryLayer,
     MemoryQuery,
+    MemoryRecord,
     MemoryStoreInterface,
 )
 from app.memory.store import get_memory_store
@@ -107,7 +108,8 @@ class MemoryAwarePlanner(MemoryAwarePlannerInterface):
 
     async def _retrieve_entity_knowledge(self, entities: list[str]) -> list:
         """Retrieve long-term knowledge for plan entities."""
-        all_memories = []
+        assert self.memory_store is not None
+        all_memories: list[MemoryRecord] = []
         for entity in entities[:5]:  # Limit to top 5 entities
             memories = await self.memory_store.retrieve(
                 MemoryQuery(
@@ -123,8 +125,9 @@ class MemoryAwarePlanner(MemoryAwarePlannerInterface):
     async def _retrieve_research_history(self, query: str, entities: list[str]) -> list:
         """Retrieve relevant research history."""
         # Search by query text and entities
+        assert self.memory_store is not None
         search_terms = [query] + entities[:3]
-        all_memories = []
+        all_memories: list[MemoryRecord] = []
         for term in search_terms:
             memories = await self.memory_store.retrieve(
                 MemoryQuery(
@@ -146,7 +149,8 @@ class MemoryAwarePlanner(MemoryAwarePlannerInterface):
 
     async def _retrieve_source_memory(self, sources: list[str]) -> list:
         """Retrieve source reliability/bias memories."""
-        all_memories = []
+        assert self.memory_store is not None
+        all_memories: list[MemoryRecord] = []
         for source in sources[:5]:
             memories = await self.memory_store.retrieve(
                 MemoryQuery(
@@ -161,6 +165,7 @@ class MemoryAwarePlanner(MemoryAwarePlannerInterface):
 
     async def _retrieve_user_preferences(self, query: str) -> list:
         """Retrieve user preferences relevant to query."""
+        assert self.memory_store is not None
         return await self.memory_store.retrieve(
             MemoryQuery(
                 query_text=query,

@@ -62,57 +62,57 @@ class ClassificationRule:
 
 # Default classification rules (V3 §4.2)
 CLASSIFICATION_RULES: dict[KnowledgeClass, ClassificationRule] = {
-    "source_note": ClassificationRule(
-        knowledge_class="source_note",
-        treatment="require_provenance",
+    KnowledgeClass.SOURCE_NOTE: ClassificationRule(
+        knowledge_class=KnowledgeClass.SOURCE_NOTE,
+        treatment=NoteTreatmentRule.SOURCE_NOTE,
         requires_provenance=True,
         drives_research=False,
         is_personal=False,
         is_argus_generated=False,
     ),
-    "knowledge_note": ClassificationRule(
-        knowledge_class="knowledge_note",
-        treatment="personalization_only",
+    KnowledgeClass.KNOWLEDGE_NOTE: ClassificationRule(
+        knowledge_class=KnowledgeClass.KNOWLEDGE_NOTE,
+        treatment=NoteTreatmentRule.KNOWLEDGE_NOTE,
         requires_provenance=False,
         drives_research=False,
         is_personal=True,
         is_argus_generated=False,
     ),
-    "hypothesis": ClassificationRule(
-        knowledge_class="hypothesis",
-        treatment="drive_research",
+    KnowledgeClass.HYPOTHESIS: ClassificationRule(
+        knowledge_class=KnowledgeClass.HYPOTHESIS,
+        treatment=NoteTreatmentRule.HYPOTHESIS,
         requires_provenance=False,
         drives_research=True,
         is_personal=True,
         is_argus_generated=False,
     ),
-    "project_note": ClassificationRule(
-        knowledge_class="project_note",
-        treatment="track_progress",
+    KnowledgeClass.PROJECT_NOTE: ClassificationRule(
+        knowledge_class=KnowledgeClass.PROJECT_NOTE,
+        treatment=NoteTreatmentRule.PROJECT_NOTE,
         requires_provenance=False,
         drives_research=False,
         is_personal=True,
         is_argus_generated=False,
     ),
-    "task_question": ClassificationRule(
-        knowledge_class="task_question",
-        treatment="drive_research",
+    KnowledgeClass.TASK_QUESTION: ClassificationRule(
+        knowledge_class=KnowledgeClass.TASK_QUESTION,
+        treatment=NoteTreatmentRule.TASK_QUESTION,
         requires_provenance=False,
         drives_research=True,
         is_personal=True,
         is_argus_generated=False,
     ),
-    "research_capture": ClassificationRule(
-        knowledge_class="research_capture",
-        treatment="archive_output",
+    KnowledgeClass.RESEARCH_CAPTURE: ClassificationRule(
+        knowledge_class=KnowledgeClass.RESEARCH_CAPTURE,
+        treatment=NoteTreatmentRule.RESEARCH_CAPTURE,
         requires_provenance=True,
         drives_research=False,
         is_personal=False,
         is_argus_generated=True,
     ),
-    "reference_index": ClassificationRule(
-        knowledge_class="reference_index",
-        treatment="navigation_only",
+    KnowledgeClass.REFERENCE_INDEX: ClassificationRule(
+        knowledge_class=KnowledgeClass.REFERENCE_INDEX,
+        treatment=NoteTreatmentRule.REFERENCE_INDEX,
         requires_provenance=False,
         drives_research=False,
         is_personal=True,

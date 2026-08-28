@@ -93,19 +93,18 @@ class NullMemoryStore(MemoryStoreInterface):
         }
 
 
-async def initialize_memory_system() -> MemoryFactory:
+async def initialize_memory_system() -> MemoryFactory | DefaultMemoryFactory:
     """Initialize the memory system and register the factory."""
     settings = get_settings()
     if not settings.memory_enabled:
         logger.info("memory_system_disabled")
-        factory = DefaultMemoryFactory()
+        factory: MemoryFactory | DefaultMemoryFactory = DefaultMemoryFactory()
     else:
         factory = MemoryFactory()
         # Verify store can be created
         store = factory.create_memory_store()
-        if hasattr(store, 'get_stats'):
-            stats = await store.get_stats()
-            logger.info("memory_system_initialized", stats=stats)
+        stats = await store.get_stats()
+        logger.info("memory_system_initialized", stats=stats)
 
     set_memory_factory(factory)
     return factory

@@ -460,7 +460,7 @@ class MemoryStore(MemoryStoreInterface):
         updated_record = MemoryRecord(
             **dump,
             confidence=new_confidence,
-            promotion_status="promoted",
+            promotion_status=MemoryPromotionStatus.PROMOTED,
             updated_at=datetime.now(UTC),
         )
         await self.update(updated_record)
