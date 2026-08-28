@@ -17,7 +17,7 @@ from PIL import Image as PILImage
 
 from app.config import get_settings
 from app.ingestion.chunking import TextSegment
-from app.ingestion.multimodal import Chart, ChartDataPoint, ChartType, Image as MultimodalImage, MultimodalType
+from app.ingestion.multimodal import Chart, ChartDataPoint, ChartType, MultimodalType
 from app.logging_config import get_logger
 
 logger = get_logger("argus.ingestion.images")
@@ -52,7 +52,7 @@ class ExtractedChart:
     model_description: str | None = None
 
 
-def _detect_chart_type_from_image(image: Image.Image) -> ChartType:
+def _detect_chart_type_from_image(image: PILImage.Image) -> ChartType:
     """Attempt to detect chart type from image using simple heuristics.
     
     In a full implementation, this would use a vision model.
