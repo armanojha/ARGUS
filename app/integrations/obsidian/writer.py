@@ -21,6 +21,14 @@ def _escape_yaml(value: str) -> str:
     return value.replace('"', '\\"').replace('\n', '\\n')
 
 
+def _safe_md_name(value: str) -> str:
+    """Sanitize a string for use in a filename (kept README/text friendly)."""
+    import re
+
+    cleaned = re.sub(r"[^A-Za-z0-9 _-]", "_", value.strip())
+    return cleaned.replace(" ", "_")[:80] or "untitled"
+
+
 class ObsidianWriter:
     """Writes ARGUS research outputs to the 90_ARGUS/ area of the vault."""
 
@@ -36,6 +44,7 @@ class ObsidianWriter:
             self.write_back_root / "Evidence_Reports",
             self.write_back_root / "Research_Traces",
             self.write_back_root / "Sync_Logs",
+            self.write_back_root / "Proposals",
         ]
         for dir_path in directories:
             dir_path.mkdir(parents=True, exist_ok=True)
@@ -155,3 +164,87 @@ tags: [argus, evidence-report]
         if not file_path.exists():
             return None
         return file_path.read_text(encoding="utf-8")
+
+    def write_proposal(self, proposal: Any) -> Path:
+        """Write a write-back proposal note to 90_ARGUS/Proposals/ (Phase 09).
+
+        Writing a proposal never mutates the target note; applying the
+        change requires the user to accept it via the proposal manager.
+        """
+        from app.integrations.obsidian.proposals import _render_proposal
+
+        proposal_file = self.write_back_root / "Proposals" / f"{proposal.proposal_id}.md"
+        proposal_file.write_text(_render_proposal(proposal), encoding="utf-8")
+        logger.info("writeback_proposal_written", proposal_id=proposal.proposal_id, path=str(proposal_file))
+        return proposal_file
+
+    def promote_research_capture(
+        self,
+        capture: Any,
+        target_dir: Path,
+        user_decision: bool = True,
+        capture_path: Path | None = None,
+    ) -> Path | None:
+        """User-promotion path for verified research outputs (Phase 09.4).
+
+        Writes a *pointer / summary* note into the user's knowledge area:
+        wikilinks back to the source notes and the 90_ARGUS capture — never
+        a content copy. Requires an explicit `user_decision` and refuses to
+        write into the 90_ARGUS write-back area.
+        """
+        from app.integrations.obsidian.models import ResearchCaptureNote
+
+        parsed = ResearchCaptureNote.model_validate(capture) if isinstance(capture, dict) else capture
+
+        target_dir = Path(target_dir).resolve()
+        if str(target_dir).lower().startswith(str(self.write_back_root).lower()):
+            raise ValueError("promotion target must be outside the 90_ARGUS write-back area")
+        try:
+            target_dir.relative_to(self.vault_root)
+        except ValueError as exc:
+            raise ValueError(f"promotion target is outside the vault: {target_dir}") from exc
+
+        target_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{_safe_md_name(parsed.title or parsed.research_id)}_{parsed.research_id}.md"
+        output_path = target_dir / filename
+
+        source_links = []
+        for source in parsed.sources or []:
+            stem = Path(source).stem
+            source_links.append(f"- [[{stem}|{source}]]")
+        capture_link = ""
+        if capture_path is not None:
+            capture_link = f"[[{Path(capture_path).stem}|ARGUS capture]]"
+
+        content_lines = [
+            "---",
+            "title: " + str(parsed.title or "").replace('"', '\\"'),
+            f"research_id: {parsed.research_id}",
+            f"status: {parsed.status}",
+            f"confidence: {parsed.confidence if parsed.confidence is not None else ''}",
+            "promoted_by: argus",
+            "tags: [argus, promoted]",
+            "---",
+            "",
+            f"# {parsed.title or parsed.research_id}",
+            "",
+            f"**Status:** {parsed.status}",
+            f"**Research ID:** {parsed.research_id}",
+            f"**Confidence:** {parsed.confidence if parsed.confidence is not None else 'n/a'}",
+        ]
+        if capture_link:
+            content_lines.append(f"**Original capture:** {capture_link}")
+        content_lines.append("")
+        content_lines.append("## Claims")
+        for claim in parsed.claims or []:
+            content_lines.append(f"- {claim}")
+        content_lines.append("")
+        content_lines.append("## Sources")
+        content_lines.extend(source_links or ["- _no sources recorded_"])
+        content_lines.append("")
+        content_lines.append("---")
+        content_lines.append(f"*Promoted by ARGUS on {datetime.now(UTC).isoformat()}*")
+
+        output_path.write_text("\n".join(content_lines) + "\n", encoding="utf-8")
+        logger.info("research_capture_promoted", research_id=parsed.research_id, path=str(output_path))
+        return output_path
