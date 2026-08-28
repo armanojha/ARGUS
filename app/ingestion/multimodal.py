@@ -52,8 +52,8 @@ class IngestionPriority(str, Enum):
 class MultimodalContent:
     """Base class for all multimodal content."""
     id: UUID
-    content_type: MultimodalType
     source_path: str
+    content_type: MultimodalType
     source_uri: str | None = None
     source_chunk_ids: list[UUID] = field(default_factory=list)
     text_content: str | None = None
@@ -70,7 +70,7 @@ class MultimodalContent:
 
 @dataclass(frozen=True)
 class OCRText(MultimodalContent):
-    content_type: MultimodalType = "ocr_text"
+    content_type: MultimodalType = MultimodalType.OCR_TEXT
     language: str | None = None
     confidence: float | None = None
     ocr_used: bool = True
@@ -93,7 +93,7 @@ class TableCell:
 
 @dataclass(frozen=True)
 class Table(MultimodalContent):
-    content_type: MultimodalType = "table"
+    content_type: MultimodalType = MultimodalType.TABLE
     headers: list[str] = field(default_factory=list)
     rows: list[list[str]] = field(default_factory=list)
     cells: list[Any] = field(default_factory=list)
@@ -108,8 +108,8 @@ class Table(MultimodalContent):
 
 @dataclass(frozen=True)
 class WebPage(MultimodalContent):
-    content_type: MultimodalType = "web_page"
-    url: str
+    url: str = ""
+    content_type: MultimodalType = MultimodalType.WEB_PAGE
     canonical_url: str | None = None
     title: str | None = None
     author: str | None = None
@@ -145,7 +145,7 @@ class SpreadsheetSheet:
 
 @dataclass(frozen=True)
 class Spreadsheet(MultimodalContent):
-    content_type: MultimodalType = "spreadsheet"
+    content_type: MultimodalType = MultimodalType.SPREADSHEET
     sheets: list[Any] = field(default_factory=list)
     author: str | None = None
     created_date: datetime | None = None
@@ -175,8 +175,8 @@ class ChartDataPoint:
 
 @dataclass(frozen=True)
 class Chart(MultimodalContent):
-    content_type: MultimodalType = "chart"
-    chart_type: ChartType = "other"
+    content_type: MultimodalType = MultimodalType.CHART
+    chart_type: ChartType = ChartType.OTHER
     title: str | None = None
     x_axis_label: str | None = None
     y_axis_label: str | None = None
@@ -187,7 +187,7 @@ class Chart(MultimodalContent):
 
 @dataclass(frozen=True)
 class Image(MultimodalContent):
-    content_type: MultimodalType = "image"
+    content_type: MultimodalType = MultimodalType.IMAGE
     width: int | None = None
     height: int | None = None
     format: str | None = None

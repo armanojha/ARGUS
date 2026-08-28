@@ -19,6 +19,7 @@ individual nodes stay dependency-injected and gateway-agnostic.
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 from langgraph.graph import END, StateGraph
@@ -102,7 +103,9 @@ def build_graph(
     workflow.add_node("analyze", make_analyze_node(router, settings))  # type: ignore
     workflow.add_node("plan", make_plan_node(router, settings))  # type: ignore
     if memory_store is not None:
-        workflow.add_node("memory_enhance", lambda s: _memory_enhance_node(s, memory_store))  # type: ignore
+        # The node is async; bind the store without hiding the coroutine
+        # behind a sync lambda (langgraph awaits async node functions).
+        workflow.add_node("memory_enhance", partial(_memory_enhance_node, memory_store=memory_store))  # type: ignore
     workflow.add_node("retrieve", make_retrieve_node(retriever, reranker, settings, policy_router=policy_router))  # type: ignore
     workflow.add_node("assess", make_assess_node(router, settings, gap_detector=gap_detector))  # type: ignore
     workflow.add_node("stop_check", make_stop_check_node(stopping_logic))  # type: ignore

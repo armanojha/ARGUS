@@ -104,6 +104,11 @@ class MultiModelRouter:
         if self._initialized:
             return
 
+        # Providers injected at construction time (tests, embedding, etc.)
+        # take precedence and must be usable by routing.
+        for name, provider in self._providers.items():
+            self._provider_cache.setdefault(name, provider)
+
         # Load all enabled providers from config
         data = self._load_providers_config()
         for entry in data.get("providers", []) or []:
