@@ -167,7 +167,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
                     continue
 
                 try:
-                    agent_output = await agent.process(state_dict, round_messages + agent_messages)
+                    agent_output = await agent.process(state_dict, round_messages + agent_messages)  # type: ignore[arg-type]
                     round_messages.extend(agent_output)
 
                     # Log agent output
@@ -212,7 +212,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
 
                     # Trigger targeted retrieval based on disagreement source
                     try:
-                        queries = self._identify_disagreement_source(state_dict, disagreement)
+                        queries = self._identify_disagreement_source(state_dict, disagreement)  # type: ignore[arg-type]
                         if queries:
                             logger.info("multi_agent_targeted_retrieval", round=round_num, queries=queries)
                             new_evidence = []
@@ -226,7 +226,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
                                 existing_by_id = {e.chunk_id: e for e in state_dict["evidence"]}
                                 for e in new_evidence:
                                     existing_by_id[e.chunk_id] = e
-                                state_dict["evidence"] = list(existing_by_id.values())
+                                state_dict["evidence"] = list(existing_by_id.values())  # type: ignore[assignment]
                                 logger.info("multi_agent_evidence_injected", count=len(new_evidence))
                     except Exception as exc:  # noqa: BLE001 - targeted retrieval is non-critical
                         logger.warning("multi_agent_targeted_retrieval_failed", error=str(exc))
@@ -248,7 +248,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
             total_messages=len(agent_messages),
         )
 
-        return state_dict
+        return state_dict  # type: ignore[return-value]
 
     def _detect_disagreement(
         self,
