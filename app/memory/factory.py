@@ -45,9 +45,14 @@ class MemoryFactory(MemoryFactoryInterface):
         settings = get_settings()
         if not settings.obsidian_full_enabled:
             return None
-        # Phase 09 will implement this
-        logger.debug("vault_memory_not_implemented_yet")
-        return None
+        try:
+            from app.integrations.obsidian.alignment import VaultMemoryCoordinator
+
+            store = self.create_memory_store() if settings.memory_enabled else None
+            return VaultMemoryCoordinator(memory_store=store)
+        except Exception as exc:  # noqa: BLE001 - optional enhancement, never crash
+            logger.warning("vault_memory_unavailable", error=str(exc))
+            return None
 
     def get_version_manager(self) -> GraphVersionManager:
         """Get the graph version manager."""

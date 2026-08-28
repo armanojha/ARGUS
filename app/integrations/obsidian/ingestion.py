@@ -282,6 +282,43 @@ class ObsidianIngestionPipeline:
 
         return record
 
+    def _classify(self, note: ParsedObsidianNote):
+        """Classify a note via the injected classifier (sync core, else async)."""
+        classifier = self.classifier
+        sync_core = getattr(classifier, "classify_sync", None)
+        if sync_core is not None:
+            return sync_core(str(note.file_path), note.raw_content, note.frontmatter, note.sections)
+        import asyncio
+
+        return asyncio.run(
+            classifier.classify_note(str(note.file_path), note.raw_content, note.frontmatter, note.sections)
+        )
+
+    def _build_hypothesis_objective(self, note: ParsedObsidianNote, record: ObsidianNoteRecord):
+        """Convert a hypothesis note into a research objective (Phase 09.2)."""
+        converter = getattr(self, "_hypothesis_converter", None)
+        if converter is None:
+            from app.integrations.obsidian.classifier import RuleBasedHypothesisConverter
+
+            converter = RuleBasedHypothesisConverter()
+            self._hypothesis_converter = converter
+        import asyncio
+
+        frontmatter = note.frontmatter.model_dump() if hasattr(note.frontmatter, "model_dump") else {}
+        try:
+            from app.integrations.obsidian.classifier import extract_hypothesis_text
+
+            return asyncio.run(
+                converter.convert_hypothesis(
+                    extract_hypothesis_text(note),
+                    note.vault_relative_path,
+                    context=frontmatter,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 - hypothesis conversion is best-effort
+            logger.warning("hypothesis_conversion_failed", note=note.vault_relative_path, error=str(exc))
+            return None
+
     def _upsert_source(self, note: ParsedObsidianNote) -> Source:
         """Create or get source for the Obsidian note."""
         source_checksum = hashlib.sha256(

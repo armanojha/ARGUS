@@ -18,3 +18,11 @@ exclude_patterns:
   - ".git/**"
   - ".trash/**"
 chunking_strategy: "obsidian_sections_v1"
+
+# Phase 09 full integration flags (mirror Settings; env overrides take
+# precedence: ARGUS_OBSIDIAN_FULL_ENABLED, ..., etc).
+full_enabled: false
+classification_enabled: true
+hypothesis_conversion_enabled: true
+writeback_enabled: true
+vault_graph_alignment_enabled: true

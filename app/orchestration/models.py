@@ -155,3 +155,13 @@ class OrchestrationResult(BaseModel):
         default_factory=list,
         description="Targeted retrieval actions formulated by active evidence seeking.",
     )
+    # Phase 10 multi-agent traceability (additive; empty when multi-agent off)
+    agent_round: int | None = Field(
+        default=None, description="Number of debate rounds executed, if multi-agent was active."
+    )
+    agent_messages: list[dict[str, Any]] = Field(
+        default_factory=list, description="Messages exchanged between agents during debate."
+    )
+    disagreement_detected: bool | None = Field(
+        default=None, description="Whether material disagreement was detected during debate."
+    )

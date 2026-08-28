@@ -261,6 +261,10 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
         stop_condition=final_state.get("stop_condition_fired"),
         stop_decisions=final_state.get("stop_conditions_checked") or [],
         evidence_tasks=final_state.get("evidence_tasks") or [],
+        # Phase 10 multi-agent traceability
+        agent_round=final_state.get("agent_round"),
+        agent_messages=final_state.get("agent_messages"),
+        disagreement_detected=final_state.get("disagreement_detected"),
     )
 
 
@@ -293,6 +297,10 @@ async def run_query(
       * `memory_store`   — `settings.memory_enabled`. Imported lazily so a
                            still-in-progress memory module can never break
                            the Phase 02/06 loop.
+
+    Phase 10 component (optional, non-fatal):
+      * `agent_coordinator` — `settings.multiagent_enabled`. Multi-agent
+                              debate for high-risk/uncertainty questions.
     """
     settings = settings or get_settings()
     router = router or get_router()
@@ -323,6 +331,14 @@ async def run_query(
         except Exception as exc:  # noqa: BLE001 - memory is an optional enhancement
             logger.warning("memory_system_unavailable", error=str(exc))
 
+    # Phase 10: initialize agent coordinator if enabled (non-fatal)
+    agent_coordinator: AgentCoordinator | None = None
+    if getattr(settings, "multiagent_enabled", False):
+        try:
+            agent_coordinator = create_agent_coordinator(router, settings, retriever, reranker)
+        except Exception as exc:  # noqa: BLE001 - multi-agent is an optional enhancement
+            logger.warning("agent_coordinator_unavailable", error=str(exc))
+
     graph = build_graph(
         router,
         retriever,
@@ -332,6 +348,7 @@ async def run_query(
         gap_detector=gap_detector,
         stopping_logic=stopping_logic,
         memory_store=memory_store,
+        agent_coordinator=agent_coordinator,
     )
     initial_state = _initial_state(query, request_id, settings)
     if user_early_stop:
