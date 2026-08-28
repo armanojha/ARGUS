@@ -169,6 +169,8 @@ class VaultGraphAligner:
             ))
             edges_added += 1
 
+        self.graph_store.save()
+
         return GraphAlignmentResult(
             note_path=note_path,
             file_stem=canonical,

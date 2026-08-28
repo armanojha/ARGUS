@@ -116,15 +116,32 @@ class TestVaultBackupIndependence:
                 bm25_index_path=data_dir / "bm25.pkl",
                 faiss_index_path=data_dir / "faiss.index",
             )
+            fresh_graph_store = EvidenceGraphStore(
+                graph_path=data_dir / "graph.pkl",
+                evidence_store=fresh_store,
+            )
+            fresh_memory_store = MemoryStore(db_path=data_dir / "memory.db")
+
             fresh_pipeline = ObsidianIngestionPipeline(
                 backup,
                 store=fresh_store,
                 manifest_path=data_dir / "manifest.pkl",
                 classifier=RuleBasedObsidianClassifier(),
+                aligner=VaultGraphAligner(fresh_graph_store),
                 enable_hypothesis_objectives=True,
             )
             re = fresh_pipeline.ingest_vault(incremental=False)
             assert re.notes_new == 3
             assert {p.name for p in backup.rglob("*.md")} == note_files
+
+            fresh_coordinator = VaultMemoryCoordinator(
+                memory_store=fresh_memory_store,
+                aligner=VaultGraphAligner(fresh_graph_store),
+            )
+            re_sync = await fresh_coordinator.sync_vault_memory(str(backup))
+            assert re_sync["synced"] == 3
+            assert {p.name for p in backup.rglob("*.md")} == note_files
+
             fresh_store.close()
+            fresh_memory_store.close()
             _assert_argus_artefacts(data_dir, expected=True)

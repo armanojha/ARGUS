@@ -99,17 +99,15 @@ class AgentCoordinator(AgentCoordinatorInterface):
         # High variance in top evidence scores suggests conflict
         import statistics
         if len(scores) >= 3:
-            variance = statistics.variance(scores)
+            stdev = statistics.stdev(scores)
             mean_score = statistics.mean(scores)
             # Coefficient of variation > threshold
-            cv = variance / mean_score if mean_score > 0 else 0
+            cv = stdev / mean_score if mean_score > 0 else 0
             return cv > self._disagreement_threshold
         return False
 
     def _has_high_uncertainty(self, evidence: list[Any]) -> bool:
         """Check if evidence base has high uncertainty."""
-        if not evidence:
-            return True
         # Low average score = high uncertainty
         avg_score = sum(e.score for e in evidence) / len(evidence)
         return avg_score < 0.5
@@ -141,11 +139,11 @@ class AgentCoordinator(AgentCoordinatorInterface):
         round_num = 0
 
         # Store initial debate state
-        state = dict(state)
-        state["agent_messages"] = agent_messages
-        state["agent_round"] = 0
-        state["debate_active"] = True
-        state["disagreement_detected"] = False
+        state_dict = dict(state)
+        state_dict["agent_messages"] = agent_messages
+        state_dict["agent_round"] = 0
+        state_dict["debate_active"] = True
+        state_dict["disagreement_detected"] = False
 
         # Sort agents by role order: Researcher -> Skeptic -> AltHyp -> Verifier -> Judge
         role_order = {
@@ -161,7 +159,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
             state["agent_round"] = round_num
             round_messages: list[AgentMessage] = []
 
-            logger.info("multi_agent_round_started", round=round_num, request_id=state.get("request_id"))
+            logger.info("multi_agent_round_started", round=round_num, request_id=state_dict.get("request_id"))
 
             for agent in agents:
                 # Skip agents not in active roles for this round
@@ -169,7 +167,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
                     continue
 
                 try:
-                    agent_output = await agent.process(state, round_messages + agent_messages)
+                    agent_output = await agent.process(state_dict, round_messages + agent_messages)
                     round_messages.extend(agent_output)
 
                     # Log agent output
@@ -178,7 +176,7 @@ class AgentCoordinator(AgentCoordinatorInterface):
                             "multi_agent_message",
                             from_agent=msg.from_agent.value,
                             round=round_num,
-                            request_id=state.get("request_id"),
+                            request_id=state_dict.get("request_id"),
                         )
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
@@ -209,10 +207,29 @@ class AgentCoordinator(AgentCoordinatorInterface):
             if round_num < max_rounds:
                 disagreement = self._detect_disagreement(agent_messages, round_messages)
                 if disagreement:
-                    state["disagreement_detected"] = True
+                    state_dict["disagreement_detected"] = True
                     logger.info("multi_agent_disagreement_detected", round=round_num, details=disagreement)
-                    # Could trigger targeted retrieval here
-                    # For now, we just flag it and continue
+
+                    # Trigger targeted retrieval based on disagreement source
+                    try:
+                        queries = self._identify_disagreement_source(state_dict, disagreement)
+                        if queries:
+                            logger.info("multi_agent_targeted_retrieval", round=round_num, queries=queries)
+                            new_evidence = []
+                            for query in queries:
+                                results = self._retriever.search(query, top_k=3)
+                                if results:
+                                    results = self._reranker.rerank(query, results, top_k=3)
+                                    new_evidence.extend(results)
+                            if new_evidence:
+                                # Merge new evidence, deduplicating by chunk_id
+                                existing_by_id = {e.chunk_id: e for e in state_dict["evidence"]}
+                                for e in new_evidence:
+                                    existing_by_id[e.chunk_id] = e
+                                state_dict["evidence"] = list(existing_by_id.values())
+                                logger.info("multi_agent_evidence_injected", count=len(new_evidence))
+                    except Exception as exc:  # noqa: BLE001 - targeted retrieval is non-critical
+                        logger.warning("multi_agent_targeted_retrieval_failed", error=str(exc))
 
             # Check if Judge says to continue
             judge_msg = next((m for m in round_messages if m.from_agent == AgentRole.JUDGE), None)
@@ -220,18 +237,18 @@ class AgentCoordinator(AgentCoordinatorInterface):
                 logger.info("multi_agent_judge_stopped", round=round_num)
                 break
 
-        state["agent_messages"] = agent_messages
-        state["agent_round"] = round_num
-        state["debate_active"] = False
+        state_dict["agent_messages"] = agent_messages
+        state_dict["agent_round"] = round_num
+        state_dict["debate_active"] = False
 
         logger.info(
             "multi_agent_debate_finished",
-            request_id=state.get("request_id"),
+            request_id=state_dict.get("request_id"),
             rounds=round_num,
             total_messages=len(agent_messages),
         )
 
-        return state
+        return state_dict
 
     def _detect_disagreement(
         self,

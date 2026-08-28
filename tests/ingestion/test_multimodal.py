@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import io
 import tempfile
 from pathlib import Path
-from uuid import uuid4
 
 import pytest
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 from app.ingestion.ocr import (
     extract_pdf_text_layer,
@@ -19,16 +21,6 @@ from app.ingestion.tables import extract_pdf_tables, tables_to_text_segments, Ex
 from app.ingestion.web import fetch_web_page, web_page_to_text_segments, is_valid_web_url
 from app.ingestion.spreadsheets import ingest_spreadsheet, spreadsheet_to_text_segments, is_valid_spreadsheet
 from app.ingestion.images import extract_pdf_images, extract_pdf_charts, images_to_text_segments, charts_to_text_segments
-
-
-"""Tests for Phase 11 Multimodal Ingestion."""
-
-from __future__ import annotations
-
-import io
-import tempfile
-from pathlib import Path
-from uuid import uuid4
 
 import pytest
 from reportlab.lib.pagesizes import letter

@@ -239,8 +239,8 @@ class AgentCoordinatorInterface(ABC):
     async def run_debate(
         self,
         state: OrchestrationState,
-        agents: list[AgentInterface],
-        max_rounds: int = 3,
+        agents: list[AgentInterface] | None = None,
+        max_rounds: int | None = None,
     ) -> OrchestrationState:
         """Run a multi-agent debate and return updated state."""
         ...
