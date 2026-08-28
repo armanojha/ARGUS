@@ -7,7 +7,7 @@ with full provenance tracking.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
@@ -35,8 +35,8 @@ class Source(BaseModel):
     path: str  # Original file path or identifier
     checksum: str  # SHA256 of the source content
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Document(BaseModel):
@@ -54,7 +54,7 @@ class Document(BaseModel):
     checksum: str  # SHA256 of the document content (all chunks concatenated)
     chunking_strategy: str  # e.g., "semantic_v1", "fixed_512_64"
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Chunk(BaseModel):
@@ -82,7 +82,7 @@ class Chunk(BaseModel):
     # BM25 document ID (for lexical index)
     bm25_doc_id: int | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class EvidenceRef(BaseModel):

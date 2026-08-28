@@ -109,7 +109,8 @@ class FAISSVectorStore:
                 logger.warning("faiss_search_no_index")
                 return []
 
-        assert self._index is not None, "FAISS index should be loaded"
+        if self._index is None:
+            raise RuntimeError("FAISS index not loaded")
         top_k = top_k or self.settings.retrieval_top_k
 
         # Normalize query
@@ -120,7 +121,7 @@ class FAISSVectorStore:
 
         results = []
         for score, idx in zip(scores[0], indices[0]):
-            if idx >= 0 and score > 0:
+            if 0 <= idx < len(self._chunk_ids) and score > 0:
                 chunk_id = UUID(self._chunk_ids[idx])
                 results.append((chunk_id, float(score)))
 

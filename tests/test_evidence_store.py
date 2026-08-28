@@ -188,6 +188,27 @@ class TestEvidenceRefs:
         assert refs[0].source_path == sample_source.path
         assert refs[0].source_type == sample_source.type
 
+    def test_get_evidence_refs_carries_chunk_metadata(
+        self, store, sample_source, sample_document, sample_chunks
+    ):
+        """Multimodal/Phase 09 provenance on chunks reaches citations via EvidenceRef."""
+        store.upsert_source(sample_source)
+        store.insert_document(sample_document)
+        sample_chunks[0].metadata = {
+            "multimodal_type": "spreadsheet",
+            "sheet": "Results",
+            "knowledge_class": "hypothesis",
+        }
+        for chunk in sample_chunks:
+            chunk.document_id = sample_document.id
+        store.insert_chunks(sample_chunks)
+
+        refs = store.get_evidence_refs([sample_chunks[0].id], [0.9])
+
+        assert refs[0].metadata.get("multimodal_type") == "spreadsheet"
+        assert refs[0].metadata.get("sheet") == "Results"
+        assert refs[0].metadata.get("knowledge_class") == "hypothesis"
+
 
 class TestChecksum:
     def test_compute_checksum(self):

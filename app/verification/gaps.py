@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.config import Settings
+from app.config import Settings, get_settings
 from app.graph.store import EvidenceGraphStore
 from app.logging_config import get_logger
 from app.orchestration.graph import run_query
@@ -127,7 +127,7 @@ class ReRetrievalManager:
         settings: Settings | None = None,
     ):
         self.graph_store = graph_store
-        self.settings = settings or Settings()
+        self.settings = settings or get_settings()
 
     async def trigger_re_retrieval(
         self,

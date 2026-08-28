@@ -50,6 +50,33 @@ class TestChunking:
         assert chunks[1].section_path == "Background"
         assert chunks[2].section_path == "Methodology"
 
+    def test_chunk_by_sections_preserves_segment_metadata(self):
+        """TextSegment metadata (e.g. multimodal provenance) survives into chunks."""
+        segments = [
+            TextSegment(
+                text="Table region content.",
+                page_start=3,
+                section_path="Table 1",
+                metadata={"multimodal_type": "table", "page": 3, "table_index": 0},
+            )
+        ]
+        chunks = chunk_by_sections(segments, uuid4())
+
+        assert len(chunks) == 1
+        assert chunks[0].metadata.get("multimodal_type") == "table"
+        assert chunks[0].metadata.get("page") == 3
+
+    def test_chunk_text_merges_metadata_across_segments(self):
+        """Overlapping chunks inherit metadata from every segment they span."""
+        segments = [
+            TextSegment(text="A" * 80, metadata={"multimodal_type": "text", "sheet": "S1"}),
+            TextSegment(text="B" * 80, metadata={"multimodal_type": "text", "extra": "x"}),
+        ]
+        chunks = chunk_text(segments, uuid4(), chunk_size=100, chunk_overlap=0)
+
+        assert any("sheet" in c.metadata for c in chunks), "first-segment metadata lost"
+        assert any("extra" in c.metadata for c in chunks), "second-segment metadata lost"
+
 
 class TestPDFExtraction:
     def test_extract_pdf_text(self):

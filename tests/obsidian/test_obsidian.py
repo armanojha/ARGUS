@@ -427,3 +427,96 @@ class TestObsidianIngestionPipeline:
             assert result2.notes_new == 0
 
 
+class TestObsidianResearchIntegration:
+    """Phase 09.2 research coordinator wiring across subsystem boundaries."""
+
+    def test_extension_factory_returns_real_components(self, temp_vault: Path):
+        """The wired ObsidianExtensionFactory yields real Phase 09 components."""
+        from app.integrations.obsidian.factory import ObsidianExtensionFactory
+
+        factory = ObsidianExtensionFactory(temp_vault, write_back_root="90_ARGUS")
+        classifier = factory.create_classifier()
+        converter = factory.create_hypothesis_converter()
+        proposal_mgr = factory.create_writeback_proposal()
+        writer = factory.create_research_writer()
+
+        assert classifier is not None and hasattr(classifier, "classify_note")
+        assert converter is not None and hasattr(converter, "convert_hypothesis")
+        assert proposal_mgr is not None and hasattr(proposal_mgr, "create_proposal")
+        assert writer is not None and hasattr(writer, "write_research_capture")
+
+    @pytest.mark.asyncio
+    async def test_process_note_runs_phase04_verification(self, temp_vault: Path):
+        """A research outcome is cross-checked via Phase 04 verification, not the run heuristic alone."""
+        from app.integrations.obsidian.contracts import (
+            ClassificationResult,
+            HypothesisResearchObjective,
+        )
+        from app.integrations.obsidian.parser import parse_obsidian_note
+        from app.integrations.obsidian.research import (
+            HypothesisResearchOutcome,
+            ObsidianResearchCoordinator,
+        )
+
+        note_path = temp_vault / "Hypothesis idea.md"
+        note_path.write_text(
+            "Hypothesis: foxes always cache acorns in separate burrows.\n",
+            encoding="utf-8",
+        )
+
+        class FakeClassifier:
+            async def classify_note(self, *args, **kwargs):
+                return ClassificationResult(
+                    knowledge_class="hypothesis",
+                    confidence=0.9,
+                    reasoning="test",
+                    treatment_rule="drive_research",
+                )
+
+        class FakeConverter:
+            def should_convert(self, knowledge_class, frontmatter):
+                return knowledge_class == "hypothesis"
+
+            async def convert_hypothesis(self, hypothesis_text, note_path, context=None):
+                return HypothesisResearchObjective(
+                    hypothesis_id="h-test",
+                    hypothesis_text=hypothesis_text,
+                    research_objective=f"Research: {hypothesis_text}",
+                    source_note_path=note_path,
+                )
+
+        class FakeRunner:
+            router = "fake-router"  # non-None => verify_result must be invoked
+
+            def __init__(self):
+                self.verified = False
+
+            async def run(self, objective):
+                return HypothesisResearchOutcome(
+                    research_id="r-test",
+                    hypothesis_text=objective.hypothesis_text,
+                    research_objective=objective.research_objective,
+                    source_note_path=objective.source_note_path,
+                    status="verified",
+                )
+
+            async def verify_result(self, outcome, evidence_store, router, graph_store):
+                self.verified = True
+                outcome.validation = "supported"
+                return outcome
+
+        coordinator = ObsidianResearchCoordinator(
+            temp_vault,
+            classifier=FakeClassifier(),
+            converter=FakeConverter(),
+            runner=FakeRunner(),
+        )
+        note = parse_obsidian_note(note_path, temp_vault)
+        outcome = await coordinator._process_note(note, write_outputs=False)
+
+        assert outcome is not None
+        assert outcome.status == "verified"
+        assert outcome.validation == "supported"
+        assert coordinator.runner.verified, "Phase 04 verify_result was not invoked"
+
+

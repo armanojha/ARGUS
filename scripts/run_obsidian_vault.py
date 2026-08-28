@@ -41,7 +41,7 @@ async def _sync_vault_memory(vault_root: Path) -> dict[str, int]:
     return await coordinator.sync_vault_memory(str(vault_root))
 
 
-async def _run_research(vault_root: Path) -> list[object]:
+async def _run_research(vault_root: Path) -> list:
     """Classify -> convert -> research -> write back for every hypothesis note."""
     from app.integrations.obsidian.research import ObsidianResearchCoordinator
 

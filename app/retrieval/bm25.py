@@ -115,7 +115,8 @@ class BM25Retriever:
             logger.warning("bm25_search_no_index")
             return []
 
-        assert self._bm25 is not None, "BM25 index should be loaded"
+        if self._bm25 is None:
+            raise RuntimeError("BM25 index not loaded")
         top_k = top_k or self.settings.retrieval_top_k
         query_tokens = self._tokenize(query)
 

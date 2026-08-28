@@ -341,3 +341,36 @@ def test_obsidian_seeker_ignores_unrelated_query(store: EvidenceStore):
     )
     seeker = ObsidianHypothesisSeeker(store=store)
     assert seeker.seed_evidence_tasks("pythagorean theorem") == []
+
+
+def test_obsidian_seeker_uses_phase09_hypothesis_classification(store: EvidenceStore):
+    """Phase 09 classifier-annotated chunks seed tasks even without an inline marker."""
+    source = Source(type=SourceType.TEXT, path="/vault/note.md", checksum="e1")
+    store.upsert_source(source)
+    doc = Document(
+        source_id=source.id,
+        version=1,
+        checksum="e2",
+        chunking_strategy="obsidian_sections_v1",
+        metadata={"note_type": "personal_context", "vault_relative_path": "notes/idea.md"},
+    )
+    store.insert_document(doc)
+    store.insert_chunks(
+        [
+            Chunk(
+                document_id=doc.id,
+                ordinal=0,
+                text="Foxes dig dens under south-facing slopes.",
+                token_count=8,
+                metadata={"knowledge_class": "hypothesis", "vault_relative_path": "notes/idea.md"},
+            )
+        ]
+    )
+
+    seeker = ObsidianHypothesisSeeker(store=store)
+    tasks = seeker.seed_evidence_tasks("Where do foxes build their dens?")
+    assert tasks, "expected a task from a Phase 09-classified hypothesis chunk"
+    task = tasks[0]
+    assert task["gap_type"] == "obsidian_hypothesis"
+    assert "Foxes dig dens" in task["hypothesis_text"]
+    assert task["suggested_query"].startswith("Investigate whether:")

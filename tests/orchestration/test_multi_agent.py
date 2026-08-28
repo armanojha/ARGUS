@@ -619,16 +619,18 @@ class TestAgentCoordinator:
         chunk_id = uuid4()
         doc_id = uuid4()
         source_id = uuid4()
-        make_ref = lambda score, rank: EvidenceRef(  # noqa: E731
-            chunk_id=chunk_id,
-            document_id=doc_id,
-            source_id=source_id,
-            source_path="doc.txt",
-            source_type=SourceType.TEXT,
-            text="shared chunk",
-            score=score,
-            rank=rank,
-        )
+
+        def make_ref(score, rank):
+            return EvidenceRef(
+                chunk_id=chunk_id,
+                document_id=doc_id,
+                source_id=source_id,
+                source_path="doc.txt",
+                source_type=SourceType.TEXT,
+                text="shared chunk",
+                score=score,
+                rank=rank,
+            )
         existing = [
             make_ref(0.9, 1),
             EvidenceRef(
