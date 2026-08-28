@@ -1,11 +1,11 @@
-"""Orchestration Extension Contracts (Phase 06, 08, 10).
+"""Orchestration Extension Contracts (Phase 06, 10).
 
-Defines extension points for the orchestration layer that future phases
-will implement. Phase 02 provides the base orchestration loop; Phases
-06, 08, 10 extend it with stopping logic, memory integration, and
-multi-agent support respectively.
+Defines extension points for the orchestration layer that later phases
+extend. Phase 02 provides the base orchestration loop; Phases 06 and 10
+extend it with stopping logic and multi-agent support respectively.
 
 These contracts define the interfaces without implementing the logic.
+(Phase 08 memory integration is defined canonically in `app/memory/interfaces.py`.)
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
-from uuid import UUID
 
 from app.orchestration.state import OrchestrationState
 
@@ -78,93 +77,6 @@ class StoppingLogicInterface(ABC):
     @abstractmethod
     def get_checkers(self) -> list[StopConditionChecker]:
         """Return all registered stop condition checkers."""
-        ...
-
-
-# =============================================================================
-# Phase 08: Memory Integration Contract
-# =============================================================================
-
-class MemoryLayer(str, Enum):
-    """Memory layer types (V2 §6.2)."""
-    WORKING = "working"                 # Current query context
-    LONG_TERM_KNOWLEDGE = "long_term_knowledge"  # Verified facts
-    RESEARCH_HISTORY = "research_history"        # Past queries/results
-    SOURCE_MEMORY = "source_memory"              # Source reliability
-    USER_MEMORY = "user_memory"                  # User preferences
-    VAULT_MEMORY = "vault_memory"                # Obsidian vault pointers (Phase 09)
-
-
-@dataclass(frozen=True)
-class MemoryRecord:
-    """A single memory record."""
-    id: UUID
-    layer: MemoryLayer
-    content: str
-    # Provenance
-    source_chunk_ids: list[UUID] = field(default_factory=list)
-    source_query: str | None = None
-    # Metadata
-    confidence: float = 1.0
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-class MemoryStoreInterface(ABC):
-    """Interface for the persistent memory store.
-
-    Phase 08 implements this. Phase 02 (planner) and Phase 08
-    (self-evolution) depend on this interface.
-    """
-
-    @abstractmethod
-    async def store(self, record: MemoryRecord) -> None:
-        """Store a memory record."""
-        ...
-
-    @abstractmethod
-    async def retrieve(
-        self,
-        query: str,
-        layers: list[MemoryLayer] | None = None,
-        limit: int = 10,
-        min_confidence: float = 0.0,
-    ) -> list[MemoryRecord]:
-        """Retrieve relevant memories for a query."""
-        ...
-
-    @abstractmethod
-    async def get_by_id(self, record_id: UUID) -> MemoryRecord | None:
-        """Get a specific memory record by ID."""
-        ...
-
-    @abstractmethod
-    async def update(self, record: MemoryRecord) -> None:
-        """Update an existing memory record."""
-        ...
-
-    @abstractmethod
-    async def delete(self, record_id: UUID) -> bool:
-        """Delete a memory record. Returns True if deleted."""
-        ...
-
-
-class MemoryAwarePlannerInterface(ABC):
-    """Interface for memory-aware planning.
-
-    Phase 08 implements this. Phase 02's planner node can be
-    extended to use this interface.
-    """
-
-    @abstractmethod
-    async def enhance_plan_with_memory(
-        self,
-        plan: Any,  # ResearchPlan
-        query: str,
-        memory_store: Any,  # MemoryStoreInterface
-    ) -> Any:  # Enhanced ResearchPlan
-        """Enhance a research plan using relevant memories."""
         ...
 
 
@@ -338,11 +250,6 @@ __all__ = [
     "DefaultOrchestrationExtensionFactory",
     # Extensions
     "ExtendedOrchestrationStateMixin",
-    "MemoryAwarePlannerInterface",
-    # Phase 08
-    "MemoryLayer",
-    "MemoryRecord",
-    "MemoryStoreInterface",
     "OrchestrationExtensionFactory",
     # Phase 06
     "StopCondition",

@@ -2,38 +2,56 @@
 
 **Adaptive Autonomous Evidence & Reasoning Intelligence System**
 
-A cloud-LLM, local-control-plane RAG system that treats difficult
-questions as evidence-backed investigations: adaptive hybrid retrieval,
-an evidence graph with temporal reasoning, closed-loop verification, and
-(from Phase 05 onward) an Obsidian-integrated personal knowledge layer.
-
+A cloud-LLM, local-control-plane research system that treats difficult
+questions as evidence-backed investigations: adaptive hybrid retrieval, an
+evidence graph with temporal reasoning, closed-loop verification, adaptive
+research policy, multi-agent challenge, persistent memory, and an
+Obsidian-integrated personal knowledge layer with guaranteed provenance.
 
 ## Status
 
-Phase 00.1 (repository + configuration) only. No API, no LLM gateway, no
-retrieval yet — see the vault's phase files for what's next.
+Phases 00–11 are **complete** and tested:
+
+- 00 Foundation (repo, config, FastAPI, LLM gateway core)
+- 01 Hybrid RAG (evidence store, BM25 + FAISS retrieval, chunking, reranking)
+- 02 Agentic RAG (LangGraph orchestration loop, planning, budgets, citations)
+- 03 Evidence Graph (entities/claims/events, 8 edge types, temporal model)
+- 04 Verification & Contradiction (confidence scoring, gap-driven re-retrieval)
+- 05 Obsidian ingestion (MVP: scan/parse/sync/write-back)
+- 06 Adaptive research policy (stop conditions, question routing)
+- 07 Multi-model fabric (explicit call-type policy, fallback, quota, telemetry)
+- 08 Memory & self-evolution (SQLite layers, promotion, graph versioning)
+- 09 Obsidian integration (full: 7-class taxonomy, hypothesis research,
+  vault-graph alignment, vault-memory sync, write-back proposals)
+- 10 Multi-agent challenge (5 roles, activation rules, debate loop)
+- 11 Multimodal intelligence (OCR fallback, tables, web, spreadsheets,
+  chart/image extraction, multimodal provenance)
+
+Current test suite: **354 passed, 8 skipped** (skips are live-LLM
+integration tests behind `RUN_LIVE_LLM_TESTS=1`).
+
+Next phase: **12 — Research UI + Evaluation** (not started; see
+`E:\ARGUS_VAULT\phases\PHASE_12_UI_EVALUATION.md`).
 
 ## Setup
 
-Requires Python 3.11+.
+Requires Python 3.11+ (developed against 3.14).
 
 ```powershell
-# 1. Clone the repository
-git clone https://github.com/armanojha/ARGUS.git
-cd ARGUS
-
-# 2. Create and activate a virtual environment
+# 1. (Re)create the virtual environment
 python -m venv .venv
 .\.venv\Scripts\Activate
 
-# 3. Install dependencies
-pip install -e ".[core,dev-test]"
+# 2. Install dependencies
+pip install -e ".[core,retrieval,graph,multimodal,dev-test]"
 
-# 4. Configure environment
+# 3. Configure environment
 copy .env.example .env
-# Edit .env — fill in API keys as needed (GROQ_API_KEY for LLM gateway)
+# Edit .env — add API keys as needed (GROQ_API_KEY / GEMINI_API_KEY /
+# CEREBRAS_API_KEY for the LLM gateway). Tesseract is a system dependency
+# for the OCR fallback (see configs/providers.yaml + D-011/D-005 in the vault).
 
-# 5. Run the tests
+# 4. Run the tests
 python -m pytest tests/ -v
 # Or use the PowerShell test runner:
 powershell -ExecutionPolicy Bypass -File scripts\run_tests.ps1
@@ -47,21 +65,31 @@ uvicorn app.api.main:app --reload
 
 # Verify it's running
 curl http://localhost:8000/health
+
+# Retrieve over the widget corpus / query the orchestration loop
+curl -X POST http://localhost:8000/api/v1/query -H "Content-Type: application/json" -d '{"query": "..."}'
+```
+
+### Ingesting the Obsidian vault
+
+```powershell
+# Full Phase 09 pipeline: ingest -> memory sync -> hypothesis research
+python scripts/run_obsidian_vault.py <VAULT_DIR> --all
+# Subset: --ingest, --sync-memory, --research
 ```
 
 ### Running live LLM tests
 
-Live integration tests against the Groq API are skipped by default. To run them:
-
 ```powershell
-# Set the environment variable and ensure GROQ_API_KEY is configured
 $env:RUN_LIVE_LLM_TESTS = "1"
 python -m pytest tests/test_llm_gateway_integration.py -v
 ```
 
 ## Development
 
-The project follows a phased implementation model. Each phase has a specification in the vault (`E:\ARGUS_VAULT\phases/`) and is implemented, tested, reviewed, and committed as a unit.
+The project follows a phased implementation model. Each phase has a
+specification in the vault (`E:\ARGUS_VAULT\phases/`) and is implemented,
+tested, reviewed, and committed as a unit.
 
 **Workflow:**
 
@@ -76,82 +104,61 @@ The project follows a phased implementation model. Each phase has a specificatio
 - `from __future__ import annotations` in all modules
 - Modern type hints (`dict[str, Any]`, `str | None`)
 - No hardcoded provider names, model IDs, or API keys
+- Model assignment is **explicit configuration only** (`configs/model_policy.yaml`);
+  ARGUS never autonomously discovers or ranks models
 - LLMs are interpreters, not the database of record
 - All evidence and provenance in deterministic stores
+- Obsidian notes are personal claims, never automatically-trusted evidence
 
 ## Testing & Quality
 
-Current test suite: **45 passed, 8 skipped** (skipped tests are live LLM integration tests, require `RUN_LIVE_LLM_TESTS=1` and a valid `GROQ_API_KEY`).
-
 | Check | Status |
 |-------|--------|
-| `pytest tests/ -v` | 45 passed, 8 skipped |
-| `ruff check .` | 2 lint suggestions (uncommitted code) |
-| `mypy app/` | 3 type errors (uncommitted Phase 00.3 code) |
-
-Tests cover: config loading, API health endpoint, error envelope behavior, request ID propagation, structured JSON logging, LLM gateway unit tests (mock provider), model policy, provider registry, and provider capabilities.
+| `pytest tests/ -v` | 354 passed, 8 skipped |
+| `ruff check app/` | clean (36 pre-existing lint items remain in 3 test files: import-sort/unused imports; unchanged baseline) |
+| `mypy app/` | passing |
 
 ## Roadmap
 
 ```
-Phase 00 — Foundation (00.1–00.4)         ← IN PROGRESS
-  ├─ 00.1 Repository + Configuration       ✓ Complete
-  ├─ 00.2 FastAPI Foundation               ✓ Complete
-  ├─ 00.3 LLM Gateway Core                 ✓ Complete
-  └─ 00.4 Testing Foundation               Next up
-
-Phase 01 — Hybrid RAG (01.1–01.5)         ← NOT STARTED
-  Evidence store (SQLite), BM25 + vector retrieval, embedding model
-
-Phase 02 — Agentic RAG (02.1–02.5)        ← NOT STARTED
-  LangGraph orchestration loop, query decomposition, retrieval planning
-
-Phase 03 — Evidence Graph (03.1–03.4)     ← NOT STARTED
-  Claim→source graph, temporal model, provenance tracking
-
-Phase 04 — Verification (04.1–04.4)       ← NOT STARTED
-  Contradiction detection, confidence scoring, revision cycles
-  ← MVP CORE LOOP CLOSES HERE
-
-Phase 05 — Obsidian Ingestion (05.1–05.4) ← NOT STARTED
-  Minimal vault ingestion, incremental sync
-  ← MVP BOUNDARY
-
-Phase 06 — Adaptive Research Policy        ← POST-MVP
-Phase 07 — Multi-Model Fabric              ← POST-MVP
-Phase 08 — Memory & Self-Evolution         ← POST-MVP
-Phase 09 — Obsidian Integration (full)     ← POST-MVP
-Phase 10 — Multi-Agent Challenge           ← POST-MVP
-Phase 11 — Multimodal Intelligence         ← POST-MVP
-Phase 12 — Research UI + Evaluation        ← POST-MVP
+00 Foundation                  COMPLETE
+01 Hybrid RAG                  COMPLETE
+02 Agentic RAG                 COMPLETE  <- MVP core loop
+03 Evidence Graph              COMPLETE
+04 Verification & Contradiction COMPLETE
+05 Obsidian Ingestion (MVP)    COMPLETE  <- MVP BOUNDARY
+06 Adaptive Research Policy    COMPLETE
+07 Multi-Model Fabric          COMPLETE
+08 Memory & Self-Evolution     COMPLETE
+09 Obsidian Integration (full) COMPLETE
+10 Multi-Agent Challenge       COMPLETE
+11 Multimodal Intelligence     COMPLETE
+12 Research UI + Evaluation    NEXT (not started)
 ```
 
-## Limitations
+## Known limitations
 
-This is an early-stage project. What does **not** exist yet:
-
-- No retrieval pipeline (BM25, vector search, or hybrid)
-- No evidence store or evidence graph
-- No claim verification or contradiction detection
-- No agentic orchestration loop
-- No Obsidian vault integration
-- No multi-provider LLM routing or intelligent model selection
-- No UI or evaluation benchmarks
-- No persistent memory or self-evolution
-- No authentication, rate limiting, or production hardening
-
-The LLM gateway currently supports only Groq as a wired provider. Other providers (Gemini, Cerebras) are configured as stubs but not implemented.
+- Phase 10.2 disagreement-triggered retrieval is implemented for detection;
+  the wiring back into the retriever is documented in the vault (P10-01).
+- Phase 11.5 chart extraction is a placeholder (always returns `ChartType.OTHER`
+  with empty data points — deferred to a vision model); table/image/web/
+  spreadsheet paths are fully functional.
+- Web ingestion performs synchronous HTTP fetches (no async/HEAD first).
+- Git remote tracking of `origin/main` may need `git fetch` re-establishment.
+- Observability/UI surface is deferred to Phase 12.
 
 ## Contributing
 
 ARGUS is in active development. Contributions are welcome for:
 
-- Implementing planned phases (see the roadmap)
+- Implementing the active phase (see the roadmap and the vault)
 - Adding new LLM providers to the gateway
 - Improving test coverage
 - Documentation and examples
 
-Before contributing, read `E:\ARGUS_VAULT\00_CLAUDE_BOOT.md` for the project's development model. The vault (`E:\ARGUS_VAULT`) is the source of truth for project state and architecture decisions.
+Before contributing, read `E:\ARGUS_VAULT\00_CLAUDE_BOOT.md` for the
+project's development model. The vault (`E:\ARGUS_VAULT`) is the source of
+truth for project state and architecture decisions.
 
 ## License
 

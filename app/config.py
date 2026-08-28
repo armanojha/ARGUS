@@ -364,28 +364,6 @@ class Settings(BaseSettings):
         description="Languages passed to tesseract/pytesseract for OCR fallback (Phase 11).",
     )
 
-    # --- UI & Evaluation (Phase 12) ---
-    ui_enabled: bool = Field(
-        default=False,
-        description="Whether research UI is enabled.",
-    )
-    ui_type: str = Field(
-        default="streamlit",
-        description="UI framework (streamlit, react).",
-    )
-    evaluation_enabled: bool = Field(
-        default=False,
-        description="Whether evaluation harness is enabled.",
-    )
-    benchmark_questions_path: str = Field(
-        default="benchmarks/questions.json",
-        description="Path to benchmark questions file.",
-    )
-    ablation_enabled: bool = Field(
-        default=True,
-        description="Whether ablation harness is enabled.",
-    )
-
     @property
     def providers_config_path(self) -> Path:
         return self.config_dir / "providers.yaml"
