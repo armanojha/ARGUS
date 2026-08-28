@@ -489,7 +489,8 @@ class TestAgentCoordinator:
                 source_path="doc1.txt",
                 source_type=SourceType.TEXT,
                 text="Evidence supporting claim A",
-                score=0.9,
+                score=0.95,
+                rank=1,
             ),
             EvidenceRef(
                 chunk_id=uuid4(),
@@ -498,7 +499,8 @@ class TestAgentCoordinator:
                 source_path="doc2.txt",
                 source_type=SourceType.TEXT,
                 text="Evidence supporting claim B (contradicts A)",
-                score=0.3,  # Low score = conflict
+                score=0.1,  # Very low score = strong conflict
+                rank=2,
             ),
             EvidenceRef(
                 chunk_id=uuid4(),
@@ -507,7 +509,8 @@ class TestAgentCoordinator:
                 source_path="doc3.txt",
                 source_type=SourceType.TEXT,
                 text="More evidence for A",
-                score=0.85,
+                score=0.9,
+                rank=3,
             ),
         ]
 

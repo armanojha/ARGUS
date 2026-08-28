@@ -146,6 +146,7 @@ class TestIngestionClassification:
                 store=store,
                 manifest_path=Path(tmpdir) / "manifest.pkl",
                 classifier=RuleBasedObsidianClassifier(),
+                enable_hypothesis_objectives=True,
             )
             result = pipeline.ingest_vault(incremental=False)
 

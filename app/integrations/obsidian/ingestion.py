@@ -40,12 +40,14 @@ class ObsidianIngestionPipeline:
         manifest_path: Path | None = None,
         classifier: object | None = None,
         aligner: object | None = None,
+        enable_hypothesis_objectives: bool = False,
     ):
         self.vault_root = Path(vault_root).resolve()
         self.store = store or get_evidence_store()
         self.settings = get_settings()
         self.scanner = VaultScanner(self.vault_root)
         self.sync_manager = SyncManager(self.vault_root, manifest_path)
+        self._enable_hypothesis_objectives = enable_hypothesis_objectives
 
         # Phase 09.1 extension points (backward compatible: absent by default).
         self.classifier: object | None = classifier
@@ -121,7 +123,7 @@ class ObsidianIngestionPipeline:
                     result.notes_classified += 1
                 if (
                     record.knowledge_class in {"hypothesis", "task_question"}
-                    and self.settings.obsidian_full_enabled
+                    and (self._enable_hypothesis_objectives or self.settings.obsidian_full_enabled)
                     and self.settings.obsidian_hypothesis_conversion_enabled
                 ):
                     objective = self._build_hypothesis_objective(note, record)
