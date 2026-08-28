@@ -13,11 +13,11 @@ from pathlib import Path
 from uuid import UUID
 
 import pdfplumber
-from PIL import Image
+from PIL import Image as PILImage
 
 from app.config import get_settings
 from app.ingestion.chunking import TextSegment
-from app.ingestion.multimodal import Chart, ChartDataPoint, ChartType, Image, MultimodalType
+from app.ingestion.multimodal import Chart, ChartDataPoint, ChartType, Image as MultimodalImage, MultimodalType
 from app.logging_config import get_logger
 
 logger = get_logger("argus.ingestion.images")
@@ -167,7 +167,7 @@ def _extract_charts_from_pdf(pdf_path: Path) -> list[ExtractedChart]:
                 page_number=img.page_number,
                 chart_index=img.image_index,
                 chart_type=_detect_chart_type_from_image(
-                    Image.open(io.BytesIO(img.image_bytes))
+                    PILImage.open(io.BytesIO(img.image_bytes))
                 ) if img.image_bytes else ChartType.OTHER,
                 title=None,  # Would be extracted by vision model
                 x_axis_label=None,

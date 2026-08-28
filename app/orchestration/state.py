@@ -13,7 +13,7 @@ current value and return the full new list rather than a delta.
 
 from __future__ import annotations
 
-from typing import NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from app.evidence.models import EvidenceRef
 from app.orchestration.models import QueryAnalysis, ResearchPlan
