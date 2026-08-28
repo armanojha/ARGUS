@@ -39,6 +39,7 @@ class EntityType(str, Enum):
     EVENT = "event"
     CONCEPT = "concept"
     DATE = "date"
+    SOURCE = "source"
     OTHER = "other"
 
 

@@ -55,3 +55,10 @@ class OrchestrationState(TypedDict):
     stop_conditions_checked: NotRequired[list[dict]]
     stop_condition_fired: NotRequired[str | None]
     evidence_tasks: NotRequired[list[dict]]
+
+    # Phase 10 multi-agent additions (not required by Phase 02/06/08 callers;
+    # the graph's `_initial_state` always populates them when multi-agent is enabled)
+    agent_messages: NotRequired[list[dict[str, Any]]]
+    agent_round: NotRequired[int]
+    debate_active: NotRequired[bool]
+    disagreement_detected: NotRequired[bool]

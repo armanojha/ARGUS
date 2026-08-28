@@ -40,8 +40,6 @@ def _citation_to_dict(c: object) -> dict[str, Any]:
         return {"value": result}
     return {"value": c}
 
-_RESEARCH_DRIVING_CLASSES = {"hypothesis", "task_question"}
-
 
 class HypothesisResearchOutcome(BaseModel):
     """Outcome of running research on a hypothesis."""

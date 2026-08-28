@@ -176,8 +176,9 @@ class ObsidianIngestionPipeline:
         treatment_rule: str | None = None
         if self.classifier is not None:
             classification = self._classify(note)
-            knowledge_class = classification.knowledge_class
-            treatment_rule = classification.treatment_rule
+            if classification is not None:
+                knowledge_class = classification.knowledge_class
+                treatment_rule = classification.treatment_rule
 
         # 2. Check for existing document version
         existing_doc = self.store.get_latest_document_for_source(source.id)
@@ -286,16 +287,16 @@ class ObsidianIngestionPipeline:
         return record
 
     def _classify(self, note: ParsedObsidianNote):
-        """Classify a note via the injected classifier (sync core, else async)."""
-        classifier = self.classifier
-        sync_core = getattr(classifier, "classify_sync", None)
-        if sync_core is not None:
-            return sync_core(str(note.file_path), note.raw_content, note.frontmatter, note.sections)
-        import asyncio
-
-        return asyncio.run(
-            classifier.classify_note(str(note.file_path), note.raw_content, note.frontmatter, note.sections)
-        )
+        """Classify a note via the injected classifier's synchronous core."""
+        sync_core = getattr(self.classifier, "classify_sync", None)
+        if sync_core is None:
+            logger.warning(
+                "obsidian_classifier_no_sync_core",
+                note=note.vault_relative_path,
+                classifier=type(self.classifier).__name__,
+            )
+            return None
+        return sync_core(str(note.file_path), note.raw_content, note.frontmatter, note.sections)
 
     def _build_hypothesis_objective(self, note: ParsedObsidianNote, record: ObsidianNoteRecord):
         """Convert a hypothesis note into a research objective (Phase 09.2)."""
@@ -305,18 +306,23 @@ class ObsidianIngestionPipeline:
 
             converter = RuleBasedHypothesisConverter()
             self._hypothesis_converter = converter
-        import asyncio
+        sync_core = getattr(converter, "convert_hypothesis_sync", None)
+        if sync_core is None:
+            logger.warning(
+                "obsidian_converter_no_sync_core",
+                note=note.vault_relative_path,
+                converter=type(converter).__name__,
+            )
+            return None
 
         frontmatter = note.frontmatter.model_dump() if hasattr(note.frontmatter, "model_dump") else {}
         try:
             from app.integrations.obsidian.classifier import extract_hypothesis_text
 
-            return asyncio.run(
-                converter.convert_hypothesis(
-                    extract_hypothesis_text(note),
-                    note.vault_relative_path,
-                    context=frontmatter,
-                )
+            return sync_core(
+                extract_hypothesis_text(note),
+                note.vault_relative_path,
+                context=frontmatter,
             )
         except Exception as exc:  # noqa: BLE001 - hypothesis conversion is best-effort
             logger.warning("hypothesis_conversion_failed", note=note.vault_relative_path, error=str(exc))

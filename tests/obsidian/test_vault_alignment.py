@@ -122,6 +122,18 @@ class TestVaultMemoryCoordinator:
         await coordinator.link_note_to_entities("Sub/Gamma.md", ["entity-1", "entity-2"])
         memory_store.close()
 
+    async def test_source_note_maps_to_source_entity(self, vault: Path, graph_store: EvidenceGraphStore):
+        note = parse_obsidian_note(vault / "Alpha.md", vault)
+        result = VaultGraphAligner(graph_store).align_note(
+            note,
+            chunk_ids=[],
+            knowledge_class="source_note",
+            treatment_rule="source_of_evidence",
+        )
+        entity = graph_store.get_entity(result.entity_id)
+        assert entity.entity_type == EntityType.SOURCE
+        assert entity.canonical_name == "Alpha"
+
     async def test_no_memory_store_raises_on_sync(self, vault: Path, graph_store: EvidenceGraphStore):
         set_memory_factory(DefaultMemoryFactory())  # no memory infrastructure
         coordinator = VaultMemoryCoordinator(memory_store=None, aligner=VaultGraphAligner(graph_store))

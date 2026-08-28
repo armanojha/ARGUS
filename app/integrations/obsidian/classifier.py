@@ -312,7 +312,17 @@ class RuleBasedHypothesisConverter(HypothesisConverterInterface):
                 return False
         return True
 
+    # Interface (async; implemented on top of the synchronous core).
     async def convert_hypothesis(
+        self,
+        hypothesis_text: str,
+        note_path: str,
+        context: dict[str, Any] | None = None,
+    ) -> HypothesisResearchObjective:
+        return self.convert_hypothesis_sync(hypothesis_text, note_path, context=context)
+
+    # Synchronous core used by the ingestion pipeline.
+    def convert_hypothesis_sync(
         self,
         hypothesis_text: str,
         note_path: str,

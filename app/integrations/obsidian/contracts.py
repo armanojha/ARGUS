@@ -354,34 +354,34 @@ class ObsidianExtensionFactoryInterface(ABC):
         ...
 
 
-class DefaultObsidianExtensionFactory:
+class DefaultObsidianExtensionFactory(ObsidianExtensionFactoryInterface):
     """Default factory returning None (no Phase 09 extensions)."""
 
-    def create_classifier(self) -> None:
+    def create_classifier(self) -> Any | None:
         return None
 
-    def create_hypothesis_converter(self) -> None:
+    def create_hypothesis_converter(self) -> Any | None:
         return None
 
-    def create_writeback_proposal(self) -> None:
+    def create_writeback_proposal(self) -> Any | None:
         return None
 
-    def create_research_writer(self) -> None:
+    def create_research_writer(self) -> Any | None:
         return None
 
 
 # Global factory instance
-_obsidian_extension_factory: Any = None
+_obsidian_extension_factory: ObsidianExtensionFactoryInterface | None = None
 
 
-def get_obsidian_extension_factory() -> Any:
+def get_obsidian_extension_factory() -> ObsidianExtensionFactoryInterface:
     global _obsidian_extension_factory
     if _obsidian_extension_factory is None:
         _obsidian_extension_factory = DefaultObsidianExtensionFactory()
     return _obsidian_extension_factory
 
 
-def set_obsidian_extension_factory(factory: Any) -> None:
+def set_obsidian_extension_factory(factory: ObsidianExtensionFactoryInterface | None) -> None:
     global _obsidian_extension_factory
     _obsidian_extension_factory = factory
 

@@ -210,6 +210,11 @@ def _initial_state(query: str, request_id: str | None, settings: Settings) -> Or
         stop_conditions_checked=[],
         stop_condition_fired=None,
         evidence_tasks=[],
+        # Phase 10 multi-agent fields
+        agent_messages=[],
+        agent_round=0,
+        debate_active=False,
+        disagreement_detected=False,
     )
 
 

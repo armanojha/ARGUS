@@ -1,7 +1,8 @@
 """Phase 09.3: Vault-graph alignment and vault memory coordination.
 
 Maps Obsidian notes onto the Evidence Graph (V3 §6):
-  * each note page   -> a CONCEPT entity with the page name as canonical id
+  * each note page   -> an entity (Source Notes -> SOURCE; others -> CONCEPT)
+                        with the page name as canonical id
   * each wikilink    -> a RELATES_TO edge (targets normalized to a canonical
                         name so the same page never fragments the graph)
   * each note body   -> a Claim tagged with its knowledge class
@@ -19,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.graph.models import Claim, EdgeType, Entity, EntityType, GraphEdge
 from app.graph.store import EvidenceGraphStore, get_graph_store
+from app.integrations.obsidian.contracts import KnowledgeClass
 from app.logging_config import get_logger
 from app.memory.interfaces import (
     MemoryLayer,
@@ -102,7 +104,11 @@ class VaultGraphAligner:
 
         note_entity = Entity(
             canonical_name=canonical,
-            entity_type=EntityType.CONCEPT,
+            entity_type=(
+                EntityType.SOURCE
+                if knowledge_class == KnowledgeClass.SOURCE_NOTE.value
+                else EntityType.CONCEPT
+            ),
             aliases=aliases,
             description=_note_description(note),
             supporting_chunk_ids=list(chunk_ids),
