@@ -21,24 +21,116 @@ from app.ingestion.spreadsheets import ingest_spreadsheet, spreadsheet_to_text_s
 from app.ingestion.images import extract_pdf_images, extract_pdf_charts, images_to_text_segments, charts_to_text_segments
 
 
+"""Tests for Phase 11 Multimodal Ingestion."""
+
+from __future__ import annotations
+
+import io
+import tempfile
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
+from app.ingestion.ocr import (
+    extract_pdf_text_layer,
+    has_usable_text_layer,
+    extract_pdf_with_ocr_fallback,
+    extract_pdf_segments_with_ocr,
+    OCRResult,
+)
+from app.ingestion.tables import extract_pdf_tables, tables_to_text_segments, ExtractedTable
+from app.ingestion.web import fetch_web_page, web_page_to_text_segments, is_valid_web_url
+from app.ingestion.spreadsheets import ingest_spreadsheet, spreadsheet_to_text_segments, is_valid_spreadsheet
+from app.ingestion.images import extract_pdf_images, extract_pdf_charts, images_to_text_segments, charts_to_text_segments
+
+
+@pytest.fixture
+def text_layer_pdf():
+    """Create a PDF with a text layer."""
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    c.drawString(100, 750, "This is a test PDF with text layer.")
+    c.drawString(100, 730, "It contains multiple lines of text.")
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def scanned_pdf():
+    """Create a PDF without text layer (simulated scanned PDF)."""
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    # Draw an image-like rectangle instead of text to simulate scanned content
+    c.rect(100, 700, 400, 50, fill=1)
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def text_layer_pdf_path(text_layer_pdf):
+    """Write text layer PDF to temp file."""
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        f.write(text_layer_pdf)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
+@pytest.fixture
+def scanned_pdf_path(scanned_pdf):
+    """Write scanned PDF to temp file."""
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        f.write(scanned_pdf)
+        yield Path(f.name)
+    Path(f.name).unlink(missing_ok=True)
+
+
 class TestOCRFallback:
     """Tests for OCR fallback functionality (Phase 11.1)."""
 
-    def test_extract_pdf_text_layer(self):
+    def test_extract_pdf_text_layer(self, text_layer_pdf_path, scanned_pdf_path):
         """Test extracting text layer from PDF."""
-        # This would need a test PDF - using a minimal check
-        # In real tests, we'd create a test PDF
-        pass
+        # PDF with text layer should return text
+        texts = extract_pdf_text_layer(text_layer_pdf_path)
+        assert len(texts) == 1
+        assert "test PDF with text layer" in texts[0]
+        
+        # Scanned PDF (no text layer) should return minimal/empty text
+        scanned_texts = extract_pdf_text_layer(scanned_pdf_path)
+        assert len(scanned_texts) == 1
+        # The scanned PDF has a rectangle, no actual text
+        assert scanned_texts[0].strip() == ""
 
-    def test_has_usable_text_layer(self):
+    def test_has_usable_text_layer(self, text_layer_pdf_path, scanned_pdf_path):
         """Test detecting usable text layer."""
-        # Would need test PDFs with and without text layers
-        pass
+        # PDF with text layer should be detected as usable
+        assert has_usable_text_layer(text_layer_pdf_path, min_chars_per_page=10) is True
+        
+        # Scanned PDF should not be detected as usable
+        assert has_usable_text_layer(scanned_pdf_path, min_chars_per_page=10) is False
 
-    def test_ocr_fallback_logic(self):
+    def test_ocr_fallback_logic(self, text_layer_pdf_path, scanned_pdf_path):
         """Test OCR fallback only when no text layer."""
         # The key acceptance criteria: OCR only when no text layer exists
-        pass
+        
+        # Text-layer PDF: should not use OCR
+        results = list(extract_pdf_with_ocr_fallback(text_layer_pdf_path, min_chars_per_page=10))
+        assert len(results) == 1
+        assert results[0].ocr_used is False
+        assert "test PDF with text layer" in results[0].text
+        
+        # Scanned PDF: should attempt OCR (will fail without tesseract, but fallback logic tested)
+        results = list(extract_pdf_with_ocr_fallback(scanned_pdf_path, min_chars_per_page=10))
+        assert len(results) == 1
+        # Without tesseract, it falls back to text layer (empty)
+        assert results[0].ocr_used is False
+        assert results[0].text.strip() == ""
 
     def test_ocr_result_structure(self):
         """Test OCRResult structure."""
@@ -52,6 +144,12 @@ class TestOCRFallback:
         assert result.page_number == 1
         assert result.ocr_used is True
         assert result.confidence == 0.95
+
+    def test_extract_pdf_segments_with_ocr(self, text_layer_pdf_path):
+        """Test extracting segments with OCR fallback."""
+        segments = extract_pdf_segments_with_ocr(text_layer_pdf_path)
+        assert len(segments) == 1
+        assert "test PDF with text layer" in segments[0].text
 
 
 class TestTableExtraction:

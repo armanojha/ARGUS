@@ -20,11 +20,14 @@ from app.memory.store import MemoryStore
 
 ARGUS_ARTEFACTS = [
     "evidence.db",
-    "bm25.pkl",
-    "faiss.index",
     "memory.db",
     "graph.pkl",
     "manifest.pkl",
+]
+
+ARGUS_INDEX_ARTEFACTS = [
+    "bm25.pkl",
+    "faiss.index",
 ]
 
 
@@ -101,7 +104,7 @@ class TestVaultBackupIndependence:
             assert {p.name for p in backup.rglob("*.md")} == note_files
 
             # 3. Delete ALL ARGUS indexes: vault content and backup survive.
-            for name in ARGUS_ARTEFACTS:
+            for name in ARGUS_ARTEFACTS + ARGUS_INDEX_ARTEFACTS:
                 (data_dir / name).unlink(missing_ok=True)
             _assert_argus_artefacts(data_dir, expected=False)
             assert {p.name for p in vault.rglob("*.md")} == note_files
