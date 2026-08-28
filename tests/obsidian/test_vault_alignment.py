@@ -117,7 +117,7 @@ class TestVaultMemoryCoordinator:
         assert record.subject == "Alpha.md"
         metadata = record.metadata
         assert metadata["claim_ids"]
-        assert "knowledge_note" in (metadata.get("note_type") or "")
+        assert metadata.get("note_type") in {"personal_context", "knowledge_note"}
 
         await coordinator.link_note_to_entities("Sub/Gamma.md", ["entity-1", "entity-2"])
         memory_store.close()

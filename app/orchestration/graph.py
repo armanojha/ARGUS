@@ -263,7 +263,7 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
         evidence_tasks=final_state.get("evidence_tasks") or [],
         # Phase 10 multi-agent traceability
         agent_round=final_state.get("agent_round"),
-        agent_messages=final_state.get("agent_messages"),
+        agent_messages=final_state.get("agent_messages") or [],
         disagreement_detected=final_state.get("disagreement_detected"),
     )
 

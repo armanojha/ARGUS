@@ -154,14 +154,18 @@ class TestIngestionClassification:
             assert result.completed_at is not None
 
             records = pipeline.sync_manager.manifest.notes
-            assert records["Personal/hypothesis.md"].knowledge_class == "hypothesis"
-            assert records["Personal/plain.md"].knowledge_class == "knowledge_note"
+
+            def record_for(suffix: str):
+                return next(r for r in records.values() if r.vault_relative_path.endswith(suffix))
+
+            assert record_for("hypothesis.md").knowledge_class == "hypothesis"
+            assert record_for("plain.md").knowledge_class == "knowledge_note"
 
             hyp_claim = result.hypothesis_objectives[0]
             assert "whether" in hyp_claim.research_objective
 
             # Manifest + evidence document + chunk metadata all carry the class.
-            hyp_record = records["Personal/hypothesis.md"]
+            hyp_record = record_for("hypothesis.md")
             document = store.get_latest_document_for_source(hyp_record.source_id)
             assert document.metadata["knowledge_class"] == "hypothesis"
             chunks = store.get_chunks_by_ids(hyp_record.chunk_ids)

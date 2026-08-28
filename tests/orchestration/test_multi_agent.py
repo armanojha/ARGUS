@@ -357,7 +357,11 @@ class TestAgentProcessing:
         )
 
         prior_messages = [
-            {"from_agent": "researcher", "content": "Claims...", "payload": {"key_claims": ["The sky is blue due to Rayleigh scattering"]}},
+            AgentMessage(
+                from_agent=AgentRole.RESEARCHER,
+                content="Claims...",
+                payload={"key_claims": ["The sky is blue due to Rayleigh scattering"]},
+            ),
         ]
 
         messages = await agent.process(state, prior_messages)
@@ -407,9 +411,21 @@ class TestAgentProcessing:
         )
 
         prior_messages = [
-            {"from_agent": "researcher", "content": "Claims...", "payload": {}},
-            {"from_agent": "skeptic", "content": "Challenges...", "payload": {}},
-            {"from_agent": "verifier", "content": "Verification...", "payload": {}},
+            AgentMessage(
+                from_agent=AgentRole.RESEARCHER,
+                content="Claims...",
+                payload={},
+            ),
+            AgentMessage(
+                from_agent=AgentRole.SKEPTIC,
+                content="Challenges...",
+                payload={},
+            ),
+            AgentMessage(
+                from_agent=AgentRole.VERIFIER,
+                content="Verification...",
+                payload={},
+            ),
         ]
 
         messages = await agent.process(state, prior_messages)
@@ -461,7 +477,7 @@ class TestAgentCoordinator:
     @pytest.mark.asyncio
     async def test_coordinator_activates_for_conflicting_evidence(self, mock_coordinator):
         """Coordinator should activate skeptic/alt-hyp for conflicting evidence."""
-        from app.evidence.models import EvidenceRef, Source, Document, SourceType
+        from app.evidence.models import EvidenceRef, SourceType
         from uuid import uuid4
 
         # Create evidence with high variance (conflicting)
@@ -471,7 +487,7 @@ class TestAgentCoordinator:
                 document_id=uuid4(),
                 source_id=uuid4(),
                 source_path="doc1.txt",
-                source_type=SourceType.DOCUMENT,
+                source_type=SourceType.TEXT,
                 text="Evidence supporting claim A",
                 score=0.9,
             ),
@@ -480,7 +496,7 @@ class TestAgentCoordinator:
                 document_id=uuid4(),
                 source_id=uuid4(),
                 source_path="doc2.txt",
-                source_type=SourceType.DOCUMENT,
+                source_type=SourceType.TEXT,
                 text="Evidence supporting claim B (contradicts A)",
                 score=0.3,  # Low score = conflict
             ),
@@ -489,7 +505,7 @@ class TestAgentCoordinator:
                 document_id=uuid4(),
                 source_id=uuid4(),
                 source_path="doc3.txt",
-                source_type=SourceType.DOCUMENT,
+                source_type=SourceType.TEXT,
                 text="More evidence for A",
                 score=0.85,
             ),
