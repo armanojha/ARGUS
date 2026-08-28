@@ -430,11 +430,15 @@ class TestMultimodalPipelineIntegration:
             multimodal_spreadsheet_enabled=True,
             multimodal_chart_extraction_enabled=True,
         )
-        with patch("app.ingestion.ocr.get_settings", return_value=settings):
-            from app.ingestion.ocr import extract_pdf_with_ocr_fallback
-            results = list(extract_pdf_with_ocr_fallback(text_layer_pdf_path := Path(tempfile.mktemp(suffix=".pdf"))))
-            # Should fall back to text layer only (empty file → empty result)
-            assert all(not r.ocr_used for r in results)
+        temp_pdf = Path(tempfile.mktemp(suffix=".pdf"))
+        temp_pdf.write_bytes(_create_text_pdf())
+        try:
+            with patch("app.ingestion.ocr.get_settings", return_value=settings):
+                from app.ingestion.ocr import extract_pdf_with_ocr_fallback
+                results = list(extract_pdf_with_ocr_fallback(temp_pdf))
+                assert all(not r.ocr_used for r in results)
+        finally:
+            temp_pdf.unlink(missing_ok=True)
 
     def test_csv_ingestion_end_to_end(self):
         """Test ingesting a real CSV file through the spreadsheet pipeline."""
@@ -501,7 +505,6 @@ class TestMultimodalPipelineIntegration:
         doc = pymupdf.open()
         page = doc.new_page(width=612, height=792)
 
-        # Draw a simple table using text
         headers = ["Name", "Score", "Grade"]
         rows = [["Alice", "95", "A"], ["Bob", "82", "B"], ["Carol", "78", "C"]]
 
@@ -513,9 +516,8 @@ class TestMultimodalPipelineIntegration:
                 x += 150
             y += 20
 
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
-            doc.save(f.name)
-            pdf_path = Path(f.name)
+        pdf_path = Path(tempfile.mktemp(suffix=".pdf"))
+        doc.save(str(pdf_path))
         doc.close()
 
         from app.config import Settings
@@ -527,8 +529,6 @@ class TestMultimodalPipelineIntegration:
         with patch("app.ingestion.tables.get_settings", return_value=settings):
             try:
                 tables = extract_pdf_tables(pdf_path)
-                # Table extraction depends on pdfplumber detection;
-                # at minimum, the function runs without error
                 assert isinstance(tables, list)
             finally:
                 pdf_path.unlink(missing_ok=True)
@@ -542,12 +542,11 @@ class TestMultimodalPipelineIntegration:
             multimodal_chart_extraction_enabled=True,
         )
         with patch("app.ingestion.images.get_settings", return_value=settings):
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
-                doc = pymupdf.open()
-                doc.new_page(width=612, height=792)
-                doc.save(f.name)
-                pdf_path = Path(f.name)
-                doc.close()
+            pdf_path = Path(tempfile.mktemp(suffix=".pdf"))
+            doc = pymupdf.open()
+            doc.new_page(width=612, height=792)
+            doc.save(str(pdf_path))
+            doc.close()
 
             try:
                 images = extract_pdf_images(pdf_path)
@@ -582,12 +581,11 @@ class TestMultimodalPipelineIntegration:
 
         # Images: returns empty list
         with patch("app.ingestion.images.get_settings", return_value=settings):
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
-                doc = pymupdf.open()
-                doc.new_page()
-                doc.save(f.name)
-                pdf_path = Path(f.name)
-                doc.close()
+            pdf_path = Path(tempfile.mktemp(suffix=".pdf"))
+            doc = pymupdf.open()
+            doc.new_page()
+            doc.save(str(pdf_path))
+            doc.close()
             try:
                 assert extract_pdf_images(pdf_path) == []
                 assert extract_pdf_charts(pdf_path) == []

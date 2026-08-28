@@ -108,7 +108,7 @@ def _parse_date(date_str: str | None) -> datetime | None:
     
     for fmt in formats:
         try:
-            dt = datetime.strptime(date_str, fmt)
+            dt = datetime.strptime(date_str, fmt)  # noqa: DTZ007
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=UTC)
             return dt

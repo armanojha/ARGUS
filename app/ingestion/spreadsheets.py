@@ -53,9 +53,8 @@ def _read_csv_file(file_path: Path) -> list[list[Any]]:
                 pass
 
         reader = csv.reader(f, delimiter=delimiter)
-        for row in reader:
-            rows.append(row)
-    return rows
+        rows = list(reader)
+        return rows
 
 
 def _read_excel_file(file_path: Path) -> dict[str, list[list[Any]]]:
