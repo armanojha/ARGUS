@@ -600,6 +600,276 @@ class TestMultiAgentIntegration:
         assert AgentRole.JUDGE in active_roles
 
     @pytest.mark.asyncio
+    async def test_run_debate_end_to_end(self, mock_router, mock_coordinator):
+        """Full end-to-end debate flow with mocked agents."""
+        from app.llm_gateway.providers.models import CompletionResponse, Usage
+
+        # Pre-program responses for each agent in order:
+        # 1. Researcher
+        researcher_output = ResearcherOutput(
+            key_claims=["Claim 1: The sky is blue"],
+            evidence_summary="Evidence shows the sky is blue.",
+            confidence=0.85,
+            gaps=["Need more evidence"],
+        )
+        mock_router.provider._responses["mock-model"] = CompletionResponse(
+            content=researcher_output.model_dump_json(),
+            model="mock-model",
+            usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+            provider="mock",
+        )
+
+        # 2. Skeptic (high severity to trigger disagreement)
+        skeptic_output = SkepticOutput(
+            challenges=["Claim lacks spectral evidence"],
+            counter_evidence_needed=["Spectral measurements"],
+            confidence=0.8,
+            severity=0.8,  # Above threshold 0.3
+        )
+
+        # 3. Alternative Hypothesis
+        alt_output = AlternativeHypothesisOutput(
+            alternative_explanations=["Perception bias"],
+            supporting_evidence_for_alternatives=["Psychology studies"],
+            confidence=0.6,
+            distinctiveness=0.5,
+        )
+
+        # 4. Verifier
+        verifier_output = VerifierOutput(
+            claim="The sky is blue",
+            status="SUPPORTED",
+            confidence=0.9,
+            reasoning="Evidence supports claim",
+            evidence_coverage=0.85,
+            source_quality=0.8,
+        )
+
+        # 5. Judge (stops debate)
+        judge_output = JudgeOutput(
+            resolution="The sky is blue due to Rayleigh scattering",
+            final_answer="The sky appears blue due to Rayleigh scattering [1].",
+            confidence=0.85,
+            key_disagreements_resolved=["Skeptic's challenge acknowledged"],
+            remaining_uncertainties=["Exact conditions vary"],
+            should_continue_debate=False,  # Judge stops the debate
+        )
+
+        # We need to rotate through responses. Since the router uses the same
+        # model for all, we'll use a side effect to cycle through.
+        call_count = 0
+
+        async def cycle_responses(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return CompletionResponse(
+                    content=researcher_output.model_dump_json(),
+                    model="mock-model",
+                    usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+                    provider="mock",
+                )
+            elif call_count == 2:
+                return CompletionResponse(
+                    content=skeptic_output.model_dump_json(),
+                    model="mock-model",
+                    usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+                    provider="mock",
+                )
+            elif call_count == 3:
+                return CompletionResponse(
+                    content=alt_output.model_dump_json(),
+                    model="mock-model",
+                    usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+                    provider="mock",
+                )
+            elif call_count == 4:
+                return CompletionResponse(
+                    content=verifier_output.model_dump_json(),
+                    model="mock-model",
+                    usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+                    provider="mock",
+                )
+            elif call_count == 5:
+                return CompletionResponse(
+                    content=judge_output.model_dump_json(),
+                    model="mock-model",
+                    usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+                    provider="mock",
+                )
+            return CompletionResponse(
+                content='{"result": "default"}',
+                model="mock-model",
+                usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+                provider="mock",
+            )
+
+        mock_router.provider.complete = cycle_responses
+
+        state = OrchestrationState(
+            request_id="test-debate-123",
+            query="Why is the sky blue?",
+            max_iterations=3,
+            token_budget=6000,
+            plan=None,
+            pending_subquestions=[],
+            issued_subqueries=[],
+            evidence=[],
+            consecutive_empty_retrievals=0,
+            iteration=1,
+            tokens_used=100,
+            sufficient=True,
+            stop_reason="sufficient_evidence",
+            answer=None,
+            warnings=[],
+        )
+
+        # Add a plan with high risk to activate all agents
+        from app.orchestration.models import ResearchPlan
+        state["plan"] = ResearchPlan(
+            objective="Why is the sky blue?",
+            risk_level="high",
+            subquestions=["Why is the sky blue?"],
+        )
+
+        result_state = await mock_coordinator.run_debate(state, max_rounds=3)
+
+        # Verify debate ran
+        assert result_state["agent_round"] == 1  # Judge stopped after round 1
+        assert result_state["debate_active"] is False
+        assert len(result_state["agent_messages"]) > 0
+
+        # Verify message flow: Researcher -> Skeptic -> AltHyp -> Verifier -> Judge
+        agent_sequence = [msg["from_agent"] for msg in result_state["agent_messages"]]
+        assert agent_sequence[:5] == ["researcher", "skeptic", "alternative_hypothesis", "verifier", "judge"]
+
+        # Verify judge stopped the debate
+        judge_messages = [m for m in result_state["agent_messages"] if m["from_agent"] == "judge"]
+        assert len(judge_messages) >= 1
+        assert judge_messages[0]["payload"]["should_continue_debate"] is False
+
+    @pytest.mark.asyncio
+    async def test_run_debate_disagreement_detection(self, mock_router, mock_coordinator):
+        """Test that disagreement is detected during debate."""
+        from app.llm_gateway.providers.models import CompletionResponse, Usage
+
+        # Pre-program responses - skeptic with high severity to trigger disagreement
+        researcher_output = ResearcherOutput(
+            key_claims=["Claim 1: Test claim"],
+            evidence_summary="Evidence summary",
+            confidence=0.8,
+            gaps=[],
+        )
+        skeptic_output = SkepticOutput(
+            challenges=["Major flaw in claim"],
+            counter_evidence_needed=["Counter evidence"],
+            confidence=0.8,
+            severity=0.9,  # High severity triggers disagreement
+        )
+        alt_output = AlternativeHypothesisOutput(
+            alternative_explanations=["Alternative 1"],
+            supporting_evidence_for_alternatives=["Alt evidence"],
+            confidence=0.6,
+            distinctiveness=0.5,
+        )
+        verifier_output = VerifierOutput(
+            claim="Test claim",
+            status="PARTIAL",
+            confidence=0.5,
+            reasoning="Partial support",
+            evidence_coverage=0.5,
+            source_quality=0.5,
+        )
+        judge_output = JudgeOutput(
+            resolution="Resolved",
+            final_answer="Final answer",
+            confidence=0.7,
+            key_disagreements_resolved=[],
+            remaining_uncertainties=[],
+            should_continue_debate=False,
+        )
+
+        call_count = 0
+
+        async def cycle_responses(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return CompletionResponse(
+                    content=researcher_output.model_dump_json(),
+                    model="mock-model",
+                    usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+                    provider="mock",
+                )
+            elif call_count == 2:
+                return CompletionResponse(
+                    content=skeptic_output.model_dump_json(),
+                    model="mock-model",
+                    usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+                    provider="mock",
+                )
+            elif call_count == 3:
+                return CompletionResponse(
+                    content=alt_output.model_dump_json(),
+                    model="mock-model",
+                    usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+                    provider="mock",
+                )
+            elif call_count == 4:
+                return CompletionResponse(
+                    content=verifier_output.model_dump_json(),
+                    model="mock-model",
+                    usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+                    provider="mock",
+                )
+            elif call_count == 5:
+                return CompletionResponse(
+                    content=judge_output.model_dump_json(),
+                    model="mock-model",
+                    usage=Usage(prompt_tokens=50, completion_tokens=25, total_tokens=75),
+                    provider="mock",
+                )
+            return CompletionResponse(
+                content='{"result": "default"}',
+                model="mock-model",
+                usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+                provider="mock",
+            )
+
+        mock_router.provider.complete = cycle_responses
+
+        state = OrchestrationState(
+            request_id="test-disagreement-123",
+            query="Disagreement test",
+            max_iterations=3,
+            token_budget=6000,
+            plan=None,
+            pending_subquestions=[],
+            issued_subqueries=[],
+            evidence=[],
+            consecutive_empty_retrievals=0,
+            iteration=1,
+            tokens_used=100,
+            sufficient=True,
+            stop_reason="sufficient_evidence",
+            answer=None,
+            warnings=[],
+        )
+
+        from app.orchestration.models import ResearchPlan
+        state["plan"] = ResearchPlan(
+            objective="Disagreement test",
+            risk_level="high",
+            subquestions=["Test"],
+        )
+
+        result_state = await mock_coordinator.run_debate(state, max_rounds=3)
+
+        # Disagreement should be detected
+        assert result_state["disagreement_detected"] is True
+        assert len(result_state["agent_messages"]) > 0
+
+    @pytest.mark.asyncio
     async def test_create_agent_coordinator(self, mock_router):
         """Factory function should create coordinator correctly."""
         from app.retrieval.hybrid import HybridRetriever
