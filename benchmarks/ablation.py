@@ -24,8 +24,8 @@ stays explicit server-side, config-managed).
 
 from __future__ import annotations
 
+import math
 import time
-import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,8 +38,6 @@ from app.orchestration.nodes import extract_cited_indices, make_synthesize_node
 from app.orchestration.state import OrchestrationState
 from app.reranking.reranker import NoOpReranker
 from app.retrieval.hybrid import HybridRetriever
-from app.verification.engine import verify_claim
-from app.verification.models import VerificationRequest, VerificationStatus
 
 from .models import BenchmarkItem, BenchmarkRunOutput, CorpusContext
 from .runner import Pipeline, default_sources, load_items, make_full_argus_pipeline
@@ -297,9 +295,9 @@ def run_ablation(
         }
 
     reference = per_variant["full_argus"]["metrics"]
-    deltas: dict[str, dict[str, float]] = {}
-    for variant_id, data in per_variant.items():
-        deltas[variant_id] = {
+    deltas: dict[str, dict[str, float | None]] = {}
+    for vid, data in per_variant.items():
+        deltas[vid] = {
             name: _delta(reference.get(name, {}).get("value"), info.get("value"))
             for name, info in data["metrics"].items()
             if name in reference and name not in {"avg_loop_count", "avg_tokens_per_query", "avg_latency_ms", "total_failed_calls"}
@@ -342,7 +340,7 @@ def _delta(reference: Any, value: Any) -> float | None:
         r, v = float(reference), float(value)
     except (TypeError, ValueError):
         return None
-    if r != r or v != v:  # NaN-safe
+    if math.isnan(r) or math.isnan(v):  # NaN-safe
         return None
     return round(v - r, 4)
 
@@ -354,7 +352,7 @@ def _fmt(value: Any) -> str:
         f = float(value)
     except (TypeError, ValueError):
         return str(value)
-    return "n/a" if f != f else f"{f:.4f}"
+    return "n/a" if math.isnan(f) else f"{f:.4f}"
 
 
 def ablation_markdown(report: dict[str, Any]) -> str:

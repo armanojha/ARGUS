@@ -7,9 +7,9 @@ import math
 import pytest
 
 from benchmarks.metrics import (
-    answer_faithfulness,
     adversarial_robustness,
     aggregate_scores,
+    answer_faithfulness,
     by_type_breakdown,
     citation_correctness,
     claim_support_rate,
@@ -17,8 +17,11 @@ from benchmarks.metrics import (
     contradiction_recall,
     evidence_precision,
     recall_at_k,
+    reindex_cost,
     temporal_accuracy,
     token_f1,
+    vault_personalization_gain,
+    write_back_usefulness,
 )
 from benchmarks.models import BenchmarkItem, BenchmarkRunOutput
 
@@ -76,7 +79,7 @@ def test_temporal_accuracy_matches_gold_years():
 
 
 def test_answer_faithfulness_lexical_and_judge():
-    judge = lambda answer, gold, _: 0.42  # noqa: E731
+    judge = lambda answer, gold, _: 0.42
     assert answer_faithfulness("a b", "a b", judge) == pytest.approx(0.42)
     assert answer_faithfulness("a b", "a b") == pytest.approx(1.0)
 
@@ -114,6 +117,15 @@ def test_compute_item_scores_full_vector():
     assert scores["contradiction_recall"] == 1.0
     assert scores["temporal_accuracy"] == 1.0
     assert scores["answer_faithfulness"] > 0.0
+
+
+def test_v3_metrics_nan_without_signals_and_populated_with_metadata():
+    assert math.isnan(vault_personalization_gain({}))
+    assert math.isnan(reindex_cost({"unrelated": 1}))
+    assert math.isnan(write_back_usefulness(None))
+    assert vault_personalization_gain({"vault_personalization_gain": 0.12}) == pytest.approx(0.12)
+    assert reindex_cost({"reindex_duration_ms": 150.0}) == pytest.approx(150.0)
+    assert write_back_usefulness({"write_back_usefulness": 0.9}) == pytest.approx(0.9)
 
 
 def test_aggregate_scores_drops_nan_and_adds_runtime_counters():

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import tempfile
 import time
 import uuid
@@ -242,7 +243,7 @@ def make_full_argus_pipeline(
                 contradiction = verifier.status == VerificationStatus.CONTRADICTED or bool(
                     verifier.contradictions
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 - verification failure degrades to ERROR status
                 status = VerificationStatus.ERROR.value
 
         return BenchmarkRunOutput(
@@ -284,7 +285,7 @@ def score_items(
                 "type": item.type,
                 "adversarial": item.adversarial_type,
                 "warnings": output.warned,
-                **{k: (None if v != v else round(float(v), 4)) for k, v in scores.items()},
+                **{k: (None if math.isnan(v) else round(float(v), 4)) for k, v in scores.items()},
                 "answer": output.answer[:400],
                 "verification_status": output.verification_status,
             }
@@ -340,7 +341,7 @@ def _fmt(value: Any) -> str:
         f = float(value)
     except (TypeError, ValueError):
         return str(value)
-    return "n/a" if f != f else f"{f:.4f}"
+    return "n/a" if math.isnan(f) else f"{f:.4f}"
 
 
 def markdown_report(report: dict[str, Any]) -> str:

@@ -162,6 +162,29 @@ def adversarial_robustness(
     return 0.0 if any(cid in distractor_ids for cid in cited) else 1.0
 
 
+def vault_personalization_gain(metadata: dict[str, Any]) -> float:
+    """V3 §15: answer-quality lift attributable to vault personalization.
+
+    Computed only when the run exposes the ``vault_personalization_gain``
+    counter (Obsidian/V3 feature area, Phase 09+); not-applicable otherwise
+    so offline/non-V3 runs are never spuriously penalized.
+    """
+    value = (metadata or {}).get("vault_personalization_gain")
+    return NOT_APPLICABLE if value is None else float(value)
+
+
+def reindex_cost(metadata: dict[str, Any]) -> float:
+    """V3 §15: cost (ms) of reindexing the vault for a run's personalization."""
+    value = (metadata or {}).get("reindex_duration_ms")
+    return NOT_APPLICABLE if value is None else float(value)
+
+
+def write_back_usefulness(metadata: dict[str, Any]) -> float:
+    """V3 §15: usefulness score of the Obsidian write-back hypothesis note."""
+    value = (metadata or {}).get("write_back_usefulness")
+    return NOT_APPLICABLE if value is None else float(value)
+
+
 def compute_item_scores(
     item: Any,
     output: Any,
@@ -235,6 +258,23 @@ def aggregate_scores(
         aggregated["avg_tokens_per_query"] = {"value": total_tokens / n, "applicable": n}
         aggregated["avg_latency_ms"] = {"value": total_latency / n, "applicable": n}
         aggregated["total_failed_calls"] = {"value": float(total_failed), "applicable": n}
+    # V3 §15 counters: populated only when a run exposes the V3 metadata.
+    _V3_KEYS = [
+        ("vault_personalization_gain", "vault_personalization_gain"),
+        ("reindex_cost", "reindex_duration_ms"),
+        ("write_back_usefulness", "write_back_usefulness"),
+    ]
+    if outputs:
+        for metric_name, key in _V3_KEYS:
+            values = [
+                float(meta[key])
+                for o in outputs
+                if key in (meta := (getattr(o, "metadata", None) or {}))
+            ]
+            aggregated[metric_name] = {
+                "value": (sum(values) / len(values)) if values else float("nan"),
+                "applicable": len(values),
+            }
     return aggregated
 
 

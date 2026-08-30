@@ -7,7 +7,9 @@ question set, and that the delta table is computable against `full_argus`.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Coroutine
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -15,16 +17,15 @@ from app.config import Settings
 from app.llm_gateway.capabilities import ProviderCapabilities
 from app.llm_gateway.providers.models import CompletionResponse, Usage
 from app.llm_gateway.routing.router import LLMRouter
-from app.reranking.reranker import NoOpReranker
-
 from benchmarks.ablation import (
-    VARIANTS,
     VARIANT_ORDER,
+    VARIANTS,
     ablation_markdown,
     make_variants,
     run_ablation,
 )
-from benchmarks.runner import build_corpus, default_sources, load_items, score_items
+from benchmarks.models import BenchmarkRunOutput
+from benchmarks.runner import build_corpus, load_items, score_items
 
 
 class ScriptedProvider:
@@ -121,7 +122,7 @@ def provider() -> ScriptedProvider:
 
 @pytest.fixture
 def bench_settings(tmp_path: Path) -> Settings:
-    return Settings(
+    return Settings(  # type: ignore[call-arg]
         _env_file=None,
         data_dir=tmp_path / "data",
         evidence_db_path=tmp_path / "data" / "evidence.db",
@@ -152,9 +153,11 @@ def test_variants_build_and_run_single_item(tmp_path: Path, provider: ScriptedPr
     variants = make_variants(router=LLMRouter(provider), corpus=corpus, settings=bench_settings)
     assert set(variants) == set(VARIANT_ORDER)
 
-    outputs = {}
+    outputs: dict[str, BenchmarkRunOutput] = {}
     for variant_id, pipeline in variants.items():
-        outputs[variant_id] = asyncio.run(pipeline(item, corpus))
+        outputs[variant_id] = asyncio.run(
+            cast(Coroutine[Any, Any, BenchmarkRunOutput], pipeline(item, corpus))
+        )
 
     # Verification-based variants reported a supported status.
     assert outputs["full_argus"].verification_status == "supported"
@@ -181,7 +184,7 @@ def test_run_ablation_offline(tmp_path: Path, provider: ScriptedProvider, bench_
     assert report["reference_variant"] == "full_argus"
     assert set(report["variants"]) == set(VARIANT_ORDER)
     # Reference variant has zero (or non-applicable None) deltas.
-    for metric, value in report["deltas_vs_full_argus"]["full_argus"].items():
+    for value in report["deltas_vs_full_argus"]["full_argus"].values():
         assert value is None or value == 0.0
     # Single-shot variants should not reach the loop's iteration count.
     assert report["variants"]["baseline_rag"]["metrics"]["avg_loop_count"]["value"] == 1.0

@@ -9,8 +9,6 @@ dependencies on external credentials.
 
 from __future__ import annotations
 
-import json
-import math
 from pathlib import Path
 
 import pytest
@@ -20,8 +18,6 @@ from app.llm_gateway.capabilities import ProviderCapabilities
 from app.llm_gateway.providers.models import CompletionResponse, Usage
 from app.llm_gateway.routing.router import LLMRouter
 from app.reranking.reranker import NoOpReranker
-
-from benchmarks import runner
 from benchmarks.models import ITEM_TYPES
 from benchmarks.runner import (
     build_corpus,
@@ -116,7 +112,7 @@ VERIFIER_OK = {
 
 @pytest.fixture
 def bench_settings(tmp_path: Path) -> Settings:
-    return Settings(
+    return Settings(  # type: ignore[call-arg]
         _env_file=None,
         data_dir=tmp_path / "data",
         evidence_db_path=tmp_path / "data" / "evidence.db",
