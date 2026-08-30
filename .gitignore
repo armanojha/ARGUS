@@ -43,3 +43,4 @@ temp/
 data/evidence.db
 data/indexes/
 data/obsidian_index/
+data/telemetry/

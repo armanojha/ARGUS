@@ -142,6 +142,8 @@ def test_telemetry_endpoints_query_integration(
 
     monkeypatch.setattr(api_orchestration, "run_query", fake_run_query)
     client = TestClient(create_app(), raise_server_exceptions=False)
+    # The app lifespan points persistence at settings.data_dir; keep test writes in tmp.
+    telemetry_mod.set_telemetry_persistence_dir(isolated_telemetry)
     assert "/api/v1/telemetry" in {r.path for r in client.app.routes}
 
     response = client.post("/api/v1/query", json={"query": "How much is 6x7?"})
