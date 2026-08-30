@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from app.config import (
     Settings,
     get_settings,
+    load_dotenv_file,
     load_obsidian_config,
     load_providers_config,
     load_yaml_config,
@@ -108,3 +110,25 @@ def test_obsidian_config_loads_with_expected_fields():
     assert isinstance(data, dict)
     assert data.get("enabled") is True  # Phase 05 implemented
     assert data.get("write_back_root") == "90_ARGUS"
+
+
+def test_load_dotenv_file_populates_os_environ(tmp_path, monkeypatch):
+    """.env secrets (non-ARGUS_ keys) must reach os.environ for the LLM gateway."""
+    env = tmp_path / "x.env"
+    env.write_text("OPENCODE_ZEN_API_KEY=secret123\n", encoding="utf-8")
+    monkeypatch.delenv("OPENCODE_ZEN_API_KEY", raising=False)
+    assert load_dotenv_file(env) is True
+    assert os.environ["OPENCODE_ZEN_API_KEY"] == "secret123"
+
+
+def test_load_dotenv_file_does_not_override_existing_env(tmp_path, monkeypatch):
+    """Keys stay environment-controlled: a real env var wins over .env."""
+    env = tmp_path / "x.env"
+    env.write_text("OPENCODE_ZEN_API_KEY=fromfile\n", encoding="utf-8")
+    monkeypatch.setenv("OPENCODE_ZEN_API_KEY", "fromprocess")
+    assert load_dotenv_file(env) is True
+    assert os.environ["OPENCODE_ZEN_API_KEY"] == "fromprocess"
+
+
+def test_load_dotenv_file_missing_path_returns_false(tmp_path):
+    assert load_dotenv_file(tmp_path / "nope.env") is False

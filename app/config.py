@@ -16,11 +16,30 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Repository root = parent of the `app` package directory.
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def load_dotenv_file(path: Path | None = None) -> bool:
+    """Load a local ``.env`` file into os.environ for non-``ARGUS_`` secrets.
+
+    pydantic-settings only reads ``.env`` for ``ARGUS_``-prefixed settings and
+    never mutates os.environ, while the LLM gateway reads provider API keys via
+    ``os.getenv(<api_key_env>)``. This bridges that gap: ``.env`` supplies
+    keys to the gateway while real process environment variables take
+    precedence (override=False — keys remain environment-controlled).
+    """
+    path = path or (REPO_ROOT / ".env")
+    if not path.exists():
+        return False
+    return load_dotenv(path, override=False)
+
+
+load_dotenv_file()
 
 
 class Settings(BaseSettings):

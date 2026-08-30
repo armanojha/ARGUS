@@ -174,6 +174,16 @@ class OpenAICompatibleProvider:
     # -- response parsing -------------------------------------------------
 
     def _parse_response(self, data: dict[str, Any], model: str) -> CompletionResponse:
+        # Some OpenAI-compatible gateways (e.g. OpenCode Zen) occasionally
+        # return HTTP 200 with a non-standard body that has no "choices"
+        # (e.g. an upstream error envelope). Normalize that instead of
+        # crashing with a raw KeyError so the router can fall back properly.
+        if not isinstance(data, dict) or not data.get("choices"):
+            raise ProviderUnavailableError(
+                "Provider returned a malformed response: body missing 'choices'",
+                status_code=200,
+                provider=self._name,
+            )
         choice = data["choices"][0]
         msg = choice["message"]
 
