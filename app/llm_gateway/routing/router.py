@@ -62,7 +62,7 @@ class LLMRouter:
                 call_type=call_type,
                 request_id=request_id,
             )
-        except Exception as exc:  # noqa: BLE001 - telemetry must capture every failure
+        except Exception as exc:
             record_routing_decision(
                 call_type=call_type,
                 provider=self._provider.name,
