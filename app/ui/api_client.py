@@ -63,6 +63,22 @@ class ARGUSAPIClient:
         self._raise_for_status(response)
         return response.json()
 
+    def list_run_traces(self, limit: int = 20) -> list[dict[str, Any]]:
+        """List recent telemetry run summaries (`GET /api/v1/telemetry`)."""
+        response = self._session.get(
+            f"{self.base_url}/api/v1/telemetry", params={"limit": limit}, timeout=10.0
+        )
+        self._raise_for_status(response)
+        return response.json()
+
+    def get_run_trace(self, run_id: str) -> dict[str, Any]:
+        """Return one full telemetry run trace (`GET /api/v1/telemetry/{run_id}`)."""
+        response = self._session.get(
+            f"{self.base_url}/api/v1/telemetry/{run_id}", timeout=10.0
+        )
+        self._raise_for_status(response)
+        return response.json()
+
     def health(self) -> dict[str, Any]:
         """Return the API health payload (`GET /health`)."""
         response = self._session.get(f"{self.base_url}/health", timeout=10.0)

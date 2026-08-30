@@ -7,10 +7,13 @@ provider-level fallback chains.
 
 from __future__ import annotations
 
+import time
+
 from pydantic import BaseModel
 
 from app.llm_gateway.providers.base import LLMProvider
 from app.llm_gateway.providers.models import CompletionResponse, Message, Tool, ToolChoice
+from app.llm_gateway.telemetry import record_routing_decision
 
 
 class LLMRouter:
@@ -39,19 +42,49 @@ class LLMRouter:
         call_type: str = "general",
         request_id: str | None = None,
     ) -> CompletionResponse:
-        """Delegate to the underlying provider."""
-        return await self._provider.complete(
-            messages,
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format=response_format,
-            tools=tools,
-            tool_choice=tool_choice,
-            timeout=timeout,
+        """Delegate to the underlying provider.
+
+        Phase 12.2: additively records a telemetry routing decision per call
+        when a telemetry run is active (no-op otherwise).
+        """
+        t0 = time.monotonic()
+        selected_model = str(model or self._provider.default_model)
+        try:
+            response = await self._provider.complete(
+                messages,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format=response_format,
+                tools=tools,
+                tool_choice=tool_choice,
+                timeout=timeout,
+                call_type=call_type,
+                request_id=request_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - telemetry must capture every failure
+            record_routing_decision(
+                call_type=call_type,
+                provider=self._provider.name,
+                model=selected_model,
+                is_fallback=False,
+                latency_ms=int((time.monotonic() - t0) * 1000),
+                success=False,
+                error_code=getattr(exc, "code", None) or type(exc).__name__,
+            )
+            raise
+        usage = getattr(response, "usage", None)
+        record_routing_decision(
             call_type=call_type,
-            request_id=request_id,
+            provider=self._provider.name,
+            model=selected_model,
+            is_fallback=False,
+            latency_ms=int((time.monotonic() - t0) * 1000),
+            prompt_tokens=usage.prompt_tokens if usage is not None else None,
+            completion_tokens=usage.completion_tokens if usage is not None else None,
+            success=True,
         )
+        return response
 
     async def aclose(self) -> None:
         """Release provider resources."""

@@ -187,6 +187,44 @@ def _render_confidence_breakdown(verification: dict[str, Any]) -> None:
                 st.markdown(f"{label}: {value:.2f}")
 
 
+def _render_telemetry(telemetry: dict[str, Any] | None) -> None:
+    """Phase 12.2 run trace: latency, tokens, provider/model, failures."""
+    if not telemetry:
+        return
+    _section("Run Trace")
+    cols = st.columns(4)
+    cols[0].metric("Total calls", telemetry.get("total_calls"))
+    cols[1].metric("Failed calls", telemetry.get("failed_calls"))
+    cols[2].metric("Tokens", telemetry.get("total_tokens"))
+    cols[3].metric("Duration", f"{telemetry.get('duration_ms', 0)} ms")
+    decisions = telemetry.get("routing_decisions") or []
+    if decisions:
+        with st.expander(f"Routing decisions ({len(decisions)})"):
+            for d in decisions:
+                st.markdown(
+                    f"- `{d.get('call_type')}` → `{d.get('provider')}/{d.get('model')}` "
+                    f"ok={d.get('success')} {d.get('latency_ms')} ms "
+                    f"{('err=' + str(d.get('error_code'))) if not d.get('success') else ''}"
+                )
+
+
+def _render_run_traces(client: ARGUSAPIClient, limit: int = 10) -> None:
+    """Phase 12.2: recent telemetry runs surfaced from the API."""
+    try:
+        runs = client.list_run_traces(limit=limit)
+    except ARGUSAPIClientError:
+        return
+    if not runs:
+        return
+    _section("Recent Run Traces")
+    for r in runs:
+        with st.expander(f"{r.get('run_id')} — {r.get('duration_ms')} ms, {r.get('total_calls')} calls"):
+            st.markdown(
+                f"tokens={r.get('total_tokens')}, failed={r.get('failed_calls')}, "
+                f"ceiling={r.get('call_ceiling')}"
+            )
+
+
 def run() -> None:
     """Evidence explorer main entry point."""
     st.title("ARGUS Evidence Explorer")
@@ -221,6 +259,7 @@ def run() -> None:
             return
 
     _render_loop_stats(result)
+    _render_telemetry(result.get("telemetry"))
     _render_plan(result.get("plan") or {})
     _render_evidence(result.get("citations") or [])
     _render_source_trail(result.get("citations") or [])
@@ -241,6 +280,8 @@ def run() -> None:
                 verification = None
         if verification is not None:
             _render_verification(verification)
+
+    _render_run_traces(client)
 
 
 run()

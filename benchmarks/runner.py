@@ -207,7 +207,10 @@ def make_full_argus_pipeline(
         retrieved = retriever.search(item.question, top_k=10)
         retrieved_ids = [str(r.chunk_id) for r in retrieved]
 
-        start_run_telemetry(call_ceiling=settings.multimodel_call_ceiling)
+        start_run_telemetry(
+            call_ceiling=settings.multimodel_call_ceiling,
+            run_id=f"bench:{item.id}",
+        )
         try:
             result = await _run_query_safe(
                 query=item.question,

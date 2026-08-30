@@ -6,15 +6,24 @@ and call counts per run. Designed to be lightweight and not leak secrets.
 
 from __future__ import annotations
 
+import json
 import time
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from app.logging_config import get_logger
 
 logger = get_logger("argus.telemetry")
+
+# In-process registry of completed runs (newest first), plus an optional
+# JSONL persistence directory so run traces survive app restarts. Persistence
+# is opt-in (set via `set_telemetry_persistence_dir`).
+_completed_runs: list[dict[str, Any]] = []
+_completed_runs_limit = 500
+_persistence_dir: Path | None = None
 
 # Context variable for the current run's telemetry
 _current_run_telemetry: ContextVar[RunTelemetry | None] = ContextVar(
@@ -107,9 +116,20 @@ class RunTelemetry:
         }
 
 
-def start_run_telemetry(call_ceiling: int = 16, call_ceiling_warn: int = 12) -> RunTelemetry:
-    """Start a new telemetry run and bind it to the current context."""
+def start_run_telemetry(
+    call_ceiling: int = 16,
+    call_ceiling_warn: int = 12,
+    *,
+    run_id: str | None = None,
+) -> RunTelemetry:
+    """Start a new telemetry run and bind it to the current context.
+
+    ``run_id`` is optional: callers may supply a stable identifier (e.g. a
+    benchmark item id) so the trace is attributable; otherwise a short UUID
+    is generated.
+    """
     telemetry = RunTelemetry(
+        run_id=run_id or str(uuid4())[:8],
         call_ceiling=call_ceiling,
         call_ceiling_warn=call_ceiling_warn,
     )
@@ -123,15 +143,83 @@ def get_current_telemetry() -> RunTelemetry | None:
     return _current_run_telemetry.get()
 
 
+def set_telemetry_persistence_dir(directory: str | Path | None) -> None:
+    """Enable optional JSONL persistence of completed run summaries.
+
+    Pass a directory (typically ``settings.data_dir / "telemetry"``) or
+    ``None`` to disable. Writing is append-only; readers dedupe by run_id.
+    """
+    global _persistence_dir
+    _persistence_dir = Path(directory) if directory is not None else None
+    if _persistence_dir is not None:
+        _persistence_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _persisted_records() -> list[dict[str, Any]]:
+    if _persistence_dir is None:
+        return []
+    path = _persistence_dir / "runs.jsonl"
+    if not path.exists():
+        return []
+    records: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            records.append(json.loads(line))
+        except (json.JSONDecodeError, TypeError):
+            continue
+    return records
+
+
+def _persist_summary(summary: dict[str, Any]) -> None:
+    if _persistence_dir is None:
+        return
+    path = _persistence_dir / "runs.jsonl"
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(summary, default=str) + "\n")
+
+
 def end_run_telemetry() -> dict[str, Any] | None:
-    """End the current run and return its summary."""
+    """End the current run, return its summary, and record it."""
     telemetry = _current_run_telemetry.get()
     if telemetry is None:
         return None
     summary = telemetry.get_summary()
     logger.info("telemetry_run_completed", **summary)
     _current_run_telemetry.set(None)
+    _completed_runs.insert(0, summary)
+    del _completed_runs[_completed_runs_limit:]
+    _persist_summary(summary)
     return summary
+
+
+def list_runs(limit: int = 50) -> list[dict[str, Any]]:
+    """Return recent completed run summaries, newest first.
+
+    Merges persisted records (disk, survives restarts) with the in-process
+    registry; in-memory records win for the same run_id.
+    """
+    merged: dict[str, dict[str, Any]] = {}
+    for rec in _persisted_records():
+        if rec.get("run_id"):
+            merged.setdefault(rec["run_id"], rec)
+    for rec in _completed_runs:
+        if rec.get("run_id"):
+            merged[rec["run_id"]] = rec
+    ordered = list(merged.values())
+    return ordered[-limit:][::-1]
+
+
+def get_run(run_id: str) -> dict[str, Any] | None:
+    """Return a single completed run summary by run_id (memory then disk)."""
+    for rec in _completed_runs:
+        if rec.get("run_id") == run_id:
+            return rec
+    for rec in _persisted_records():
+        if rec.get("run_id") == run_id:
+            return rec
+    return None
 
 
 def record_routing_decision(

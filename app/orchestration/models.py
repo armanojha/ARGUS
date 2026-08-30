@@ -140,6 +140,12 @@ class OrchestrationResult(BaseModel):
     stop_reason: StopReason
     token_usage_estimate: int
     request_id: str | None = None
+    # Phase 12.2 run-trace observability (additive; set by the API layer)
+    telemetry: dict[str, Any] | None = Field(
+        default=None,
+        description="Run summary from the Phase 07 telemetry fabric (latency, tokens, "
+        "provider/model, call counts), when a trace was active for this request.",
+    )
     warnings: list[str] = Field(default_factory=list, description="Non-fatal degradations, e.g. a fallback plan was used.")
     # Phase 06 adaptive policy traceability (additive; empty when policy off)
     question_pattern: str | None = Field(
