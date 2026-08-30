@@ -63,7 +63,7 @@ def test_providers_config_loads_all_providers():
     data = load_providers_config(settings)
     assert isinstance(data, dict)
     providers = data.get("providers", [])
-    assert len(providers) == 3
+    assert len(providers) == 4
     
     # Check Groq
     groq = next(p for p in providers if p["name"] == "groq")
@@ -90,6 +90,16 @@ def test_providers_config_loads_all_providers():
     assert cerebras["default_model"] == "gpt-oss-120b"
     assert cerebras["capabilities"]["structured_output"] is True
     assert cerebras["capabilities"]["tool_calling"] is True
+
+    # Check OpenCode Zen (D-014)
+    zen = next(p for p in providers if p["name"] == "zen")
+    assert zen["enabled"] is True
+    assert zen["api_key_env"] == "OPENCODE_ZEN_API_KEY"
+    assert zen["base_url"] == "https://opencode.ai/zen/v1"
+    assert zen["default_model"] == "nemotron-3-ultra-free"
+    assert zen["fallback_models"] == ["nemotron-3.5-lightning-free", "mimo-v2.5-free"]
+    assert zen["capabilities"]["structured_output"] is True
+    assert zen["capabilities"]["tool_calling"] is True
 
 
 def test_obsidian_config_loads_with_expected_fields():

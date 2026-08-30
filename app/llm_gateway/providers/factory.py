@@ -23,6 +23,7 @@ from app.llm_gateway.providers import get_provider_factory
 # providers are implemented (never remove the explicit-registration
 # pattern in favor of auto-discovery — see model-policy rule).
 from app.llm_gateway.providers import groq as _groq  # noqa: F401
+from app.llm_gateway.providers import zen as _zen  # noqa: F401
 from app.llm_gateway.providers.exceptions import ConfigurationError
 from app.llm_gateway.providers.openai_compatible import OpenAICompatibleProvider
 
@@ -74,6 +75,10 @@ def create_provider(settings: Settings | None = None) -> OpenAICompatibleProvide
     }
     if settings.llm_model:
         kwargs["model"] = settings.llm_model
+    # base_url is config-driven (D-014): honored when the providers.yaml entry
+    # specifies it and the provider constructor accepts the override.
+    if config_entry.get("base_url"):
+        kwargs["base_url"] = config_entry["base_url"]
 
     return factory(**kwargs)  # type: ignore[return-value]
 

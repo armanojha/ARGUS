@@ -27,12 +27,13 @@ class CerebrasProvider(OpenAICompatibleProvider):
         api_key: str,
         model: str = CEREBRAS_DEFAULT_MODEL,
         *,
+        base_url: str | None = None,
         timeout: float = 30.0,
         max_retries: int = 2,
     ) -> None:
         super().__init__(
             api_key=api_key,
-            base_url=CEREBRAS_BASE_URL,
+            base_url=base_url or CEREBRAS_BASE_URL,
             default_model=model,
             name="cerebras",
             capabilities=ProviderCapabilities(

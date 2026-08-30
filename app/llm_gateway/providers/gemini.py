@@ -31,12 +31,13 @@ class GeminiProvider(OpenAICompatibleProvider):
         api_key: str,
         model: str = GEMINI_DEFAULT_MODEL,
         *,
+        base_url: str | None = None,
         timeout: float = 60.0,
         max_retries: int = 2,
     ) -> None:
         super().__init__(
             api_key=api_key,
-            base_url=GEMINI_BASE_URL,
+            base_url=base_url or GEMINI_BASE_URL,
             default_model=model,
             name="gemini",
             capabilities=ProviderCapabilities(

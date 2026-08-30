@@ -6,7 +6,9 @@
 # The project owner decides all model assignments.
 #
 # Model IDs must match what the provider expects (e.g., Groq requires
-# "openai/gpt-oss-120b" prefix; Gemini uses "gemini-2.5-flash-lite").
+# "openai/gpt-oss-120b" prefix; Gemini uses "gemini-2.5-flash-lite";
+# OpenCode Zen uses "nemotron-3-ultra-free" / "nemotron-3.5-lightning-free"
+# / "mimo-v2.5-free" — verified 2026-08-30 against opencode.ai/docs/zen).
 #
 # Schema:
 # call_types:
@@ -17,58 +19,76 @@
 #       - "<provider>/<model>"
 # provider_fallbacks: ["provider1", "provider2", ...]
 #   Ordered list of providers to try if the primary provider fails entirely.
+#
+# D-014 (2026-08-30): all primary assignments moved to OpenCode Zen's free
+# NVIDIA-hosted models. Non-zen providers remain as secondary fallbacks so
+# the fabric keeps redundancy and cross-model verification stays possible.
 
 call_types:
   general:
-    primary: "groq/openai/gpt-oss-120b"
+    primary: "zen/nemotron-3-ultra-free"
     fallbacks:
-      - "groq/openai/gpt-oss-20b"
+      - "zen/nemotron-3.5-lightning-free"
+      - "groq/openai/gpt-oss-120b"
       - "gemini/gemini-2.5-flash-lite"
       - "cerebras/gpt-oss-120b"
 
   query_analysis:
-    primary: "gemini/gemini-2.5-flash-lite"
+    primary: "zen/nemotron-3.5-lightning-free"
     fallbacks:
+      - "zen/nemotron-3-ultra-free"
+      - "zen/mimo-v2.5-free"
       - "groq/openai/gpt-oss-20b"
       - "cerebras/gpt-oss-120b"
 
   research_planning:
-    primary: "gemini/gemini-2.5-flash"
+    primary: "zen/nemotron-3-ultra-free"
     fallbacks:
+      - "zen/nemotron-3.5-lightning-free"
       - "groq/openai/gpt-oss-120b"
       - "cerebras/gpt-oss-120b"
 
   evidence_extraction:
-    primary: "groq/openai/gpt-oss-120b"
+    primary: "zen/mimo-v2.5-free"
     fallbacks:
+      - "zen/nemotron-3.5-lightning-free"
+      - "zen/nemotron-3-ultra-free"
+      - "groq/openai/gpt-oss-120b"
       - "cerebras/gpt-oss-120b"
-      - "gemini/gemini-2.5-flash"
 
   reasoning:
-    primary: "groq/openai/gpt-oss-120b"
+    primary: "zen/nemotron-3-ultra-free"
     fallbacks:
+      - "zen/nemotron-3.5-lightning-free"
+      - "zen/mimo-v2.5-free"
+      - "groq/openai/gpt-oss-120b"
       - "cerebras/gpt-oss-120b"
-      - "gemini/gemini-2.5-flash"
 
   synthesis:
-    primary: "gemini/gemini-2.5-flash"
+    primary: "zen/nemotron-3-ultra-free"
     fallbacks:
+      - "zen/nemotron-3.5-lightning-free"
       - "groq/openai/gpt-oss-120b"
       - "cerebras/gpt-oss-120b"
 
   verification:
-    primary: "gemini/gemini-2.5-flash-lite"
+    primary: "zen/nemotron-3-ultra-free"
     fallbacks:
+      - "zen/mimo-v2.5-free"
+      - "zen/nemotron-3.5-lightning-free"
       - "groq/openai/gpt-oss-20b"
       - "cerebras/gpt-oss-120b"
 
   revision:
-    primary: "gemini/gemini-2.5-flash-lite"
+    primary: "zen/nemotron-3.5-lightning-free"
     fallbacks:
+      - "zen/nemotron-3-ultra-free"
+      - "zen/mimo-v2.5-free"
       - "groq/openai/gpt-oss-20b"
       - "cerebras/gpt-oss-120b"
 
 provider_fallbacks:
+  - "zen"
   - "groq"
   - "gemini"
   - "cerebras"
@@ -97,6 +117,12 @@ quota:
     tokens_per_minute: 50000
     tokens_per_day: 1000000
     enabled: true
+  zen:
+    # D-014: exact free-tier rate limits for the NVIDIA-hosted zen models are
+    # not published in the Zen docs as of 2026-08-30, so quota tracking stays
+    # disabled (unlimited) rather than inventing numbers. Add real limits here
+    # once confirmed.
+    enabled: false
 
 # Cross-model verification settings
 cross_model_verification:
@@ -107,6 +133,7 @@ cross_model_verification:
   allow_same_provider_different_model: true
   # Preferred verifier providers (in order)
   preferred_verifier_providers:
+    - "zen"
     - "gemini"
     - "groq"
     - "cerebras"

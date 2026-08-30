@@ -154,6 +154,10 @@ class MultiModelRouter:
         }
         if config.get("default_model"):
             kwargs["model"] = config["default_model"]
+        # base_url is config-driven (D-014): forward it when the providers.yaml
+        # entry specifies it (provider constructors accept the override).
+        if config.get("base_url"):
+            kwargs["base_url"] = config["base_url"]
 
         return factory(**kwargs)  # type: ignore[return-value]
 

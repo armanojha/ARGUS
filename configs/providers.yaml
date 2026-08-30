@@ -58,3 +58,21 @@ providers:
     timeout: 30.0
     max_retries: 2
     notes: "Cerebras free tier requires credit card ($5/30 days) as of 2026-08. Fast inference for GPT-OSS models."
+
+  - name: zen
+    enabled: true
+    api_key_env: OPENCODE_ZEN_API_KEY
+    protocol: "openai-compatible"
+    base_url: "https://opencode.ai/zen/v1"
+    default_model: "nemotron-3-ultra-free"
+    fallback_models: ["nemotron-3.5-lightning-free", "mimo-v2.5-free"]
+    roles: [general]
+    capabilities:
+      structured_output: true
+      tool_calling: true
+      streaming: false
+      max_context_tokens: 131072
+      max_output_tokens: 8192
+    timeout: 30.0
+    max_retries: 2
+    notes: "OpenCode Zen free-tier NVIDIA models (openai-compatible /chat/completions). Model IDs verified 2026-08-30 @ opencode.ai/docs/zen: mimo-v2.5-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free. Free 'for a limited time'; NVIDIA trial endpoints log session data. Key from https://opencode.ai/auth."

@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from app.config import Settings
 from app.llm_gateway.capabilities import ProviderCapabilities
 from app.llm_gateway.policies.model_policy import CallTypePolicy, ModelPolicy, load_model_policy
+from app.llm_gateway.providers.exceptions import RateLimitError
 from app.llm_gateway.providers.models import (
     Message,
     MessageRole,
@@ -45,6 +46,7 @@ def mock_providers():
         "groq": MockProvider(name="groq", default_model="openai/gpt-oss-120b"),
         "gemini": MockProvider(name="gemini", default_model="gemini-2.5-flash-lite"),
         "cerebras": MockProvider(name="cerebras", default_model="gpt-oss-120b"),
+        "zen": MockProvider(name="zen", default_model="nemotron-3-ultra-free"),
     }
 
 
@@ -235,24 +237,25 @@ class TestMultiModelRouter:
             [Message(role=MessageRole.USER, content="Test")],
             call_type="query_analysis",
         )
-        # query_analysis primary is gemini/gemini-2.5-flash-lite
-        assert response.provider == "gemini"
+        # query_analysis primary is zen/nemotron-3.5-lightning-free (D-014)
+        assert response.provider == "zen"
 
     @pytest.mark.asyncio
     async def test_router_fallback_on_provider_failure(self, router, mock_providers):
         """Router should fall back when primary provider fails."""
-        # Make groq fail
-        mock_providers["gemini"]._should_fail = True
-        mock_providers["gemini"]._fail_with = Exception("Provider error")
+        # Make the primary (zen) fail with a retryable error
+        mock_providers["zen"]._should_fail = True
+        mock_providers["zen"]._fail_with = RateLimitError
+        mock_providers["zen"]._fail_message = "rate limited"
 
-        # This should fall back to next in chain for query_analysis
-        # query_analysis: primary=gemini, fallbacks=[groq, cerebras]
+        # This should fall back to the next available provider
+        # query_analysis: primary=zen, fallbacks=[zen..., groq, cerebras]
         try:
             response = await router.complete(
                 [Message(role=MessageRole.USER, content="Test")],
                 call_type="query_analysis",
             )
-            # Should fall back to groq or cerebras
+            # Should fall back to groq or cerebras (zen excluded after failure)
             assert response.provider in ("groq", "cerebras")
         except Exception:
             # If all fail, that's expected too
@@ -261,42 +264,54 @@ class TestMultiModelRouter:
     @pytest.mark.asyncio
     async def test_router_respects_quota(self, router, mock_providers):
         """Router should skip providers with exhausted quota."""
-        from app.llm_gateway.quota import get_quota_tracker
+        from app.llm_gateway.quota import (
+            ProviderQuota,
+            QuotaWindow,
+            get_quota_tracker,
+        )
 
         quota_tracker = get_quota_tracker(router._settings)
-        # Exhaust gemini quota
-        gemini_quota = quota_tracker.get_quota("gemini")
-        if gemini_quota:
-            gemini_quota.requests_per_minute.used = gemini_quota.requests_per_minute.limit
+        # Inject a tracked (enabled) quota for zen and exhaust its per-minute
+        # window. The YAML config keeps zen quota disabled by default (D-014),
+        # so this test replaces it directly to exercise quota-aware fallback.
+        exhausted = ProviderQuota(
+            name="zen",
+            requests_per_minute=QuotaWindow(limit=5, window_seconds=60, used=5),
+            requests_per_day=QuotaWindow(limit=100, window_seconds=86400),
+            tokens_per_minute=QuotaWindow(limit=8000, window_seconds=60),
+            tokens_per_day=QuotaWindow(limit=200000, window_seconds=86400),
+            enabled=True,
+        )
+        quota_tracker._quotas["zen"] = exhausted
 
-        # query_analysis primary is gemini, should fall back
+        # query_analysis primary is zen, should fall back
         response = await router.complete(
             [Message(role=MessageRole.USER, content="Test")],
             call_type="query_analysis",
         )
-        assert response.provider != "gemini"
+        assert response.provider != "zen"
 
     @pytest.mark.asyncio
     async def test_router_validates_capabilities(self, router, mock_providers):
         """Router should skip providers lacking required capabilities."""
-        # Remove structured_output from gemini
+        # Remove structured_output from zen (the query_analysis primary)
         from app.llm_gateway.capabilities import CAPABILITY_REGISTRY
-        original_caps = CAPABILITY_REGISTRY["gemini"]
-        CAPABILITY_REGISTRY["gemini"] = ProviderCapabilities(
+        original_caps = CAPABILITY_REGISTRY["zen"]
+        CAPABILITY_REGISTRY["zen"] = ProviderCapabilities(
             structured_output=False,
             tool_calling=True,
         )
 
         try:
-            # query_analysis uses structured output, should skip gemini
+            # query_analysis uses structured output, should skip zen
             response = await router.complete(
                 [Message(role=MessageRole.USER, content="Test")],
                 call_type="query_analysis",
                 response_format=Answer,
             )
-            assert response.provider != "gemini"
+            assert response.provider != "zen"
         finally:
-            CAPABILITY_REGISTRY["gemini"] = original_caps
+            CAPABILITY_REGISTRY["zen"] = original_caps
 
     @pytest.mark.asyncio
     async def test_explicit_model_override(self, router):
@@ -323,14 +338,14 @@ class TestMultiModelRouter:
     @pytest.mark.asyncio
     async def test_cross_model_verification_preferred_order(self, router):
         """Verifier should prefer configured providers."""
-        # With synthesizer=groq, prefer gemini then cerebras
+        # With synthesizer=groq, prefer zen then gemini then cerebras
         response = await router.complete_for_verification(
             [Message(role=MessageRole.USER, content="Verify this")],
             synthesizer_provider="groq",
             synthesizer_model="openai/gpt-oss-120b",
         )
-        # Preferred verifiers: gemini, groq, cerebras - groq excluded, so gemini
-        assert response.provider == "gemini"
+        # Preferred verifiers: zen, gemini, groq, cerebras - groq excluded, so zen
+        assert response.provider == "zen"
 
 
 class TestTelemetry:
@@ -483,6 +498,7 @@ class TestCapabilities:
         assert "groq" in CAPABILITY_REGISTRY
         assert "gemini" in CAPABILITY_REGISTRY
         assert "cerebras" in CAPABILITY_REGISTRY
+        assert "zen" in CAPABILITY_REGISTRY
 
     def test_capabilities_have_phase07_fields(self):
         from app.llm_gateway.capabilities import CAPABILITY_REGISTRY
