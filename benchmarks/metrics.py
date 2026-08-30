@@ -198,8 +198,13 @@ def compute_item_scores(
 
 def aggregate_scores(
     per_item: list[tuple[Any, dict[str, float]]],
+    outputs: list[Any] | None = None,
 ) -> dict[str, dict[str, float]]:
-    """Aggregate per-item metric vectors into mean scores with applicability counts."""
+    """Aggregate per-item metric vectors into mean scores with applicability counts.
+
+    Runtime counters come from the benchmark run outputs (when provided), so a
+    pure-metric call with `outputs=None` still yields the metric means.
+    """
     metric_names = [
         "recall_at_5",
         "recall_at_10",
@@ -220,24 +225,16 @@ def aggregate_scores(
             "applicable": applicable,
         }
     # Aggregation of runtime counters.
-    rounds = [r[0] for r in per_item]
-    if rounds:
-        aggregated["avg_loop_count"] = {
-            "value": sum(r.loop_count for r in rounds) / len(rounds),
-            "applicable": len(rounds),
-        }
-        aggregated["avg_tokens_per_query"] = {
-            "value": sum(r.tokens_used for r in rounds) / len(rounds),
-            "applicable": len(rounds),
-        }
-        aggregated["avg_latency_ms"] = {
-            "value": sum(r.latency_ms for r in rounds) / len(rounds),
-            "applicable": len(rounds),
-        }
-        aggregated["total_failed_calls"] = {
-            "value": float(sum(r.failed_calls for r in rounds)),
-            "applicable": len(rounds),
-        }
+    if outputs:
+        total_loop = sum(int(getattr(o, "loop_count", 0)) for o in outputs)
+        total_tokens = sum(int(getattr(o, "tokens_used", 0)) for o in outputs)
+        total_latency = sum(int(getattr(o, "latency_ms", 0)) for o in outputs)
+        total_failed = sum(int(getattr(o, "failed_calls", 0)) for o in outputs)
+        n = len(outputs)
+        aggregated["avg_loop_count"] = {"value": total_loop / n, "applicable": n}
+        aggregated["avg_tokens_per_query"] = {"value": total_tokens / n, "applicable": n}
+        aggregated["avg_latency_ms"] = {"value": total_latency / n, "applicable": n}
+        aggregated["total_failed_calls"] = {"value": float(total_failed), "applicable": n}
     return aggregated
 
 

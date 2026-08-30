@@ -123,8 +123,12 @@ def test_aggregate_scores_drops_nan_and_adds_runtime_counters():
         "recall_at_5", "recall_at_10", "evidence_precision", "citation_correctness",
         "claim_support_rate", "contradiction_recall", "temporal_accuracy",
         "answer_faithfulness", "adversarial_robustness",
-    ]}) for _ in range(2)]
-    agg = aggregate_scores(per_item)
+    ]}), (BenchmarkItem(id="b", type="t", question="q", gold_answer="x"), {m: float("nan") for m in [
+        "recall_at_5", "recall_at_10", "evidence_precision", "citation_correctness",
+        "claim_support_rate", "contradiction_recall", "temporal_accuracy",
+        "answer_faithfulness", "adversarial_robustness",
+    ]})]
+    agg = aggregate_scores(per_item, outputs=[a, b])
     assert math.isnan(agg["contradiction_recall"]["value"])
     assert agg["contradiction_recall"]["applicable"] == 0
     assert agg["avg_loop_count"]["value"] == pytest.approx(2.0)

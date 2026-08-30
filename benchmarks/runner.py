@@ -285,7 +285,7 @@ def score_items(
                 "verification_status": output.verification_status,
             }
         )
-    return {"metrics": aggregate_scores(per_item), "by_type": by_type_breakdown(per_item), "per_item": records}
+    return {"metrics": aggregate_scores(per_item, outputs), "by_type": by_type_breakdown(per_item), "per_item": records}
 
 
 def build_report(

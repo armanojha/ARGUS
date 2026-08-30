@@ -176,14 +176,14 @@ def test_run_benchmark_with_stub_pipeline(tmp_path: Path):
             latency_ms=5,
         )
 
-    report = run_benchmark(
+    report = _sync_await(run_benchmark(
         pipeline=stub,
         limit=4,
         working_dir=tmp_path / "work",
         out_dir=tmp_path / "out",
         name="smoke",
         pipeline_label="stub",
-    )
+    ))
     assert report["item_count"] == 4
     assert report["type_counts"]["easy_factual"] == 4
     assert "recall_at_10" in report["metrics"]
@@ -227,7 +227,7 @@ def test_full_argus_pipeline_integration(tmp_path: Path, bench_settings: Setting
     scored = score_items(items, outputs, corpus)
     assert scored["metrics"]["avg_loop_count"]["value"] > 0
     assert scored["metrics"]["total_failed_calls"]["value"] == 0
-    assert scored["by_type"]["easy_factual"]
+    assert scored["by_type"]["multi_hop"]
     # Verification ran and reported supported.
     assert all(o.verification_status == "supported" for o in outputs)
     # Telemetry summary was captured (run started/ended inside the pipeline).
