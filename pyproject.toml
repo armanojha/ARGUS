@@ -54,6 +54,12 @@ multimodal = [
     "Pillow>=10.0",
 ]
 
+# Research UI (Phase 12.1): evidence-explorer Streamlit app in `app/ui/`.
+# Talks to the existing FastAPI API only; no core dependency on the UI.
+ui = [
+    "streamlit>=1.32",
+]
+
 # Testing and linting.
 "dev-test" = [
     "pytest>=8.0",

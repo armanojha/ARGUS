@@ -18,6 +18,7 @@ from app.api.health import router as health_router
 from app.api.middleware import RequestIDMiddleware
 from app.api.orchestration import router as orchestration_router
 from app.api.retrieval import router as retrieval_router
+from app.api.verification import router as verification_router
 from app.config import get_settings
 from app.logging_config import configure_logging, get_logger
 
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(retrieval_router)
     app.include_router(orchestration_router)
+    app.include_router(verification_router)
 
     return app
 

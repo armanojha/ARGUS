@@ -43,7 +43,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate
 
 # 2. Install dependencies
-pip install -e ".[core,retrieval,graph,multimodal,dev-test]"
+pip install -e ".[core,retrieval,graph,multimodal,ui,dev-test]"
 
 # 3. Configure environment
 copy .env.example .env
@@ -77,6 +77,19 @@ curl -X POST http://localhost:8000/api/v1/query -H "Content-Type: application/js
 python scripts/run_obsidian_vault.py <VAULT_DIR> --all
 # Subset: --ingest, --sync-memory, --research
 ```
+
+### Running the research UI (Phase 12.1)
+
+```powershell
+# Start the API (separate terminal, as above), then:
+streamlit run app/ui/streamlit_app.py
+```
+
+The evidence-explorer UI is a presentation/control layer over the API:
+it renders the research plan, evidence, source trail, verifier result,
+conflicts, loop count, and confidence for a live query via
+`POST /api/v1/query` and `POST /api/v1/verify`. No business logic lives
+in the UI.
 
 ### Running live LLM tests
 
