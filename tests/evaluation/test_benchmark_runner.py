@@ -176,7 +176,9 @@ def test_run_benchmark_with_stub_pipeline(tmp_path: Path):
             latency_ms=5,
         )
 
-    report = _sync_await(run_benchmark(
+    import asyncio
+
+    report = asyncio.run(run_benchmark(
         pipeline=stub,
         limit=4,
         working_dir=tmp_path / "work",
@@ -209,38 +211,29 @@ def test_full_argus_pipeline_integration(tmp_path: Path, bench_settings: Setting
     router = LLMRouter(provider)
 
     items = [i for i in load_items() if i.id in {"mh-003", "temp-009"}]
-    corpus = build_corpus(items, tmp_path / "corpus")
-    sources = default_sources(corpus)
-    pipeline = make_full_argus_pipeline(
-        router=router,
-        evidence_store=sources["store"],
-        graph_store=sources["graph_store"],
-        retriever=sources["retriever"],
-        reranker=NoOpReranker(),
-        settings=bench_settings,
-    )
 
-    outputs = []
-    for item in items:
-        outputs.append(_sync_await(pipeline(item, corpus)))
+    async def _run_all():
+        corpus = build_corpus(items, tmp_path / "corpus")
+        sources = default_sources(corpus)
+        pipeline = make_full_argus_pipeline(
+            router=router,
+            evidence_store=sources["store"],
+            graph_store=sources["graph_store"],
+            retriever=sources["retriever"],
+            reranker=NoOpReranker(),
+            settings=bench_settings,
+        )
+        outputs = [await pipeline(item, corpus) for item in items]
+        return outputs, score_items(items, outputs, corpus)
 
-    scored = score_items(items, outputs, corpus)
+    import asyncio
+
+    outputs, scored = asyncio.run(_run_all())
     assert scored["metrics"]["avg_loop_count"]["value"] > 0
     assert scored["metrics"]["total_failed_calls"]["value"] == 0
     assert scored["by_type"]["multi_hop"]
+    assert scored["by_type"]["temporal"]
     # Verification ran and reported supported.
     assert all(o.verification_status == "supported" for o in outputs)
     # Telemetry summary was captured (run started/ended inside the pipeline).
     assert all(o.failed_calls >= 0 for o in outputs)
-
-
-def _sync_await(coro):
-    import asyncio
-    try:
-        return asyncio.get_event_loop().run_until_complete(coro)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()

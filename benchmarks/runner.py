@@ -109,37 +109,41 @@ def build_corpus(
     chunk_text_by_id: dict[str, str] = {}
     item_meta: dict[str, dict[str, Any]] = {}
 
+    # Content-addressed corpus: one document/chunk per unique passage text,
+    # shared by every item that references the same passage (this mirrors a
+    # real knowledge base and keeps gold-chunk ids stable across items).
+    passage_to_chunk: dict[str, str] = {}
+
+    def _ingest(passage: str, path: str, item_id: str) -> str:
+        checksum = _checksum(passage)
+        chunk_id = passage_to_chunk.get(passage)
+        if chunk_id is None:
+            source = store.upsert_source(
+                Source(type=SourceType.TEXT, path=path, checksum=checksum)
+            )
+            doc = store.insert_document(
+                Document(source_id=source.id, version=1, checksum=checksum, chunking_strategy="benchmark")
+            )
+            chunk = store.insert_chunks(
+                [Chunk(document_id=doc.id, ordinal=0, text=passage, token_count=len(passage.split()))]
+            )[0]
+            chunk_id = str(chunk.id)
+            passage_to_chunk[passage] = chunk_id
+            chunk_text_by_id[chunk_id] = passage
+            item_meta.setdefault(item_id, {}).setdefault("sources", []).append(str(source.path))
+        return chunk_id
+
     for item in items:
         gold_ids[item.id] = []
         distractor_ids[item.id] = []
-        item_sources: list[str] = []
         for i, passage in enumerate(item.gold_evidence or [], start=1):
-            source = store.upsert_source(
-                Source(type=SourceType.TEXT, path=f"bench/{item.id}/gold-{i}", checksum=_checksum(passage))
+            gold_ids[item.id].append(
+                _ingest(passage, f"bench/{item.id}/gold-{i}", item.id)
             )
-            doc = store.insert_document(
-                Document(source_id=source.id, version=1, checksum=_checksum(passage), chunking_strategy="benchmark")
-            )
-            chunk = store.insert_chunks(
-                [Chunk(document_id=doc.id, ordinal=0, text=passage, token_count=len(passage.split()))]
-            )[0]
-            gold_ids[item.id].append(str(chunk.id))
-            chunk_text_by_id[str(chunk.id)] = passage
-            item_sources.append(str(source.path))
         for j, passage in enumerate(item.distractor_evidence or [], start=1):
-            source = store.upsert_source(
-                Source(type=SourceType.TEXT, path=f"bench/{item.id}/distractor-{j}", checksum=_checksum(passage))
+            distractor_ids[item.id].append(
+                _ingest(passage, f"bench/{item.id}/distractor-{j}", item.id)
             )
-            doc = store.insert_document(
-                Document(source_id=source.id, version=1, checksum=_checksum(passage), chunking_strategy="benchmark")
-            )
-            chunk = store.insert_chunks(
-                [Chunk(document_id=doc.id, ordinal=0, text=passage, token_count=len(passage.split()))]
-            )[0]
-            distractor_ids[item.id].append(str(chunk.id))
-            chunk_text_by_id[str(chunk.id)] = passage
-            item_sources.append(str(source.path))
-        item_meta[item.id] = {"sources": item_sources}
 
     # Build the retrieval index over the full corpus (gold + distractors).
     bm25 = BM25Retriever(store, index_path=store.bm25_index_path)
