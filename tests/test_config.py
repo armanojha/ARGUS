@@ -132,3 +132,9 @@ def test_load_dotenv_file_does_not_override_existing_env(tmp_path, monkeypatch):
 
 def test_load_dotenv_file_missing_path_returns_false(tmp_path):
     assert load_dotenv_file(tmp_path / "nope.env") is False
+
+
+def test_orchestration_timeout_field_declared():
+    """graph.py reads settings.orchestration_timeout; the field must exist."""
+    assert Settings(_env_file=None).orchestration_timeout == 120
+    assert Settings(_env_file=None, orchestration_timeout=900).orchestration_timeout == 900

@@ -141,6 +141,10 @@ class Settings(BaseSettings):
         default=30.0,
         description="Per-call timeout (seconds) for orchestration LLM calls (analysis/plan/assess/synthesis).",
     )
+    orchestration_timeout: int = Field(
+        default=120,
+        description="Overall deadline (seconds) for a single end-to-end ARGUS run_query invocation.",
+    )
 
     # --- Evidence Graph (Phase 03) ---
     graph_path: Path = Field(
