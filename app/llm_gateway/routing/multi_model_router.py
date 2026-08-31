@@ -299,7 +299,7 @@ class MultiModelRouter:
 
             # Check quota (provider-level, and per-model when configured)
             quota_tracker = get_quota_tracker(self._settings)
-            if not quota_tracker.can_make_request(model_spec.provider, model_spec.model, estimated_tokens):
+            if not quota_tracker.can_make_request(model_spec.provider, estimated_tokens, model=model_spec.model):
                 logger.debug(
                     "quota_exhausted_skip",
                     provider=model_spec.provider,

@@ -143,7 +143,7 @@ class ProviderQuota:
             models=models,
         )
 
-    def can_make_request(self, model: str | None = None, estimated_tokens: int = 0) -> bool:
+    def can_make_request(self, estimated_tokens: int = 0, *, model: str | None = None) -> bool:
         """Check if a request with estimated_tokens can be made.
 
         ``model`` is optional: when a per-model quota is configured for it, that
@@ -239,11 +239,11 @@ class QuotaTracker:
         with self._lock:
             return self._quotas.get(provider_name)
 
-    def can_make_request(self, provider_name: str, model_name: str | None = None, estimated_tokens: int = 0) -> bool:
+    def can_make_request(self, provider_name: str, estimated_tokens: int = 0, model: str | None = None) -> bool:
         quota = self.get_quota(provider_name)
         if quota is None:
             return True  # No quota tracking = unlimited
-        return quota.can_make_request(model_name, estimated_tokens)
+        return quota.can_make_request(estimated_tokens, model=model)
 
     def record_request(
         self,
