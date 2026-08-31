@@ -499,9 +499,10 @@ class MultiModelRouter:
                         scope="model",
                     )
 
-                # Don't retry on non-retryable errors
-                if not exc.retryable:
-                    break
+                # Non-retryable means don't retry the same exact call, but
+                # trying a DIFFERENT model/provider via the exclusion-based
+                # fallback chain is not a retry—it is the next step.  The
+                # bounded loop count prevents infinite attempts.
 
                 # Try next fallback (next model in the chain, or next provider)
                 routing_result = self._select_model_for_call_type(
@@ -749,8 +750,6 @@ class MultiModelRouter:
                     exclude_providers.add(routing_result.model_spec.provider)
                 else:
                     exclude_models.add(f"{routing_result.model_spec.provider}/{routing_result.model_spec.model}")
-                if not exc.retryable:
-                    break
 
                 routing_result = self._select_model_for_call_type(
                     call_type=call_type,

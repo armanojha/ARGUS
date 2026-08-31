@@ -45,6 +45,7 @@ class MockProvider(LLMProvider):
         should_fail: bool = False,
         fail_with: type[LLMProviderError] | None = None,
         fail_message: str = "mock failure",
+        model_failures: dict[str, type[LLMProviderError]] | None = None,
     ) -> None:
         self._name = name
         self._default_model = default_model
@@ -52,6 +53,10 @@ class MockProvider(LLMProvider):
         self._should_fail = should_fail
         self._fail_with = fail_with
         self._fail_message = fail_message
+        # Per-model failure override (full "<model>" key), evaluated before the
+        # global `_should_fail` flag. Lets tests model-level vs provider-level
+        # failures precisely.
+        self._model_failures = model_failures or {}
         self._call_log: list[dict[str, Any]] = []
         self._closed = False
 
@@ -98,10 +103,12 @@ class MockProvider(LLMProvider):
             "request_id": request_id,
         })
 
+        key = model or self.default_model
+        if key in self._model_failures:
+            raise self._model_failures[key](f"simulated failure for {key}", provider=self._name, status_code=400)
+
         if self._should_fail and self._fail_with:
             raise self._fail_with(self._fail_message)
-
-        key = model or self.default_model
         if key in self._responses:
             resp = self._responses[key]
             if request_id:

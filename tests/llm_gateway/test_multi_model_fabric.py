@@ -20,7 +20,12 @@ from pydantic import BaseModel
 from app.config import Settings
 from app.llm_gateway.capabilities import ProviderCapabilities
 from app.llm_gateway.policies.model_policy import CallTypePolicy, ModelPolicy, load_model_policy
-from app.llm_gateway.providers.exceptions import RateLimitError
+from app.llm_gateway.providers.exceptions import (
+    AuthenticationError,
+    CallCeilingExceededError,
+    ModelNotFoundError,
+    RateLimitError,
+)
 from app.llm_gateway.providers.models import (
     Message,
     MessageRole,
@@ -414,6 +419,180 @@ class TestTelemetry:
         record_routing_decision(call_type="t", provider="p", model="m", success=True)
         assert get_current_telemetry() is None
         assert check_call_ceiling() is False
+
+
+class TestIntraProviderFallback:
+    """Fallback semantics: model-level vs provider-level failures (report P0).
+
+    query_analysis chain: zen/mimo-v2.5-free --(fallback)--> zen/nemotron-3.5
+    -lightning-free --> groq/... --> cerebras/...
+
+    A MODEL-level failure on the primary must only exclude that one model so
+    the NEXT zen model (intra-provider fallback) is still reachable. A
+    PROVIDER-level failure must exclude the entire zen provider.
+    """
+
+    @pytest.mark.asyncio
+    async def test_model_level_error_reaches_intra_provider_fallback(self, router, mock_providers):
+        """model-level (e.g. MODEL_NOT_FOUND) excludes only the model, and a
+        same-provider fallback model is still eligible."""
+        # Only the primary zen/mimo fails with a model-level, non-retryable error
+        mock_providers["zen"]._model_failures = {"mimo-v2.5-free": ModelNotFoundError}
+        mock_providers["zen"]._should_fail = False
+
+        response = await router.complete(
+            [Message(role=MessageRole.USER, content="Test")],
+            call_type="query_analysis",
+        )
+        # Should land on the next zen model, NOT jump straight to groq
+        assert response.provider == "zen"
+        assert response.model == "nemotron-3.5-lightning-free"
+
+    @pytest.mark.asyncio
+    async def test_provider_level_error_excludes_whole_provider(self, router, mock_providers):
+        """provider-level (e.g. AUTHENTICATION_ERROR) excludes all zen models so
+        the router falls through to the next non-zen provider."""
+        # AUTHENTICATION_ERROR fails every call on zen (model-level override not set)
+        mock_providers["zen"]._should_fail = True
+        mock_providers["zen"]._fail_with = AuthenticationError
+        mock_providers["zen"]._fail_message = "bad key"
+
+        response = await router.complete(
+            [Message(role=MessageRole.USER, content="Test")],
+            call_type="query_analysis",
+        )
+        # zen (both models) must be excluded entirely; groq is next
+        assert response.provider != "zen"
+        assert response.provider in ("groq", "cerebras")
+
+    @pytest.mark.asyncio
+    async def test_model_level_rate_limit_allows_same_provider_fallback(self, router, mock_providers):
+        """A retryable rate-limit scoped to a single model must NOT block the
+        next same-provider model."""
+        mock_providers["zen"]._model_failures = {"mimo-v2.5-free": RateLimitError}
+        mock_providers["zen"]._should_fail = False
+
+        response = await router.complete(
+            [Message(role=MessageRole.USER, content="Test")],
+            call_type="query_analysis",
+        )
+        assert response.provider == "zen"
+        assert response.model == "nemotron-3.5-lightning-free"
+
+
+class TestPerModelQuota:
+    """Per-model quota accounting is attributed independently of provider."""
+
+    def test_per_model_quota_exhaustion_blocks_only_that_model(self):
+        from app.llm_gateway.quota import ModelQuota, ProviderQuota, QuotaWindow
+
+        exhausted_model = ModelQuota(
+            model="mimo-v2.5-free",
+            requests_per_minute=QuotaWindow(limit=1, window_seconds=60, used=1),
+            requests_per_day=QuotaWindow(limit=100, window_seconds=86400),
+        )
+        free_model = ModelQuota(
+            model="nemotron-3.5-lightning-free",
+            requests_per_minute=QuotaWindow(limit=10, window_seconds=60),
+            requests_per_day=QuotaWindow(limit=100, window_seconds=86400),
+        )
+        quota = ProviderQuota(
+            name="zen",
+            requests_per_minute=QuotaWindow(limit=30, window_seconds=60),
+            requests_per_day=QuotaWindow(limit=1000, window_seconds=86400),
+            tokens_per_minute=QuotaWindow(limit=8000, window_seconds=60),
+            tokens_per_day=QuotaWindow(limit=200000, window_seconds=86400),
+            enabled=True,
+            models={"mimo-v2.5-free": exhausted_model, "nemotron-3.5-lightning-free": free_model},
+        )
+
+        # Exhausted model is blocked
+        assert quota.can_make_request(model="mimo-v2.5-free") is False
+        # Different model on the SAME provider is still allowed
+        assert quota.can_make_request(model="nemotron-3.5-lightning-free") is True
+        # Provider-level (no per-model) still allowed by the provider window
+        assert quota.can_make_request() is True
+
+    def test_from_config_builds_model_quotas(self):
+        from app.llm_gateway.quota import ProviderQuota
+
+        quota = ProviderQuota.from_config("zen", {
+            "requests_per_minute": 30,
+            "enabled": True,
+            "models": {
+                "big-pickle": {"requests_per_minute": 2, "requests_per_day": 20},
+            },
+        })
+        assert "big-pickle" in quota.models
+        quota.models["big-pickle"].requests_per_minute.consume(2)
+        assert quota.can_make_request(model="big-pickle") is False
+
+
+class TestCallCeilingHardStop:
+    """The global ~16-call hard ceiling is enforced at the router before a call."""
+
+    @pytest.mark.asyncio
+    async def test_ceiling_reached_raises_call_ceiling_exceeded(self, router):
+        # Start a run with a tiny ceiling already exhausted so the next call stops.
+        start_run_telemetry(call_ceiling=3, call_ceiling_warn=2)
+        record_routing_decision(call_type="t", provider="p", model="m", success=True)
+        record_routing_decision(call_type="t", provider="p", model="m", success=True)
+        record_routing_decision(call_type="t", provider="p", model="m", success=True)
+        try:
+            # Next logical call must hard-stop with a ceiling error, not call a model.
+            with pytest.raises(CallCeilingExceededError):
+                await router.complete(
+                    [Message(role=MessageRole.USER, content="Test")],
+                    call_type="query_analysis",
+                )
+        finally:
+            end_run_telemetry()
+
+    @pytest.mark.asyncio
+    async def test_ceiling_called_when_run_active(self, router):
+        start_run_telemetry(call_ceiling=2, call_ceiling_warn=1)
+        record_routing_decision(call_type="t", provider="p", model="m", success=True)
+        record_routing_decision(call_type="t", provider="p", model="m", success=True)
+        try:
+            with pytest.raises(CallCeilingExceededError):
+                await router.complete(
+                    [Message(role=MessageRole.USER, content="Test")],
+                    call_type="query_analysis",
+                )
+        finally:
+            end_run_telemetry()
+
+
+class TestTelemetryErrorClassAttempt:
+    """Routing decisions expose concrete error class + retry/attempt count."""
+
+    def test_record_routing_decision_error_class_and_attempt(self):
+        start_run_telemetry(call_ceiling=16, call_ceiling_warn=12)
+        record_routing_decision(
+            call_type="query_analysis",
+            provider="zen",
+            model="mimo-v2.5-free",
+            success=False,
+            error_code="MODEL_NOT_FOUND",
+            error_class="ModelNotFoundError",
+            attempt=1,
+        )
+        record_routing_decision(
+            call_type="query_analysis",
+            provider="zen",
+            model="nemotron-3.5-lightning-free",
+            success=True,
+            attempt=2,
+        )
+
+        decisions = get_current_telemetry().routing_decisions
+        assert len(decisions) == 2
+        assert decisions[0].success is False
+        assert decisions[0].error_class == "ModelNotFoundError"
+        assert decisions[0].error_code == "MODEL_NOT_FOUND"
+        assert decisions[0].attempt == 1
+        assert decisions[1].attempt == 2
+        end_run_telemetry()
 
 
 class TestBackwardCompatibility:

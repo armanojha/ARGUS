@@ -158,9 +158,8 @@ class ProviderQuota:
         if self.requests_per_day.remaining() <= 0:
             return False
         # Per-model request quota, when configured
-        if model is not None and model in self.models:
-            if not self.models[model].can_make_request():
-                return False
+        if model is not None and model in self.models and not self.models[model].can_make_request():
+            return False
         # Check token quotas (if estimated)
         if estimated_tokens > 0:
             if self.tokens_per_minute.remaining() < estimated_tokens:
