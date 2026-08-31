@@ -345,7 +345,7 @@ class MultiModelRouter:
                 continue
 
             quota_tracker = get_quota_tracker(self._settings)
-            if not quota_tracker.can_make_request(provider_name, provider.default_model, estimated_tokens):
+            if not quota_tracker.can_make_request(provider_name, estimated_tokens, model=provider.default_model):
                 continue
 
             # Use provider's default model
@@ -662,7 +662,7 @@ class MultiModelRouter:
                 continue
 
             quota_tracker = get_quota_tracker(self._settings)
-            if not quota_tracker.can_make_request(pref_provider, provider.default_model, estimated_tokens):
+            if not quota_tracker.can_make_request(pref_provider, estimated_tokens, model=provider.default_model):
                 continue
 
             # Use the provider's default model
