@@ -80,8 +80,8 @@ def test_providers_config_loads_all_providers():
     gemini = next(p for p in providers if p["name"] == "gemini")
     assert gemini["enabled"] is True
     assert gemini["api_key_env"] == "GEMINI_API_KEY"
-    assert gemini["default_model"] == "gemini-2.5-flash-lite"
-    assert gemini["fallback_models"] == ["gemini-2.5-flash"]
+    assert gemini["default_model"] == "gemini-3.5-flash-lite"
+    assert gemini["fallback_models"] == ["gemini-3.5-flash"]
     assert gemini["capabilities"]["structured_output"] is True
     assert gemini["capabilities"]["tool_calling"] is True
     

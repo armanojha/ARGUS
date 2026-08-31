@@ -29,8 +29,8 @@ providers:
     enabled: true
     api_key_env: GEMINI_API_KEY
     base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
-    default_model: "gemini-2.5-flash-lite"
-    fallback_models: ["gemini-2.5-flash"]
+    default_model: "gemini-3.5-flash-lite"
+    fallback_models: ["gemini-3.5-flash"]
     roles: [general]
     capabilities:
       structured_output: true
@@ -40,7 +40,7 @@ providers:
       max_output_tokens: 8192
     timeout: 60.0
     max_retries: 2
-    notes: "Google Gemini free tier: 15 RPM, 1,000 RPD for flash-lite. Data used for training on free tier."
+    notes: "Google Gemini free tier: 15 RPM, 1,000 RPD for flash-lite. Data used for training on free tier. Models gemini-3.5-flash-lite / gemini-3.5-flash verified live 2026-08-31 (gemini-2.5-* no longer available to new users)."
 
   - name: cerebras
     enabled: true

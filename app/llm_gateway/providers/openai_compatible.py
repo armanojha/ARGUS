@@ -139,10 +139,14 @@ class OpenAICompatibleProvider:
             else:
                 schema = TypeAdapter(response_format).json_schema()
                 # Strict JSON-schema mode (used by most OpenAI-compatible
-                # providers, including Groq) requires every property to be
-                # listed as required and additionalProperties to be false.
-                # Pydantic doesn't set the latter by default, so enforce it
+                # providers, including Groq and Gemini) requires every
+                # property to be listed as required and additionalProperties
+                # to be false. Pydantic only marks truly-required fields and
+                # doesn't set additionalProperties by default, so enforce both
                 # here rather than relying on every caller's model config.
+                props = schema.get("properties", {})
+                if props:
+                    schema["required"] = sorted(props.keys())
                 schema.setdefault("additionalProperties", False)
                 payload["response_format"] = {
                     "type": "json_schema",

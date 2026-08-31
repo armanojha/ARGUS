@@ -49,7 +49,7 @@ def mock_providers():
     """Create mock providers for testing."""
     return {
         "groq": MockProvider(name="groq", default_model="openai/gpt-oss-120b"),
-        "gemini": MockProvider(name="gemini", default_model="gemini-2.5-flash-lite"),
+        "gemini": MockProvider(name="gemini", default_model="gemini-3.5-flash-lite"),
         "cerebras": MockProvider(name="cerebras", default_model="gpt-oss-120b"),
         "zen": MockProvider(name="zen", default_model="nemotron-3-ultra-free"),
     }
@@ -335,7 +335,7 @@ class TestMultiModelRouter:
         response = await router.complete_for_verification(
             [Message(role=MessageRole.USER, content="Verify this")],
             synthesizer_provider="gemini",
-            synthesizer_model="gemini-2.5-flash",
+            synthesizer_model="gemini-3.5-flash",
         )
         # Verifier should NOT be gemini
         assert response.provider != "gemini"
@@ -368,7 +368,7 @@ class TestTelemetry:
         record_routing_decision(
             call_type="query_analysis",
             provider="gemini",
-            model="gemini-2.5-flash-lite",
+            model="gemini-3.5-flash-lite",
             is_fallback=False,
             latency_ms=500,
             prompt_tokens=100,
@@ -658,7 +658,7 @@ class TestNoAPIKeyLeakage:
         record_routing_decision(
             call_type="test",
             provider="gemini",
-            model="gemini-2.5-flash-lite",
+            model="gemini-3.5-flash-lite",
             success=True,
         )
         summary = end_run_telemetry()

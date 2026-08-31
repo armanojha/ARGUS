@@ -4,12 +4,15 @@ Google's Gemini API exposes an OpenAI-compatible endpoint at
 `https://generativelanguage.googleapis.com/v1beta/openai/`.
 
 Free tier limits (as of 2026-08):
-- gemini-2.5-flash-lite: 15 RPM, 1,000 RPD
-- gemini-2.5-flash: 10 RPM, 1,000 RPD
+- gemini-3.5-flash-lite: 15 RPM, 1,000 RPD
+- gemini-3.5-flash: 10 RPM, 1,000 RPD
 - Data used for training on free tier (important for privacy-sensitive use cases)
 - Note: 1M token context window is a major advantage for evidence-heavy workloads
 
-Model IDs verified at implementation time against Google AI Studio docs.
+Model IDs verified live 2026-08-31 against the Gemini OpenAI-compatible
+endpoint: `gemini-2.5-flash-lite` and `gemini-2.5-flash` are no longer
+available to new users (HTTP 404) and Google directs users to the
+`gemini-3.5-flash-lite` / `gemini-3.5-flash` generation.
 """
 
 from __future__ import annotations
@@ -19,8 +22,8 @@ from app.llm_gateway.providers import register_provider
 from app.llm_gateway.providers.openai_compatible import OpenAICompatibleProvider
 
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-GEMINI_DEFAULT_MODEL = "gemini-2.5-flash-lite"
-GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
+GEMINI_DEFAULT_MODEL = "gemini-3.5-flash-lite"
+GEMINI_FALLBACK_MODEL = "gemini-3.5-flash"
 
 
 class GeminiProvider(OpenAICompatibleProvider):

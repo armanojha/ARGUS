@@ -6,7 +6,7 @@
 # The project owner decides all model assignments.
 #
 # Model IDs must match what the provider expects (e.g., Groq requires
-# "openai/gpt-oss-120b" prefix; Gemini uses "gemini-2.5-flash-lite";
+# "openai/gpt-oss-120b" prefix; Gemini uses "gemini-3.5-flash-lite";
 # OpenCode Zen uses "big-pickle" / "mimo-v2.5-free" / "nemotron-3-ultra-free"
 # / "nemotron-3.5-lightning-free" — verified 2026-08-31 against
 # opencode.ai/docs/zen and the live /zen/v1/models endpoint).
@@ -38,7 +38,7 @@ call_types:
     fallbacks:
       - "zen/nemotron-3.5-lightning-free"
       - "groq/openai/gpt-oss-120b"
-      - "gemini/gemini-2.5-flash-lite"
+      - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
 
   query_analysis:
