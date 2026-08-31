@@ -237,7 +237,7 @@ class TestMultiModelRouter:
             [Message(role=MessageRole.USER, content="Test")],
             call_type="query_analysis",
         )
-        # query_analysis primary is zen/nemotron-3.5-lightning-free (D-014)
+        # query_analysis primary is zen/mimo-v2.5-free (D-014 rev 2026-08-31)
         assert response.provider == "zen"
 
     @pytest.mark.asyncio

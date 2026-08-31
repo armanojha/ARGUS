@@ -7,8 +7,9 @@
 #
 # Model IDs must match what the provider expects (e.g., Groq requires
 # "openai/gpt-oss-120b" prefix; Gemini uses "gemini-2.5-flash-lite";
-# OpenCode Zen uses "nemotron-3-ultra-free" / "nemotron-3.5-lightning-free"
-# / "mimo-v2.5-free" — verified 2026-08-30 against opencode.ai/docs/zen).
+# OpenCode Zen uses "big-pickle" / "mimo-v2.5-free" / "nemotron-3-ultra-free"
+# / "nemotron-3.5-lightning-free" — verified 2026-08-31 against
+# opencode.ai/docs/zen and the live /zen/v1/models endpoint).
 #
 # Schema:
 # call_types:
@@ -23,6 +24,13 @@
 # D-014 (2026-08-30): all primary assignments moved to OpenCode Zen's free
 # NVIDIA-hosted models. Non-zen providers remain as secondary fallbacks so
 # the fabric keeps redundancy and cross-model verification stays possible.
+#
+# D-014 revision (2026-08-31, Model Policy Optimization): primary tiers split
+# by latency vs quality. MiMo-V2.5 Free (mimo-v2.5-free) handles the
+# latency-sensitive extractive call types; Big Pickle (big-pickle — NEW to the
+# fabric, verified live on the configured Zen endpoint) handles the
+# quality-sensitive generative/reasoning call types; Nemotron retains the
+# primary fallback role. Non-zen secondary fallbacks unchanged.
 
 call_types:
   general:
@@ -34,17 +42,16 @@ call_types:
       - "cerebras/gpt-oss-120b"
 
   query_analysis:
-    primary: "zen/nemotron-3.5-lightning-free"
+    primary: "zen/mimo-v2.5-free"
     fallbacks:
-      - "zen/nemotron-3-ultra-free"
-      - "zen/mimo-v2.5-free"
+      - "zen/nemotron-3.5-lightning-free"
       - "groq/openai/gpt-oss-20b"
       - "cerebras/gpt-oss-120b"
 
   research_planning:
-    primary: "zen/nemotron-3-ultra-free"
+    primary: "zen/big-pickle"
     fallbacks:
-      - "zen/nemotron-3.5-lightning-free"
+      - "zen/nemotron-3-ultra-free"
       - "groq/openai/gpt-oss-120b"
       - "cerebras/gpt-oss-120b"
 
@@ -52,38 +59,35 @@ call_types:
     primary: "zen/mimo-v2.5-free"
     fallbacks:
       - "zen/nemotron-3.5-lightning-free"
-      - "zen/nemotron-3-ultra-free"
       - "groq/openai/gpt-oss-120b"
       - "cerebras/gpt-oss-120b"
 
   reasoning:
-    primary: "zen/nemotron-3-ultra-free"
+    primary: "zen/big-pickle"
     fallbacks:
-      - "zen/nemotron-3.5-lightning-free"
-      - "zen/mimo-v2.5-free"
+      - "zen/nemotron-3-ultra-free"
       - "groq/openai/gpt-oss-120b"
       - "cerebras/gpt-oss-120b"
 
   synthesis:
-    primary: "zen/nemotron-3-ultra-free"
+    primary: "zen/big-pickle"
     fallbacks:
-      - "zen/nemotron-3.5-lightning-free"
+      - "zen/nemotron-3-ultra-free"
       - "groq/openai/gpt-oss-120b"
       - "cerebras/gpt-oss-120b"
 
   verification:
-    primary: "zen/nemotron-3-ultra-free"
+    primary: "zen/big-pickle"
     fallbacks:
       - "zen/mimo-v2.5-free"
-      - "zen/nemotron-3.5-lightning-free"
+      - "zen/nemotron-3-ultra-free"
       - "groq/openai/gpt-oss-20b"
       - "cerebras/gpt-oss-120b"
 
   revision:
-    primary: "zen/nemotron-3.5-lightning-free"
+    primary: "zen/mimo-v2.5-free"
     fallbacks:
-      - "zen/nemotron-3-ultra-free"
-      - "zen/mimo-v2.5-free"
+      - "zen/nemotron-3.5-lightning-free"
       - "groq/openai/gpt-oss-20b"
       - "cerebras/gpt-oss-120b"
 

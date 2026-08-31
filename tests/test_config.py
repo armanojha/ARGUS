@@ -99,7 +99,7 @@ def test_providers_config_loads_all_providers():
     assert zen["api_key_env"] == "OPENCODE_ZEN_API_KEY"
     assert zen["base_url"] == "https://opencode.ai/zen/v1"
     assert zen["default_model"] == "nemotron-3-ultra-free"
-    assert zen["fallback_models"] == ["nemotron-3.5-lightning-free", "mimo-v2.5-free"]
+    assert zen["fallback_models"] == ["big-pickle", "nemotron-3.5-lightning-free", "mimo-v2.5-free"]
     assert zen["capabilities"]["structured_output"] is True
     assert zen["capabilities"]["tool_calling"] is True
 

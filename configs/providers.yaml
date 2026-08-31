@@ -65,7 +65,7 @@ providers:
     protocol: "openai-compatible"
     base_url: "https://opencode.ai/zen/v1"
     default_model: "nemotron-3-ultra-free"
-    fallback_models: ["nemotron-3.5-lightning-free", "mimo-v2.5-free"]
+    fallback_models: ["big-pickle", "nemotron-3.5-lightning-free", "mimo-v2.5-free"]
     roles: [general]
     capabilities:
       structured_output: true
@@ -75,4 +75,4 @@ providers:
       max_output_tokens: 8192
     timeout: 30.0
     max_retries: 2
-    notes: "OpenCode Zen free-tier NVIDIA models (openai-compatible /chat/completions). Model IDs verified 2026-08-30 @ opencode.ai/docs/zen: mimo-v2.5-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free. Free 'for a limited time'; NVIDIA trial endpoints log session data. Key from https://opencode.ai/auth."
+    notes: "OpenCode Zen free-tier models (openai-compatible /chat/completions). Model IDs verified 2026-08-31 @ opencode.ai/docs/zen + live /zen/v1/models: big-pickle, mimo-v2.5-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free. big-pickle (Big Pickle) added 2026-08-31 as the quality-sensitive primary per Model Policy Optimization. NVIDIA trial endpoints log session data. Key from https://opencode.ai/auth."
