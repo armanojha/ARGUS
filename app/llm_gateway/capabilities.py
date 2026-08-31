@@ -57,6 +57,14 @@ class ProviderCapabilities:
     quality_score: float | None = None
     """Quality score 0.0-1.0. None = unknown."""
 
+    speed_class: str | None = None
+    """Coarse speed classification. One of 'fast' | 'medium' | 'slow' | None.
+
+    None = not locally benchmarked (do not treat as a fact). Only set where we
+    have a measured or provider-documented basis; this is informational
+    metadata, never used for autonomous selection (policy stays explicit).
+    """
+
     cost_per_1k_input_tokens: float | None = None
     """Cost per 1K input tokens in USD. None = unknown/free."""
 

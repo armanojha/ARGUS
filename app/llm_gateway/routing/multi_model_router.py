@@ -21,6 +21,7 @@ from app.llm_gateway.capabilities import get_capabilities
 from app.llm_gateway.policies.model_policy import load_model_policy
 from app.llm_gateway.providers.base import LLMProvider
 from app.llm_gateway.providers.exceptions import (
+    CallCeilingExceededError,
     ConfigurationError,
     LLMProviderError,
     RateLimitError,
@@ -32,10 +33,44 @@ from app.llm_gateway.providers.models import (
     ToolChoice,
 )
 from app.llm_gateway.quota import get_quota_tracker
-from app.llm_gateway.telemetry import record_routing_decision
+from app.llm_gateway.telemetry import check_call_ceiling, record_routing_decision
 from app.logging_config import get_logger
 
 logger = get_logger("argus.llm_gateway.multi_model_router")
+
+# Error codes that indicate a failure at the PROVIDER level (auth, whole
+# endpoint down/5xx, network/timeout). When one of these is raised, the
+# failed provider should be excluded so we do not waste attempts walking its
+# remaining models. Everything else (model-not-found, context-length,
+# malformed response, a single model's rate limit) is treated as a MODEL-level
+# failure so an intentional intra-provider fallback (e.g. zen/mimo ->
+# zen/nemotron) stays reachable.
+_PROVIDER_LEVEL_ERROR_CODES = {
+    "AUTHENTICATION_ERROR",
+    "PROVIDER_UNAVAILABLE",
+    "TIMEOUT_OR_NETWORK_ERROR",
+}
+
+# Internal error codes that are never worth falling back on (hard config /
+# ceiling faults).
+_NON_RETRYABLE_CODES = {
+    "CONFIGURATION_ERROR",
+    "CALL_CEILING_EXCEEDED",
+    "CAPABILITY_NOT_SUPPORTED",
+}
+
+
+def _is_provider_level(exc: LLMProviderError) -> bool:
+    """Classify a provider error as provider-wide vs model-specific.
+
+    Model 4xx / a single model's rate limit / a malformed single-model response
+    are model-level. Auth failures, upstream 5xx and timeouts are provider-wide.
+    """
+    return exc.code in _PROVIDER_LEVEL_ERROR_CODES
+
+
+def _is_model_level(exc: LLMProviderError) -> bool:
+    return not _is_provider_level(exc) and exc.code not in _NON_RETRYABLE_CODES
 
 
 @dataclass
@@ -232,27 +267,39 @@ class MultiModelRouter:
         response_format: type[BaseModel] | None = None,
         tools: list[Tool] | None = None,
         estimated_tokens: int = 0,
-        exclude_provider: str | None = None,
+        exclude_models: set[str] | None = None,
+        exclude_providers: set[str] | None = None,
     ) -> RoutingResult | None:
         """Select the best available model for a call type.
 
+        Exclusion is tracked at two scopes so that an intentional
+        intra-provider fallback stays reachable after a model failure:
+          * ``exclude_models`` — "provider/model" keys already failed at the
+            model level. The same provider's *other* models remain eligible.
+          * ``exclude_providers`` — providers failed at the whole-provider
+            level (auth / 5xx / timeout). All of their models are skipped.
+
         Returns None if no suitable model found.
         """
+        exclude_models = exclude_models or set()
+        exclude_providers = exclude_providers or set()
         model_chain = self._resolve_model_chain(call_type)
         provider_fallbacks = self._get_provider_fallbacks()
 
         # First try the call-type specific chain
         for i, model_spec in enumerate(model_chain):
-            if exclude_provider and model_spec.provider == exclude_provider:
+            if model_spec.provider in exclude_providers:
+                continue
+            if f"{model_spec.provider}/{model_spec.model}" in exclude_models:
                 continue
 
             provider = self._get_provider(model_spec.provider)
             if provider is None:
                 continue
 
-            # Check quota
+            # Check quota (provider-level, and per-model when configured)
             quota_tracker = get_quota_tracker(self._settings)
-            if not quota_tracker.can_make_request(model_spec.provider, estimated_tokens):
+            if not quota_tracker.can_make_request(model_spec.provider, model_spec.model, estimated_tokens):
                 logger.debug(
                     "quota_exhausted_skip",
                     provider=model_spec.provider,
@@ -290,7 +337,7 @@ class MultiModelRouter:
 
         # If call-type chain exhausted, try provider fallbacks with their default models
         for provider_name in provider_fallbacks:
-            if exclude_provider and provider_name == exclude_provider:
+            if provider_name in exclude_providers:
                 continue
 
             provider = self._get_provider(provider_name)
@@ -298,7 +345,7 @@ class MultiModelRouter:
                 continue
 
             quota_tracker = get_quota_tracker(self._settings)
-            if not quota_tracker.can_make_request(provider_name, estimated_tokens):
+            if not quota_tracker.can_make_request(provider_name, provider.default_model, estimated_tokens):
                 continue
 
             # Use provider's default model
@@ -391,7 +438,17 @@ class MultiModelRouter:
 
         last_error: LLMProviderError | None = None
 
-        # Try the selected model, then fall through fallbacks
+        # Failures tracked at model scope by default so an intentional
+        # intra-provider fallback (zen/mimo -> zen/nemotron) stays reachable;
+        # a whole-provider failure (auth / 5xx / timeout) additionally excludes
+        # every model on that provider to avoid wasting attempts.
+        exclude_models: set[str] = set()
+        exclude_providers: set[str] = set()
+
+        # Try the selected model, then fall through the ordered fallback chain.
+        # The total number of *distinct* routing attempts is bounded by the
+        # configured chain + provider fallbacks (never infinite), so a model
+        # failure cannot create an unbounded retry storm.
         attempt = 0
         max_routing_attempts = len(self._policy.get_model_chain(call_type)) + len(self._policy.provider_fallbacks) + 1
         max_routing_attempts = max(max_routing_attempts, 3)  # At least 3 attempts
@@ -412,30 +469,48 @@ class MultiModelRouter:
                     request_id=request_id,
                     is_fallback=routing_result.is_fallback,
                     fallback_reason=routing_result.fallback_reason,
+                    attempt=attempt,
                 )
             except (RateLimitError, LLMProviderError) as exc:
                 last_error = exc
-                logger.warning(
-                    "routing_attempt_failed",
-                    provider=routing_result.model_spec.provider,
-                    model=routing_result.model_spec.model,
-                    call_type=call_type,
-                    attempt=attempt,
-                    error=str(exc),
-                    error_code=exc.code,
-                )
+                failed_key = f"{routing_result.model_spec.provider}/{routing_result.model_spec.model}"
+                if _is_provider_level(exc):
+                    exclude_providers.add(routing_result.model_spec.provider)
+                    logger.warning(
+                        "routing_attempt_failed_provider",
+                        provider=routing_result.model_spec.provider,
+                        model=routing_result.model_spec.model,
+                        call_type=call_type,
+                        attempt=attempt,
+                        error=str(exc),
+                        error_code=exc.code,
+                        scope="provider",
+                    )
+                else:
+                    exclude_models.add(failed_key)
+                    logger.warning(
+                        "routing_attempt_failed",
+                        provider=routing_result.model_spec.provider,
+                        model=routing_result.model_spec.model,
+                        call_type=call_type,
+                        attempt=attempt,
+                        error=str(exc),
+                        error_code=exc.code,
+                        scope="model",
+                    )
 
                 # Don't retry on non-retryable errors
                 if not exc.retryable:
                     break
 
-                # Try next fallback
+                # Try next fallback (next model in the chain, or next provider)
                 routing_result = self._select_model_for_call_type(
                     call_type=call_type,
                     response_format=response_format,
                     tools=tools,
                     estimated_tokens=estimated_tokens,
-                    exclude_provider=routing_result.model_spec.provider,
+                    exclude_models=exclude_models,
+                    exclude_providers=exclude_providers,
                 )
                 if routing_result is None:
                     break
@@ -459,10 +534,26 @@ class MultiModelRouter:
         request_id: str | None,
         is_fallback: bool,
         fallback_reason: str | None,
+        attempt: int = 1,
     ) -> CompletionResponse:
-        """Execute completion with telemetry recording."""
+        """Execute completion with telemetry recording.
+
+        Enforces the global hard call ceiling (when a run is active) before
+        touching the network: retries and model fallbacks must never push a
+        research run past the configured logical-call ceiling.
+        """
+        if check_call_ceiling():
+            raise CallCeilingExceededError(
+                "Global LLM call ceiling reached for this run; refusing to "
+                "make another model call. Further retries/fallbacks are "
+                "suppressed so the ceiling is a true safety bound.",
+                provider=model_spec.provider,
+                model=model_spec.model,
+            )
+
         start_time = time.time()
         error_code = None
+        error_class: str | None = None
         success = False
         response = None
 
@@ -481,11 +572,12 @@ class MultiModelRouter:
             )
             success = True
 
-            # Record quota usage
+            # Record quota usage (provider-level, and per-model when tracked)
             if response.usage:
                 quota_tracker = get_quota_tracker(self._settings)
                 quota_tracker.record_request(
                     provider_name=model_spec.provider,
+                    model_name=model_spec.model,
                     prompt_tokens=response.usage.prompt_tokens,
                     completion_tokens=response.usage.completion_tokens,
                 )
@@ -494,6 +586,7 @@ class MultiModelRouter:
 
         except LLMProviderError as exc:
             error_code = exc.code
+            error_class = type(exc).__name__
             raise
         finally:
             latency_ms = int((time.time() - start_time) * 1000)
@@ -515,6 +608,8 @@ class MultiModelRouter:
                 completion_tokens=completion_tokens,
                 success=success,
                 error_code=error_code,
+                error_class=error_class,
+                attempt=attempt,
             )
 
     async def complete_for_verification(
@@ -544,8 +639,8 @@ class MultiModelRouter:
         allow_same_provider_diff_model = self._allow_same_provider_diff_model
         preferred_verifiers = self._preferred_verifiers
 
-        # Determine excluded provider
-        exclude_provider = synthesizer_provider if verifier_must_differ else None
+        # Determine excluded provider (policy-level: verifier must differ)
+        policy_exclude_provider = synthesizer_provider if verifier_must_differ else None
 
         # If same provider allowed with different model, we can only exclude if
         # the only available model is the same as synthesizer's
@@ -557,9 +652,9 @@ class MultiModelRouter:
         if max_tokens:
             estimated_tokens += max_tokens
 
-        # Try preferred verifiers first (excluding synthesizer's provider)
+        # Try preferred verifiers first (excluding synthesizer's provider by policy)
         for pref_provider in preferred_verifiers:
-            if exclude_provider and pref_provider == exclude_provider:
+            if policy_exclude_provider and pref_provider == policy_exclude_provider:
                 continue
 
             provider = self._get_provider(pref_provider)
@@ -567,7 +662,7 @@ class MultiModelRouter:
                 continue
 
             quota_tracker = get_quota_tracker(self._settings)
-            if not quota_tracker.can_make_request(pref_provider, estimated_tokens):
+            if not quota_tracker.can_make_request(pref_provider, provider.default_model, estimated_tokens):
                 continue
 
             # Use the provider's default model
@@ -598,16 +693,18 @@ class MultiModelRouter:
                 request_id=request_id,
                 is_fallback=False,
                 fallback_reason=f"cross_model_verification_{pref_provider}",
+                attempt=1,
             )
 
         # If no preferred verifier available, fall back to normal routing
-        # but still exclude synthesizer's provider if required
+        # but still exclude synthesizer's provider if required by policy.
         routing_result = self._select_model_for_call_type(
             call_type=call_type,
             response_format=response_format,
             tools=tools,
             estimated_tokens=estimated_tokens,
-            exclude_provider=exclude_provider,
+            exclude_models=set(),
+            exclude_providers={policy_exclude_provider} if policy_exclude_provider else None,
         )
 
         if routing_result is None:
@@ -618,8 +715,16 @@ class MultiModelRouter:
 
         last_error: LLMProviderError | None = None
         attempt = 0
+        exclude_models: set[str] = set()
+        # Provider failures during verification additionally exclude the provider,
+        # while still honoring the policy exclusion of the synthesizer's provider.
+        exclude_providers: set[str] = {policy_exclude_provider} if policy_exclude_provider else set()
+        max_verification_attempts = max(
+            len(self._policy.get_model_chain(call_type)) + len(self._policy.provider_fallbacks) + 1,
+            3,
+        )
 
-        while True:
+        while attempt < max_verification_attempts:
             attempt += 1
             try:
                 return await self._execute_with_telemetry(
@@ -636,9 +741,14 @@ class MultiModelRouter:
                     request_id=request_id,
                     is_fallback=routing_result.is_fallback,
                     fallback_reason=routing_result.fallback_reason,
+                    attempt=attempt,
                 )
             except (RateLimitError, LLMProviderError) as exc:
                 last_error = exc
+                if _is_provider_level(exc):
+                    exclude_providers.add(routing_result.model_spec.provider)
+                else:
+                    exclude_models.add(f"{routing_result.model_spec.provider}/{routing_result.model_spec.model}")
                 if not exc.retryable:
                     break
 
@@ -647,7 +757,8 @@ class MultiModelRouter:
                     response_format=response_format,
                     tools=tools,
                     estimated_tokens=estimated_tokens,
-                    exclude_provider=routing_result.model_spec.provider,
+                    exclude_models=exclude_models,
+                    exclude_providers=exclude_providers,
                 )
                 if routing_result is None:
                     break
@@ -683,8 +794,10 @@ class MultiModelRouter:
                 "capabilities": {
                     "structured_output": caps.structured_output,
                     "tool_calling": caps.tool_calling,
+                    "vision": caps.vision,
                     "max_context_tokens": caps.max_context_tokens,
                     "max_output_tokens": caps.max_output_tokens,
+                    "speed_class": caps.speed_class,
                 },
             })
         return results

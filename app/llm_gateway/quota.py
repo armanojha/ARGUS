@@ -52,6 +52,59 @@ class QuotaWindow:
 
 
 @dataclass
+class ModelQuota:
+    """Optional per-model request quota, tracked independently of the provider.
+
+    Free-tier limits are frequently per-model (e.g. Groq's GPT-OSS limits are
+    per-model), so quota state must be attributable to provider + model +
+    window. Only configured model limits are enforced; an unconfigured model
+    falls back to the provider-level accounting.
+    """
+
+    model: str
+    requests_per_minute: QuotaWindow
+    requests_per_day: QuotaWindow
+
+    @classmethod
+    def from_config(cls, model: str, config: dict[str, Any]) -> ModelQuota:
+        return cls(
+            model=model,
+            requests_per_minute=QuotaWindow(
+                limit=config.get("requests_per_minute", 0),
+                window_seconds=60,
+            ),
+            requests_per_day=QuotaWindow(
+                limit=config.get("requests_per_day", 0),
+                window_seconds=86400,
+            ),
+        )
+
+    def can_make_request(self) -> bool:
+        return self.requests_per_minute.remaining() > 0 and self.requests_per_day.remaining() > 0
+
+    def record_request(self) -> None:
+        self.requests_per_minute.consume(1)
+        self.requests_per_day.consume(1)
+
+    def get_status(self) -> dict[str, Any]:
+        return {
+            "model": self.model,
+            "requests_per_minute": {
+                "limit": self.requests_per_minute.limit,
+                "used": self.requests_per_minute.used,
+                "remaining": self.requests_per_minute.remaining(),
+                "reset_seconds": max(0, int(self.requests_per_minute.window_seconds - (time.time() - self.requests_per_minute.window_start))),
+            },
+            "requests_per_day": {
+                "limit": self.requests_per_day.limit,
+                "used": self.requests_per_day.used,
+                "remaining": self.requests_per_day.remaining(),
+                "reset_seconds": max(0, int(self.requests_per_day.window_seconds - (time.time() - self.requests_per_day.window_start))),
+            },
+        }
+
+
+@dataclass
 class ProviderQuota:
     """Quota tracking for a single provider."""
 
@@ -61,9 +114,13 @@ class ProviderQuota:
     tokens_per_minute: QuotaWindow
     tokens_per_day: QuotaWindow
     enabled: bool = True
+    models: dict[str, ModelQuota] = field(default_factory=dict)
 
     @classmethod
     def from_config(cls, name: str, config: dict[str, Any]) -> ProviderQuota:
+        models: dict[str, ModelQuota] = {}
+        for model_key, model_config in (config.get("models", {}) or {}).items():
+            models[model_key] = ModelQuota.from_config(model_key, model_config)
         return cls(
             name=name,
             requests_per_minute=QuotaWindow(
@@ -83,17 +140,27 @@ class ProviderQuota:
                 window_seconds=86400,
             ),
             enabled=config.get("enabled", True),
+            models=models,
         )
 
-    def can_make_request(self, estimated_tokens: int = 0) -> bool:
-        """Check if a request with estimated_tokens can be made."""
+    def can_make_request(self, model: str | None = None, estimated_tokens: int = 0) -> bool:
+        """Check if a request with estimated_tokens can be made.
+
+        ``model`` is optional: when a per-model quota is configured for it, that
+        is checked in addition to the provider-level accounting. Models without
+        a per-model entry fall back to provider-level limits.
+        """
         if not self.enabled:
             return True
-        # Check request quotas
+        # Check request quotas (provider level first)
         if self.requests_per_minute.remaining() <= 0:
             return False
         if self.requests_per_day.remaining() <= 0:
             return False
+        # Per-model request quota, when configured
+        if model is not None and model in self.models:
+            if not self.models[model].can_make_request():
+                return False
         # Check token quotas (if estimated)
         if estimated_tokens > 0:
             if self.tokens_per_minute.remaining() < estimated_tokens:
@@ -102,13 +169,15 @@ class ProviderQuota:
                 return False
         return True
 
-    def record_request(self, prompt_tokens: int = 0, completion_tokens: int = 0) -> None:
-        """Record a completed request."""
+    def record_request(self, model: str | None = None, prompt_tokens: int = 0, completion_tokens: int = 0) -> None:
+        """Record a completed request (provider-level, and per-model when tracked)."""
         if not self.enabled:
             return
         total_tokens = prompt_tokens + completion_tokens
         self.requests_per_minute.consume(1)
         self.requests_per_day.consume(1)
+        if model is not None and model in self.models:
+            self.models[model].record_request()
         if total_tokens > 0:
             self.tokens_per_minute.consume(total_tokens)
             self.tokens_per_day.consume(total_tokens)
@@ -142,6 +211,7 @@ class ProviderQuota:
                 "remaining": self.tokens_per_day.remaining(),
                 "reset_seconds": max(0, int(self.tokens_per_day.window_seconds - (time.time() - self.tokens_per_day.window_start))),
             },
+            "models": {name: q.get_status() for name, q in self.models.items()},
         }
 
 
@@ -169,22 +239,23 @@ class QuotaTracker:
         with self._lock:
             return self._quotas.get(provider_name)
 
-    def can_make_request(self, provider_name: str, estimated_tokens: int = 0) -> bool:
+    def can_make_request(self, provider_name: str, model_name: str | None = None, estimated_tokens: int = 0) -> bool:
         quota = self.get_quota(provider_name)
         if quota is None:
             return True  # No quota tracking = unlimited
-        return quota.can_make_request(estimated_tokens)
+        return quota.can_make_request(model_name, estimated_tokens)
 
     def record_request(
         self,
         provider_name: str,
+        model_name: str | None = None,
         prompt_tokens: int = 0,
         completion_tokens: int = 0,
     ) -> None:
         quota = self.get_quota(provider_name)
         if quota is not None:
             with self._lock:
-                quota.record_request(prompt_tokens, completion_tokens)
+                quota.record_request(model_name, prompt_tokens, completion_tokens)
 
     def update_from_headers(self, provider_name: str, headers: dict[str, str]) -> None:
         """Update quota from provider response headers.

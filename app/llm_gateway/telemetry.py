@@ -46,6 +46,13 @@ class RoutingDecision:
     total_tokens: int | None
     success: bool
     error_code: str | None
+    error_class: str | None = None
+    """Concrete exception class name (e.g. 'RateLimitError'), when one was raised."""
+
+    attempt: int = 1
+    """1-based routing attempt index for this logical call (falls-through count
+    across the ordered model/provider chain)."""
+
     timestamp: float = field(default_factory=time.time)
 
 
@@ -110,6 +117,8 @@ class RunTelemetry:
                     "total_tokens": d.total_tokens,
                     "success": d.success,
                     "error_code": d.error_code,
+                    "error_class": d.error_class,
+                    "attempt": d.attempt,
                 }
                 for d in self.routing_decisions
             ],
@@ -233,6 +242,8 @@ def record_routing_decision(
     completion_tokens: int | None = None,
     success: bool = True,
     error_code: str | None = None,
+    error_class: str | None = None,
+    attempt: int = 1,
 ) -> None:
     """Record a routing decision in the current telemetry run."""
     telemetry = _current_run_telemetry.get()
@@ -255,6 +266,8 @@ def record_routing_decision(
         total_tokens=total_tokens,
         success=success,
         error_code=error_code,
+        error_class=error_class,
+        attempt=attempt,
     )
     telemetry.record_routing_decision(decision)
 
@@ -273,6 +286,8 @@ def record_routing_decision(
         total_tokens=total_tokens,
         success=success,
         error_code=error_code,
+        error_class=error_class,
+        attempt=attempt,
         total_calls=telemetry.total_calls,
         call_ceiling=telemetry.call_ceiling,
     )

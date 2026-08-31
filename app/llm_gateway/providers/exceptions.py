@@ -91,3 +91,17 @@ class CapabilityNotSupportedError(LLMProviderError):
             retryable=False,
             **kwargs,  # type: ignore[arg-type]
         )
+
+
+class CallCeilingExceededError(LLMProviderError):
+    """The global hard call ceiling for a research run has been reached.
+
+    Raised by the router before making another actual LLM call when the
+    current run's telemetry already records the configured number of
+    logical calls. This is a true safety ceiling: model fallbacks and
+    retries must not bypass it. Not retryable (further retries would only
+    re-hit the ceiling and cost quota for nothing).
+    """
+
+    def __init__(self, message: str, **kwargs: object) -> None:
+        super().__init__("CALL_CEILING_EXCEEDED", message, retryable=False, **kwargs)  # type: ignore[arg-type]
