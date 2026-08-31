@@ -261,7 +261,7 @@ class OpenAICompatibleProvider:
                 response = await client.post(
                     CHAT_COMPLETIONS_PATH, json=payload, timeout=timeout
                 )
-            except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error = TimeoutOrNetworkError(str(exc), provider=self._name)
                 if attempt >= self._max_retries:
                     raise last_error from exc

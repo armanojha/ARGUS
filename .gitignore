@@ -44,3 +44,4 @@ data/evidence.db
 data/indexes/
 data/obsidian_index/
 data/telemetry/
+data/benchmark_reports/
