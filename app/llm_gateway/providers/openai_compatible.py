@@ -48,6 +48,40 @@ logger = get_logger("argus.llm_gateway.provider")
 CHAT_COMPLETIONS_PATH = "/chat/completions"
 
 
+def _apply_strict_json_schema(schema: dict[str, Any]) -> None:
+    """Recursively enforce the requirements of strict JSON-schema mode on a
+    Pydantic-derived schema tree: every object sets additionalProperties=false
+    and lists all its properties as required. Applies to nested object
+    properties and array-of-object items, which providers such as Groq and
+    Gemini require for strict structured output."""
+    if not isinstance(schema, dict):
+        return
+    props = schema.get("properties")
+    if isinstance(props, dict) and props:
+        schema["required"] = sorted(props.keys())
+        schema["additionalProperties"] = False
+        for sub in props.values():
+            if isinstance(sub, dict):
+                _apply_strict_json_schema(sub)
+    elif schema.get("type") == "object":
+        schema.setdefault("additionalProperties", False)
+    items = schema.get("items")
+    if isinstance(items, dict):
+        _apply_strict_json_schema(items)
+    for key in ("anyOf", "allOf", "oneOf"):
+        subs = schema.get(key)
+        if isinstance(subs, list):
+            for sub in subs:
+                _apply_strict_json_schema(sub)
+    # Referenced object definitions (used by `$ref` in items/properties) must
+    # also be closed for strict mode.
+    defs = schema.get("$defs")
+    if isinstance(defs, dict):
+        for sub in defs.values():
+            if isinstance(sub, dict):
+                _apply_strict_json_schema(sub)
+
+
 class OpenAICompatibleProvider:
     """Base for providers exposing an OpenAI-compatible `/chat/completions` endpoint.
 
@@ -144,13 +178,12 @@ class OpenAICompatibleProvider:
                 # Strict JSON-schema mode (used by most OpenAI-compatible
                 # providers, including Groq and Gemini) requires every
                 # property to be listed as required and additionalProperties
-                # to be false. Pydantic only marks truly-required fields and
-                # doesn't set additionalProperties by default, so enforce both
-                # here rather than relying on every caller's model config.
-                props = schema.get("properties", {})
-                if props:
-                    schema["required"] = sorted(props.keys())
-                schema.setdefault("additionalProperties", False)
+                # to be false — recursively, including nested object schemas
+                # and array-of-object items. Pydantic only marks truly-required
+                # fields and doesn't set additionalProperties by default, so
+                # enforce both across the whole schema tree here rather than
+                # relying on every caller's model config.
+                _apply_strict_json_schema(schema)
                 payload["response_format"] = {
                     "type": "json_schema",
                     "json_schema": {

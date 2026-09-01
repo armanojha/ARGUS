@@ -38,6 +38,21 @@ logger = get_logger("argus.verification.engine")
 VerificationFn = Callable[[VerificationRequest], Coroutine[Any, Any, VerificationResult]]
 
 
+class ContradictionOutput(BaseModel):
+    """A single contradiction as emitted by the verifier LLM. This closed
+    schema (every property required, additionalProperties=false) is what
+    strict JSON-schema providers such as Groq require for structured output
+    — a bare `dict` is not representable under their strict mode."""
+
+    type: ContradictionType = ContradictionType.SOURCE_CONFLICT
+    description: str = ""
+    claim_b_id: str = "00000000-0000-0000-0000-000000000000"
+    evidence_a_ids: list[str] = []
+    evidence_b_ids: list[str] = []
+    severity: float = 0.5
+    resolution_suggestion: str | None = None
+
+
 class VerifierOutput(BaseModel):
     """Structured output from verifier LLM."""
 
@@ -46,7 +61,7 @@ class VerifierOutput(BaseModel):
     reasoning: str
     supporting_evidence_indices: list[int] = []
     contradicting_evidence_indices: list[int] = []
-    contradictions: list[dict[str, Any]] = []
+    contradictions: list[ContradictionOutput] = []
     evidence_coverage: float = 0.0
     source_quality: float = 0.0
     cross_source_agreement: float = 0.0
@@ -270,24 +285,24 @@ async def verify_claim(
     contradictions = []
     for contra in verifier_output.contradictions:
         try:
-            contra_type = ContradictionType(contra.get("type", "source_conflict"))
+            contra_type = ContradictionType(contra.type)
         except ValueError:
             contra_type = ContradictionType.SOURCE_CONFLICT
 
         try:
-            claim_b_id = UUID(contra.get("claim_b_id", "00000000-0000-0000-0000-000000000000"))
+            claim_b_id = UUID(contra.claim_b_id)
         except (ValueError, AttributeError):
             claim_b_id = UUID("00000000-0000-0000-0000-000000000000")
 
         contradictions.append(ContradictionDetail(
             contradiction_type=contra_type,
-            description=contra.get("description", ""),
+            description=contra.description,
             claim_a_id=request.claim_id,
             claim_b_id=claim_b_id,
-            evidence_a_ids=[UUID(eid) for eid in contra.get("evidence_a_ids", [])],
-            evidence_b_ids=[UUID(eid) for eid in contra.get("evidence_b_ids", [])],
-            severity=contra.get("severity", 0.5),
-            resolution_suggestion=contra.get("resolution_suggestion"),
+            evidence_a_ids=[UUID(eid) for eid in contra.evidence_a_ids],
+            evidence_b_ids=[UUID(eid) for eid in contra.evidence_b_ids],
+            severity=contra.severity,
+            resolution_suggestion=contra.resolution_suggestion,
         ))
 
     # Build confidence components
