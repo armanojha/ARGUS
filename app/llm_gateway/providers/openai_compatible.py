@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import time
 from typing import Any
 
 import httpx
@@ -66,6 +67,7 @@ class OpenAICompatibleProvider:
         capabilities: ProviderCapabilities | None = None,
         timeout: float = 30.0,
         max_retries: int = 2,
+        attempt_ceiling_s: float = 15.0,
     ) -> None:
         if not api_key:
             # Never construct a provider with an empty key silently; the
@@ -81,6 +83,7 @@ class OpenAICompatibleProvider:
         self._capabilities = capabilities or ProviderCapabilities()
         self._timeout = timeout
         self._max_retries = max_retries
+        self._attempt_ceiling_s = attempt_ceiling_s
         self._client: httpx.AsyncClient | None = None
 
     @property
@@ -256,27 +259,40 @@ class OpenAICompatibleProvider:
         client = await self._ensure_client()
         last_error: LLMProviderError | None = None
 
+        # A single provider-model attempt is bounded by the smaller of the
+        # caller's timeout and the per-attempt ceiling. This stops an
+        # unhealthy provider (429 storm, hung connection, slow read) from
+        # consuming the whole orchestration budget before the router can
+        # exclude it and fall back to a healthy provider. Healthy providers,
+        # which succeed on the first try well under the ceiling, are
+        # unaffected. Retries are kept bounded and never become a storm.
+        deadline = time.monotonic() + min(self._attempt_ceiling_s, max(timeout, 0.0))
+
         for attempt in range(self._max_retries + 1):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
             try:
                 response = await client.post(
-                    CHAT_COMPLETIONS_PATH, json=payload, timeout=timeout
+                    CHAT_COMPLETIONS_PATH, json=payload, timeout=min(timeout, remaining)
                 )
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error = TimeoutOrNetworkError(str(exc), provider=self._name)
-                if attempt >= self._max_retries:
+                if attempt >= self._max_retries or (deadline - time.monotonic()) <= 0:
                     raise last_error from exc
-                wait = (2**attempt) + random.uniform(0, 0.5)
+                wait = min((2**attempt) + random.uniform(0, 0.5), deadline - time.monotonic())
                 logger.warning(
                     "llm_retry_network_error",
                     provider=self._name,
                     attempt=attempt + 1,
                     wait_seconds=round(wait, 2),
                 )
-                await asyncio.sleep(wait)
+                if wait > 0:
+                    await asyncio.sleep(wait)
                 continue
 
             if (response.status_code == 429 or 500 <= response.status_code < 600) and attempt < self._max_retries:
-                wait = (2**attempt) + random.uniform(0, 0.5)
+                wait = min((2**attempt) + random.uniform(0, 0.5), deadline - time.monotonic())
                 logger.warning(
                     "llm_retry_http_error",
                     provider=self._name,
@@ -284,7 +300,8 @@ class OpenAICompatibleProvider:
                     attempt=attempt + 1,
                     wait_seconds=round(wait, 2),
                 )
-                await asyncio.sleep(wait)
+                if wait > 0:
+                    await asyncio.sleep(wait)
                 continue
 
             if response.status_code >= 400:
@@ -292,7 +309,9 @@ class OpenAICompatibleProvider:
 
             return response
 
-        # Only reachable if every retry hit a retryable HTTP status.
+        # Bounded deadline reached (or every retry exhausted): surface the
+        # last transient error as a retryable provider-level failure so the
+        # router excludes this provider and falls back to another one.
         if last_error is not None:
             raise last_error
         raise LLMProviderError(

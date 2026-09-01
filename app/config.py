@@ -80,6 +80,14 @@ class Settings(BaseSettings):
         default=2,
         description="Max retry attempts for transient failures.",
     )
+    llm_attempt_ceiling_s: float = Field(
+        default=15.0,
+        description=(
+            "Max wall-clock seconds a single provider-model attempt may consume "
+            "across its internal retries, so an unhealthy provider cannot consume "
+            "the whole orchestration budget before fallback."
+        ),
+    )
     llm_call_type: str = Field(
         default="general",
         description="Call type for policy routing (Phase 07).",

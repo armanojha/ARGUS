@@ -72,6 +72,7 @@ def create_provider(settings: Settings | None = None) -> OpenAICompatibleProvide
         "api_key": api_key,
         "timeout": settings.llm_timeout,
         "max_retries": settings.llm_max_retries,
+        "attempt_ceiling_s": settings.llm_attempt_ceiling_s,
     }
     if settings.llm_model:
         kwargs["model"] = settings.llm_model

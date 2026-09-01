@@ -30,6 +30,7 @@ class CerebrasProvider(OpenAICompatibleProvider):
         base_url: str | None = None,
         timeout: float = 30.0,
         max_retries: int = 2,
+        attempt_ceiling_s: float = 15.0,
     ) -> None:
         super().__init__(
             api_key=api_key,
@@ -45,6 +46,7 @@ class CerebrasProvider(OpenAICompatibleProvider):
             ),
             timeout=timeout,
             max_retries=max_retries,
+            attempt_ceiling_s=attempt_ceiling_s,
         )
 
 

@@ -37,6 +37,7 @@ class GeminiProvider(OpenAICompatibleProvider):
         base_url: str | None = None,
         timeout: float = 60.0,
         max_retries: int = 2,
+        attempt_ceiling_s: float = 15.0,
     ) -> None:
         super().__init__(
             api_key=api_key,
@@ -52,6 +53,7 @@ class GeminiProvider(OpenAICompatibleProvider):
             ),
             timeout=timeout,
             max_retries=max_retries,
+            attempt_ceiling_s=attempt_ceiling_s,
         )
 
 
