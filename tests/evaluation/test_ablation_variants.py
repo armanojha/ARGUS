@@ -24,7 +24,7 @@ from benchmarks.ablation import (
     make_variants,
     run_ablation,
 )
-from benchmarks.models import BenchmarkRunOutput
+from benchmarks.models import BenchmarkItem, BenchmarkRunOutput
 from benchmarks.runner import build_corpus, load_items, score_items
 
 
@@ -190,6 +190,9 @@ def test_run_ablation_offline(tmp_path: Path, provider: ScriptedProvider, bench_
     assert report["variants"]["baseline_rag"]["metrics"]["avg_loop_count"]["value"] == 1.0
     # Reports written.
     assert (tmp_path / "out" / "ablation_report.json").exists()
+    # Reliability: a per-variant checkpoint is written during the run so a hard
+    # interruption does not lose every completed variant.
+    assert (tmp_path / "out" / "ablation_checkpoint.json").exists()
     md = (tmp_path / "out" / "ablation_report.md").read_text(encoding="utf-8")
     assert md.startswith("# smoke ablation")
     assert "Delta vs full_argus" in md
@@ -198,3 +201,105 @@ def test_run_ablation_offline(tmp_path: Path, provider: ScriptedProvider, bench_
 def test_ablation_markdown_prefix():
     md = ablation_markdown({"name": "x", "generated_at": "t", "item_count": 2, "variants": {}, "deltas_vs_full_argus": {}})
     assert md.startswith("# x")
+
+
+class _LoopFidelityProvider(ScriptedProvider):
+    """Scripted provider that simulates the real httpx.AsyncClient lifespan.
+
+    The client is lazily bound to the loop where it is first used and reusing
+    it from a different/closed loop is precisely the original ablation bug
+    (`RuntimeError: Event loop is closed` at variant boundaries). A per-item
+    failure is simulated by making every call for a given item's request raise.
+    """
+
+    def __init__(self, script, *, failing_item: str):
+        super().__init__(script)
+        self._failing_item = failing_item
+        self._bound_loop = None
+        self._client_open = False
+        self.aclose_calls = 0
+        self.bound_loop_is_running_at_close = None
+
+    async def _ensure_client(self):
+        loop = asyncio.get_running_loop()
+        if self._bound_loop is None:
+            self._bound_loop = loop
+            self._client_open = True
+        if self._bound_loop is not loop or self._bound_loop.is_closed():
+            raise RuntimeError("Event loop is closed")
+        if not self._client_open:
+            raise RuntimeError("client already closed")
+        return self
+
+    async def complete(self, messages, *, model=None, temperature=0.0, max_tokens=None,
+                       response_format=None, tools=None, tool_choice=None, timeout=30.0,
+                       call_type: str = "general", request_id=None) -> CompletionResponse:
+        await self._ensure_client()
+        if request_id and request_id.endswith(f"bench:{self._failing_item}"):
+            raise RuntimeError("simulated per-item pipeline failure")
+        return await super().complete(
+            messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=response_format,
+            tools=tools,
+            tool_choice=tool_choice,
+            timeout=timeout,
+            call_type=call_type,
+            request_id=request_id,
+        )
+
+    async def aclose(self) -> None:
+        self.bound_loop_is_running_at_close = (
+            self._bound_loop is not None and self._bound_loop.is_running()
+        )
+        self._client_open = False
+        self.aclose_calls += 1
+
+
+def test_run_ablation_single_loop_lifecycle_and_item_isolation(
+    tmp_path: Path, bench_settings: Settings
+):
+    """Regression: ablation must not recreate the loop per variant (that left the
+    shared provider's async client bound to a closed loop -> RuntimeError: Event
+    loop is closed), must close provider clients on their owning loop, and one
+    failing item must not abort the remaining variants."""
+    failing = "easy-002"
+    provider = _LoopFidelityProvider(
+        {
+            "query_analysis": [ANALYSIS_OK],
+            "research_planning": [plan_payload(["Acme founded year"])],
+            "evidence_extraction": [assessment_payload()],
+            "synthesis": ["Acme Corp was founded in 1987 [1]."],
+            "verification": [VERIFIER_OK],
+        },
+        failing_item=failing,
+    )
+
+    report = run_ablation(
+        router=LLMRouter(provider),
+        limit=2,
+        working_dir=tmp_path / "work",
+        out_dir=tmp_path / "out",
+        settings=bench_settings,
+        name="single-loop regression",
+    )
+
+    # The classic bug every invocation pattern must fix: no Event loop is closed.
+    assert set(report["variants"]) == set(VARIANT_ORDER)
+    assert report["variant_failures"] == {}
+    # Provider client was closed (resource release) - and closed while its owning loop was active.
+    assert provider.aclose_calls == 1
+    assert provider.bound_loop_is_running_at_close is True
+    # Every variant scored and produced deltas; the single default first item
+    # always reaches the LLM, the simulated per-item failure is recorded, and
+    # no variant aborts.
+    for variant_id in VARIANT_ORDER:
+        assert variant_id in report["deltas_vs_full_argus"]
+        assert report["variants"][variant_id]["metrics"]["total_failed_calls"]["value"] >= 0
+    assert set(report["item_failures"]) <= set(VARIANT_ORDER)
+    # The failure is surfaced in the markdown report (never silently swallowed).
+    md = ablation_markdown(report)
+    assert "simulated per-item pipeline failure" in md
+    assert "Item failures" in md

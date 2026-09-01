@@ -24,6 +24,7 @@ stays explicit server-side, config-managed).
 
 from __future__ import annotations
 
+import json
 import math
 import time
 from dataclasses import dataclass
@@ -33,6 +34,7 @@ from typing import Any, Literal
 
 from app.config import Settings, get_settings
 from app.evidence.store import EvidenceStore
+from app.logging_config import get_logger
 from app.orchestration.models import ResearchPlan, StopReason
 from app.orchestration.nodes import extract_cited_indices, make_synthesize_node
 from app.orchestration.state import OrchestrationState
@@ -41,6 +43,8 @@ from app.retrieval.hybrid import HybridRetriever
 
 from .models import BenchmarkItem, BenchmarkRunOutput, CorpusContext
 from .runner import Pipeline, default_sources, load_items, make_full_argus_pipeline
+
+logger = get_logger("argus.benchmark.ablation")
 
 VariantId = Literal[
     "baseline_rag",
@@ -265,7 +269,7 @@ def run_ablation(
     delta table versus the reference variant. Reports are written to `out_dir`
     when provided (ablation_report.json / ablation_report.md).
     """
-    from .runner import build_corpus, score_items
+    from .runner import build_corpus
 
     settings = settings or get_settings()
     items = load_items(question_path or Path(__file__).resolve().parent / "data" / "questions_v1.json")
@@ -282,26 +286,32 @@ def run_ablation(
 
     import asyncio
 
-    per_variant: dict[str, dict[str, Any]] = {}
-    for variant_id in VARIANT_ORDER:
-        pipeline = make_variants(router=router, corpus=corpus, settings=settings)[variant_id]
-        outputs = asyncio.run(_run_all(pipeline, items, corpus))
-        scored = score_items(items, outputs, corpus)
-        per_variant[variant_id] = {
-            "label": VARIANTS[variant_id].label,
-            "description": VARIANTS[variant_id].description,
-            "metrics": scored["metrics"],
-            "by_type": scored["by_type"],
-        }
+    # Single persistent event loop owned by the harness owns the whole
+    # ablation. Running `asyncio.run(...)` per variant created a *fresh* loop
+    # every time while the router's lazy `httpx.AsyncClient` stayed bound to
+    # the first loop, so a lingering/in-flight connection produced
+    # `RuntimeError: Event loop is closed` at variant boundaries. One loop
+    # also lets us close the router (and therefore every provider client) on
+    # the same loop that created them.
+    per_variant, variant_failures, item_failures = asyncio.run(
+        _run_all_variants(
+            router=router,
+            items=items,
+            corpus=corpus,
+            settings=settings,
+            checkpoint_path=(out_dir / "ablation_checkpoint.json") if out_dir is not None else None,
+        )
+    )
 
-    reference = per_variant["full_argus"]["metrics"]
+    reference = (per_variant.get("full_argus") or {}).get("metrics")
     deltas: dict[str, dict[str, float | None]] = {}
-    for vid, data in per_variant.items():
-        deltas[vid] = {
-            name: _delta(reference.get(name, {}).get("value"), info.get("value"))
-            for name, info in data["metrics"].items()
-            if name in reference and name not in {"avg_loop_count", "avg_tokens_per_query", "avg_latency_ms", "total_failed_calls"}
-        }
+    if reference is not None:
+        for vid, data in per_variant.items():
+            deltas[vid] = {
+                name: _delta(reference.get(name, {}).get("value"), info.get("value"))
+                for name, info in data["metrics"].items()
+                if name in reference and name not in {"avg_loop_count", "avg_tokens_per_query", "avg_latency_ms", "total_failed_calls"}
+            }
 
     report: dict[str, Any] = {
         "name": name,
@@ -310,6 +320,8 @@ def run_ablation(
         "variants": per_variant,
         "deltas_vs_full_argus": deltas,
         "reference_variant": "full_argus",
+        "variant_failures": variant_failures,
+        "item_failures": item_failures,
         "corpus": {
             "build_duration_ms": corpus.build_duration_ms,
             "gold_chunks": sum(len(v) for v in corpus.gold_chunk_ids.values()),
@@ -326,11 +338,126 @@ def run_ablation(
     return report
 
 
-async def _run_all(pipeline: Pipeline, items: list[BenchmarkItem], corpus: CorpusContext) -> list[BenchmarkRunOutput]:
+async def _run_all_variants(
+    *,
+    router: Any,
+    items: list[BenchmarkItem],
+    corpus: CorpusContext,
+    settings: Settings,
+    checkpoint_path: Path | None = None,
+) -> tuple[dict[str, dict[str, Any]], dict[str, str], dict[str, list[dict[str, str]]]]:
+    """Run every variant inside one persistent event loop and score each.
+
+    Lifespan strategy: a single loop owns the entire ablation, so the router's
+    lazy ``httpx.AsyncClient`` (created on first request) is bound to one loop
+    and no client ever survives its owning loop. The router is closed in a
+    ``finally`` *before* `asyncio.run` returns, which releases every provider
+    connection cleanly and cancels any lingering in-flight work.
+
+    Isolation:
+    * per-item — `_run_all` records a failing item as a failure output and
+      continues, so one pathological item never aborts a variant;
+    * per-variant — a failing variant is recorded in `variant_failures` and
+      the remaining variants still run and are scored.
+
+    When `checkpoint_path` is set, a partial JSON checkpoint of every completed
+    variant is written after each variant so a hard process interruption still
+    preserves the work already done (the final report is only written by
+    `run_ablation` after all variants finish).
+
+    Returns ``(per_variant, variant_failures, item_failures)``: per-variant
+    label/description/metrics/by_type; a map of variant_id -> error string for
+    variants that could not be run at all; and a per-variant list of recorded
+    item failures ``[{"item_id": ..., "error": ...}, ...]``.
+    """
+    from .runner import score_items
+
+    per_variant: dict[str, dict[str, Any]] = {}
+    variant_failures: dict[str, str] = {}
+    item_failures: dict[str, list[dict[str, str]]] = {}
+    try:
+        for variant_id in VARIANT_ORDER:
+            try:
+                pipeline = make_variants(router=router, corpus=corpus, settings=settings)[
+                    variant_id
+                ]
+                outputs, failures = await _run_all(pipeline, items, corpus)
+                scored = score_items(items, outputs, corpus)
+                per_variant[variant_id] = {
+                    "label": VARIANTS[variant_id].label,
+                    "description": VARIANTS[variant_id].description,
+                    "metrics": scored["metrics"],
+                    "by_type": scored["by_type"],
+                }
+                if failures:
+                    item_failures[variant_id] = failures
+                if checkpoint_path is not None:
+                    try:
+                        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+                        checkpoint_path.write_text(
+                            json.dumps(
+                                {
+                                    "variant_id": variant_id,
+                                    "completed_variants": sorted(per_variant),
+                                    "per_variant": per_variant,
+                                    "variant_failures": variant_failures,
+                                    "item_failures": item_failures,
+                                },
+                                indent=2,
+                                default=str,
+                            ),
+                            encoding="utf-8",
+                        )
+                    except OSError:  # noqa: BLE001 - checkpoint must never abort the run
+                        logger.warning("ablation_checkpoint_write_failed")
+            except Exception as exc:  # noqa: BLE001 - variant-level fault isolation
+                variant_failures[variant_id] = f"{type(exc).__name__}: {exc}"
+                logger.error(
+                    "ablation_variant_failed",
+                    variant=variant_id,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+                continue
+    finally:
+        close = getattr(router, "aclose", None)
+        if close is not None:
+            try:
+                await close()
+            except Exception:  # noqa: BLE001 - closing must never mask run results
+                logger.warning("ablation_router_close_failed")
+    return per_variant, variant_failures, item_failures
+
+
+async def _run_all(
+    pipeline: Pipeline, items: list[BenchmarkItem], corpus: CorpusContext
+) -> tuple[list[BenchmarkRunOutput], list[dict[str, str]]]:
+    """Run every item for one variant; a single failing item must not abort the rest.
+
+    Returns ``(outputs, failures)`` where ``failures`` is the list of recorded
+    item failures in run order (empty when every item completed).
+    """
     outputs: list[BenchmarkRunOutput] = []
+    failures: list[dict[str, str]] = []
     for item in items:
-        outputs.append(await pipeline(item, corpus))
-    return outputs
+        try:
+            outputs.append(await pipeline(item, corpus))
+        except Exception as exc:  # noqa: BLE001 - per-item fault isolation
+            error = f"{type(exc).__name__}: {exc}"
+            logger.error(
+                "ablation_item_failed",
+                item=item.id,
+                error=error,
+            )
+            failures.append({"item_id": item.id, "error": error})
+            outputs.append(
+                BenchmarkRunOutput(
+                    item_id=item.id,
+                    answer="",
+                    warned=[f"harness_item_failed:{error}"],
+                    metadata={"item_error": error},
+                )
+            )
+    return outputs, failures
 
 
 def _delta(reference: Any, value: Any) -> float | None:
@@ -409,6 +536,19 @@ def ablation_markdown(report: dict[str, Any]) -> str:
         ]:
             row.append(_fmt(delta.get(m)))
         lines.append("| " + " | ".join(row) + " |")
+
+    variant_failures = report.get("variant_failures") or {}
+    if variant_failures:
+        lines += ["", "## Variant failures", ""]
+        for vid, err in variant_failures.items():
+            lines.append(f"- `{vid}`: {err}")
+
+    item_failures = report.get("item_failures") or {}
+    if item_failures:
+        lines += ["", "## Item failures", ""]
+        for vid, failures in item_failures.items():
+            for entry in failures:
+                lines.append(f"- `{vid}` :: `{entry['item_id']}`: {entry['error']}")
 
     lines += ["", "## V3-specific", "", "- vault personalization gain: reported per run in the 12.3 benchmark report.",
               "- reindex cost: reported per run in the 12.3 benchmark report.",
