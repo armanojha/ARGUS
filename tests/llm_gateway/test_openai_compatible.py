@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
+
+import httpx
 import pytest
 
-from app.llm_gateway.providers.exceptions import ProviderUnavailableError
+from app.llm_gateway.providers.exceptions import (
+    ProviderUnavailableError,
+    TimeoutOrNetworkError,
+)
 from app.llm_gateway.providers.openai_compatible import OpenAICompatibleProvider
 
 
@@ -56,3 +63,31 @@ def test_parse_response_non_dict_raises_provider_unavailable():
     provider = _make_provider()
     with pytest.raises(ProviderUnavailableError):
         provider._parse_response(["not", "a", "dict"], "test-model")
+
+
+def test_request_retry_bounded_by_attempt_ceiling():
+    """A hanging provider must be abandoned after the per-attempt ceiling,
+    not after timeout * (retries + 1), and must surface a retryable
+    TimeoutOrNetworkError so the router can fall back to another provider."""
+
+    async def _hang(request: httpx.Request) -> httpx.Response:
+        # Server hangs longer than the bounded read deadline.
+        await asyncio.sleep(0.5)
+        raise httpx.ReadError("mock server hung")
+
+    provider = _make_provider()
+    provider._attempt_ceiling_s = 0.3
+    provider._max_retries = 2  # naively up to 3 attempts
+    provider._client = httpx.AsyncClient(
+        base_url="https://example.invalid/v1",
+        transport=httpx.MockTransport(_hang),
+        timeout=httpx.Timeout(connect=5.0, read=10.0, write=10.0, pool=5.0),
+    )
+
+    start = time.monotonic()
+    with pytest.raises(TimeoutOrNetworkError):
+        asyncio.run(provider._request_with_retry({}, timeout=10.0))
+    elapsed = time.monotonic() - start
+
+    # Bounded well under the naive 3 x 10s = 30s, roughly the ceiling.
+    assert elapsed < 2.0, f"attempt not bounded, took {elapsed:.2f}s"
