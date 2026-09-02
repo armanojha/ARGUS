@@ -142,7 +142,7 @@ class TestModelPolicy:
         qa = policy.call_types["query_analysis"]
         assert "fast" in qa.tiers
         assert "strong" in qa.tiers
-        assert qa.tiers["fast"][0].startswith("zen/")
+        assert qa.tiers["fast"][0].startswith("groq/")
 
     def test_get_model_chain_resolves_tier(self):
         """get_model_chain with a tier returns the tier chain, else default."""
@@ -307,15 +307,15 @@ class TestMultiModelRouter:
             [Message(role=MessageRole.USER, content="Test")],
             call_type="query_analysis",
         )
-        # query_analysis primary is zen/mimo-v2.5-free (D-014 rev 2026-08-31)
-        assert response.provider == "zen"
+        # query_analysis primary is groq/openai/gpt-oss-20b (POST-06.5: zen demoted)
+        assert response.provider == "groq"
 
     @pytest.mark.asyncio
     async def test_router_uses_tier_specific_chain(self, router):
         """A complexity tier should select a different chain for the call type.
 
-        query_analysis strong tier primary is zen/big-pickle (vs zen/mimo for
-        the default/fast chain), proving task-adaptive selection (HARDEN-06.5.2).
+        query_analysis strong tier primary is groq/gpt-oss-120b (vs groq/gpt-oss-20b
+        for the default/fast chain), proving task-adaptive selection (HARDEN-06.5.2).
         """
         # Auto-classified from a comparative query -> STRONG tier.
         strong_resp = await router.complete(
@@ -323,7 +323,7 @@ class TestMultiModelRouter:
             call_type="query_analysis",
             query="how does policy A differ from policy B?",
         )
-        # Explicit tier override -> STRONG chain (big-pickle).
+        # Explicit tier override -> STRONG chain (gpt-oss-120b).
         fast_resp = await router.complete(
             [Message(role=MessageRole.USER, content="Test")],
             call_type="query_analysis",
@@ -332,12 +332,12 @@ class TestMultiModelRouter:
 
         # Mock providers record the requested model in completion log.
         from tests.mocks.mock_provider import MockProvider
-        zen: MockProvider = router._registry.get("zen")  # type: ignore[union-attr]
-        strong_models = [c["model"] for c in zen.call_log]
+        groq: MockProvider = router._registry.get("groq")  # type: ignore[union-attr]
+        strong_models = [c["model"] for c in groq.call_log]
 
-        # strong chain primary = zen/big-pickle; fast chain primary = zen/mimo.
-        assert "big-pickle" in strong_resp.model
-        assert "mimo" in fast_resp.model
+        # strong chain primary = groq/gpt-oss-120b; fast chain primary = groq/gpt-oss-20b.
+        assert "gpt-oss-120b" in strong_resp.model
+        assert "gpt-oss-20b" in fast_resp.model
 
     @pytest.mark.asyncio
     async def test_router_fallback_on_provider_failure(self, router, mock_providers):
@@ -518,18 +518,48 @@ class TestTelemetry:
 class TestIntraProviderFallback:
     """Fallback semantics: model-level vs provider-level failures (report P0).
 
-    query_analysis chain: zen/mimo-v2.5-free --(fallback)--> zen/nemotron-3.5
-    -lightning-free --> groq/... --> cerebras/...
+    The production query_analysis chain (POST-06.5) now leads with groq, so
+    the intra-provider scenario is exercised against a scoped policy that
+    keeps two adjacent zen models for query_analysis. This isolates the
+    router *mechanism* (a model-level failure excludes only that model so a
+    same-provider fallback is still reachable) independent of the production
+    provider assignment.
 
+    Chain: zen/mimo-v2.5-free -> zen/nemotron-3.5-lightning-free -> groq/...
     A MODEL-level failure on the primary must only exclude that one model so
     the NEXT zen model (intra-provider fallback) is still reachable. A
     PROVIDER-level failure must exclude the entire zen provider.
     """
 
+    @staticmethod
+    def _make_intra_zen_router(mock_providers):
+        from app.config import Settings
+        from app.llm_gateway.routing.multi_model_router import MultiModelRouter
+        import tempfile, pathlib
+
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix="argus_intra_"))
+        (tmp / "model_policy.yaml").write_text(
+            "call_types:\n"
+            "  query_analysis:\n"
+            "    primary: \"zen/mimo-v2.5-free\"\n"
+            "    fallbacks:\n"
+            "      - \"zen/nemotron-3.5-lightning-free\"\n"
+            "      - \"groq/openai/gpt-oss-20b\"\n"
+            "provider_fallbacks:\n"
+            "  - \"groq\"\n"
+            "  - \"gemini\"\n"
+            "  - \"cerebras\"\n"
+            "  - \"zen\"\n",
+            encoding="utf-8",
+        )
+        settings = Settings(_env_file=None, config_dir=tmp, multimodel_enabled=True)
+        return MultiModelRouter(settings=settings, providers=mock_providers)
+
     @pytest.mark.asyncio
-    async def test_model_level_error_reaches_intra_provider_fallback(self, router, mock_providers):
+    async def test_model_level_error_reaches_intra_provider_fallback(self, mock_providers):
         """model-level (e.g. MODEL_NOT_FOUND) excludes only the model, and a
         same-provider fallback model is still eligible."""
+        router = self._make_intra_zen_router(mock_providers)
         # Only the primary zen/mimo fails with a model-level, non-retryable error
         mock_providers["zen"]._model_failures = {"mimo-v2.5-free": ModelNotFoundError}
         mock_providers["zen"]._should_fail = False
@@ -560,9 +590,10 @@ class TestIntraProviderFallback:
         assert response.provider in ("groq", "cerebras")
 
     @pytest.mark.asyncio
-    async def test_model_level_rate_limit_allows_same_provider_fallback(self, router, mock_providers):
+    async def test_model_level_rate_limit_allows_same_provider_fallback(self, mock_providers):
         """A retryable rate-limit scoped to a single model must NOT block the
         next same-provider model."""
+        router = self._make_intra_zen_router(mock_providers)
         mock_providers["zen"]._model_failures = {"mimo-v2.5-free": RateLimitError}
         mock_providers["zen"]._should_fail = False
 

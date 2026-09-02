@@ -85,7 +85,7 @@ class TestProviderContract:
         resp = asyncio.run(provider.complete(
             [Message(role=MessageRole.USER, content="Reply with exactly: pong")],
             temperature=0.0,
-            max_tokens=16,
+            max_tokens=256,
             timeout=max(30.0, provider.capabilities.max_output_tokens or 8192),
         ))
         assert isinstance(resp, CompletionResponse)
@@ -104,7 +104,7 @@ class TestProviderContract:
         resp = asyncio.run(provider.complete(
             [Message(role=MessageRole.USER, content='Return JSON: {"answer": "pong", "confidence": 0.9}')],
             response_format=_JsonResponse,
-            max_tokens=32,
+            max_tokens=256,
         ))
         parsed = _JsonResponse.model_validate_json(resp.content)
         assert parsed.answer.strip().lower() == "pong"
