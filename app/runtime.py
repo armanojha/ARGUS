@@ -53,6 +53,13 @@ async def _shutdown_llm() -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("runtime_quota_close_failed", error=str(exc))
 
+    try:
+        from app.llm_gateway.health import close_provider_health_tracker
+
+        await close_provider_health_tracker()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("runtime_health_close_failed", error=str(exc))
+
 
 async def _shutdown_memory() -> None:
     """Close the memory system if it was initialized (optional, non-fatal)."""

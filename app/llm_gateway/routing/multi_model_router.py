@@ -33,6 +33,7 @@ from app.llm_gateway.providers.models import (
     Tool,
     ToolChoice,
 )
+from app.llm_gateway.health import get_provider_health_tracker
 from app.llm_gateway.quota import get_quota_tracker
 from app.llm_gateway.telemetry import check_call_ceiling, record_routing_decision
 from app.logging_config import get_logger
@@ -246,6 +247,25 @@ class MultiModelRouter:
             if provider is None:
                 continue
 
+            # Health-aware routing (Phase 07.2/07.3): avoid a known-unhealthy,
+            # rate-limited, quota-exhausted, or cooldown-bound provider (or
+            # model) instead of repeatedly paying the cost of a known-dead
+            # endpoint. Consulted here (before the quota tracker) so failure
+            # class drives the skip. Model-scoped health is checked too so an
+            # intentional intra-provider fallback (the SAME provider, other
+            # model) is NOT blocked by a model-scoped cooldown.
+            health_tracker = get_provider_health_tracker(self._settings)
+            skip_reason = health_tracker.skip_reason(model_spec.provider, model_spec.model)
+            if skip_reason is not None:
+                logger.debug(
+                    "provider_health_skip",
+                    provider=model_spec.provider,
+                    model=model_spec.model,
+                    call_type=call_type,
+                    reason=skip_reason,
+                )
+                continue
+
             # Check quota (provider-level, and per-model when configured)
             quota_tracker = get_quota_tracker(self._settings)
             if not quota_tracker.can_make_request(model_spec.provider, estimated_tokens, model=model_spec.model):
@@ -291,6 +311,11 @@ class MultiModelRouter:
 
             provider = self._get_provider(provider_name)
             if provider is None:
+                continue
+
+            # Health-aware routing for generic provider fallbacks too.
+            health_tracker = get_provider_health_tracker(self._settings)
+            if health_tracker.skip_reason(provider_name, provider.default_model) is not None:
                 continue
 
             quota_tracker = get_quota_tracker(self._settings)
@@ -433,6 +458,19 @@ class MultiModelRouter:
             except (RateLimitError, LLMProviderError) as exc:
                 last_error = exc
                 failed_key = f"{routing_result.model_spec.provider}/{routing_result.model_spec.model}"
+                # Record the failure in the persistent health tracker so later
+                # complete() calls on this router (not just this one) avoid the
+                # now-unhealthy provider while it is in cooldown (Phase 07.3).
+                # Scope matches the failure: provider-wide (auth/5xx/timeout)
+                # blocks the whole provider; model-level blocks only that model
+                # so an intentional intra-provider fallback stays reachable.
+                get_provider_health_tracker(self._settings).record_failure(
+                    routing_result.model_spec.provider,
+                    getattr(exc, "code", None) or type(exc).__name__,
+                    str(exc),
+                    model=routing_result.model_spec.model,
+                    scope="provider" if _is_provider_level(exc) else "model",
+                )
                 if _is_provider_level(exc):
                     exclude_providers.add(routing_result.model_spec.provider)
                     logger.warning(
@@ -532,6 +570,21 @@ class MultiModelRouter:
                 request_id=request_id,
             )
             success = True
+
+            # Record provider health success so any earlier cooldown clears
+            # after a healthy call (Phase 07.3 recovery). Clear both the
+            # provider-wide state (a healthy response proves the provider is up)
+            # and the model-scoped state for this model.
+            get_provider_health_tracker(self._settings).record_success(
+                model_spec.provider,
+                model=model_spec.model,
+                scope="provider",
+            )
+            get_provider_health_tracker(self._settings).record_success(
+                model_spec.provider,
+                model=model_spec.model,
+                scope="model",
+            )
 
             # Record quota usage (provider-level, and per-model when tracked)
             if response.usage:
@@ -716,6 +769,16 @@ class MultiModelRouter:
                 )
             except (RateLimitError, LLMProviderError) as exc:
                 last_error = exc
+                # Persist the failure in the health tracker so subsequent
+                # verification calls route around this provider while it is
+                # in cooldown (Phase 07.3). Scope matches the failure class.
+                get_provider_health_tracker(self._settings).record_failure(
+                    routing_result.model_spec.provider,
+                    getattr(exc, "code", None) or type(exc).__name__,
+                    str(exc),
+                    model=routing_result.model_spec.model,
+                    scope="provider" if _is_provider_level(exc) else "model",
+                )
                 if _is_provider_level(exc):
                     exclude_providers.add(routing_result.model_spec.provider)
                 else:
@@ -747,17 +810,24 @@ class MultiModelRouter:
             model_chain = []
 
         results = []
+        health_tracker = get_provider_health_tracker(self._settings)
+        quota_tracker = get_quota_tracker(self._settings)
         for model_spec in model_chain:
             provider = self._get_provider(model_spec.provider)
             if provider is None:
                 continue
             caps = get_capabilities(model_spec.provider, model_spec.model)
-            quota = get_quota_tracker(self._settings).get_quota(model_spec.provider)
+            quota = quota_tracker.get_quota(model_spec.provider)
             results.append({
                 "provider": model_spec.provider,
                 "model": model_spec.model,
                 "available": provider is not None,
                 "quota_remaining": quota.get_status() if quota else None,
+                "health": {
+                    "status": health_tracker.get_status(model_spec.provider, model_spec.model).value,
+                    "provider_status": health_tracker.get_status(model_spec.provider).value,
+                    "skip_reason": health_tracker.skip_reason(model_spec.provider, model_spec.model),
+                },
                 "capabilities": {
                     "structured_output": caps.structured_output,
                     "tool_calling": caps.tool_calling,
