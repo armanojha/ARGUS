@@ -34,6 +34,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("app_startup", environment=settings.env, log_level=settings.log_level)
     yield
     logger.info("app_shutdown")
+    # HARDEN-06.5.6: release providers/HTTP clients, quota state, and memory.
+    from app.runtime import shutdown_runtime
+
+    await shutdown_runtime()
 
 
 def create_app() -> FastAPI:

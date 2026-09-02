@@ -17,6 +17,9 @@ providers (no live LLM / API keys):
   G. Adaptive stopping works with memory enabled.
   H. Provider failure/fallback never crashes orchestration.
   I. A fresh query does not inherit state from a previous one.
+  J. True docs -> answer: a raw corpus file is ingested through the real
+     ingestion pipeline, indexed, retrieved, and answered with a citation
+     whose chunk_id/source_path resolve back to that ingested document.
 
 These are deliberately minimal: they exist to stabilize the phase
 boundaries, not to re-test each phase's unit behavior.
@@ -39,6 +42,7 @@ from app.evidence.models import Chunk, Document, Source, SourceType
 from app.evidence.store import EvidenceStore
 from app.graph.models import Claim
 from app.graph.store import EvidenceGraphStore
+from app.ingestion.pipeline import IngestionPipeline
 from app.llm_gateway.capabilities import ProviderCapabilities
 from app.llm_gateway.providers.exceptions import RateLimitError
 from app.llm_gateway.providers.models import CompletionResponse, Usage
@@ -543,3 +547,119 @@ class TestFlowIRequestIsolation:
         # No accumulation: each run is a single iteration with fresh evidence lists.
         assert r1.iterations_used == 1
         assert r2.iterations_used == 1
+
+
+class TestFlowJDocsToAnswer:
+    """J: full docs -> answer pipeline through the real ingestion entry point.
+
+    Unlike the deliberately-minimal fixtures above (which hand-insert chunks),
+    this flow drives the genuine ingestion pipeline: a raw `.txt` corpus file
+    is read, chunked, indexed (BM25 + vector), retrieved, and answered with a
+    citation whose provenance resolves back to the ingested source.
+    """
+
+    @pytest.fixture
+    def ingested_store(self, temp_paths) -> EvidenceStore:
+        settings = Settings(
+            _env_file=None,
+            config_dir=temp_paths / "config",
+            memory_db_path=temp_paths / "memory" / "memory.db",
+            evidence_db_path=temp_paths / "evidence.db",
+            bm25_index_path=temp_paths / "bm25.pkl",
+            faiss_index_path=temp_paths / "faiss.index",
+        )
+        import app.config as config_mod
+
+        original_settings = config_mod.get_settings
+        config_mod.get_settings = lambda: settings
+        store = EvidenceStore(
+            db_path=temp_paths / "evidence.db",
+            bm25_index_path=temp_paths / "bm25.pkl",
+            faiss_index_path=temp_paths / "faiss.index",
+        )
+        try:
+            corpus = temp_paths / "corpus.txt"
+            corpus.write_text(
+                "The Argus soaring kite bird migrates south every winter.\n"
+                "Argus colonies nest along coastal cliffs and feed on fish.\n",
+                encoding="utf-8",
+            )
+            pipeline = IngestionPipeline(store)
+            doc = pipeline.ingest_text_file(corpus)
+
+            chunks = store.get_chunks_by_document(doc.id)
+            assert len(chunks) >= 1, "ingestion must produce retrievable chunks"
+
+            # Index the ingested chunks so retrieval (hybrid) can find them.
+            assign_bm25_doc_ids(store)
+            assign_embedding_indices(store)
+
+            yield store, doc, chunks
+        finally:
+            config_mod.get_settings = original_settings
+
+    async def test_raw_document_to_cited_answer(self, ingested_store, temp_paths):
+        """Ingest a real file, query it, and verify the answer cites that source."""
+        store, doc, chunks = ingested_store
+        retriever = HybridRetriever(store)
+
+        provider = ScriptedProvider(
+            {
+                "query_analysis": [ANALYSIS_OK],
+                "research_planning": [plan_payload(["soaring kite migration"])],
+                "evidence_extraction": [assessment_payload(True)],
+                "synthesis": ["The bird migrates south in winter [1]."],
+            }
+        )
+        result = await run_query(
+            "Where does the Argus bird migrate?",
+            router=LLMRouter(provider),
+            retriever=retriever,
+            reranker=NoOpReranker(),
+        )
+
+        assert result.answer
+        assert len(result.citations) >= 1
+        citation = result.citations[0]
+
+        # The citation resolves to an actual retrieved chunk ...
+        cited = next(c for c in chunks if str(c.id) == citation.chunk_id)
+        # ... whose document is exactly the one the ingestion pipeline wrote,
+        # and whose source is the on-disk corpus file we created.
+        assert cited.document_id == doc.id
+        assert citation.source_path.endswith("corpus.txt")
+        # Citation text is grounded in the retrieved evidence, and the answer
+        # references its marker.
+        assert "migrat" in citation.text.lower()
+        assert "[1]" in result.answer or citation.text in result.answer
+
+    async def test_ingested_answer_via_multimodel_router(self, ingested_store, settings):
+        """The same docs->answer flow is provider-agnostic (MultiModelRouter)."""
+        from app.llm_gateway.routing.multi_model_router import MultiModelRouter
+
+        store, doc, chunks = ingested_store
+        retriever = HybridRetriever(store)
+
+        _write_multimodel_policy(settings.config_dir, primary="fake/fake-model")
+        provider = ScriptedProvider(
+            {
+                "query_analysis": [ANALYSIS_OK],
+                "research_planning": [plan_payload(["coastal nesting"])],
+                "evidence_extraction": [assessment_payload(True)],
+                "synthesis": ["Argus nests along coastal cliffs [1]."],
+            }
+        )
+        router = MultiModelRouter(settings, providers={"fake": provider})
+
+        result = await run_query(
+            "Where do Argus colonies nest?",
+            router=router,
+            retriever=retriever,
+            reranker=NoOpReranker(),
+            settings=settings,
+        )
+
+        cited = next(c for c in chunks if str(c.id) == result.citations[0].chunk_id)
+        assert cited.document_id == doc.id
+        assert "coastal" in cited.text.lower()
+        assert isinstance(result, OrchestrationResult)

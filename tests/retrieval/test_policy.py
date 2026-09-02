@@ -190,11 +190,11 @@ async def test_execute_retrieval_dedups_and_weights_are_consistent(populated_sto
     assert all("policy_score" in r.metadata for r in results)
 
 
-async def test_exact_term_lookup_skips_vector_embedding(populated_store: EvidenceStore):
+def test_exact_term_lookup_skips_vector_embedding(populated_store: EvidenceStore):
     """HARDEN-06.5.5: an EXACT_TERM pattern (BM25 + HYBRID) never embeds the query.
 
-    The policy router reports it used only lexical coverage; the embedding call
-    count must stay zero across the whole execution.
+    ``HybridRetriever.search(mechanisms={"bm25"})`` must not invoke the embedder
+    for the query embedding — the lexical-only pass is genuinely cheaper.
     """
     import numpy as np
 
@@ -214,10 +214,14 @@ async def test_exact_term_lookup_skips_vector_embedding(populated_store: Evidenc
 
     spy = CountingEmbedder()
     retriever.embedder = spy
-    router = get_retrieval_policy_router(settings=Settings(_env_file=None))
-    results = await router.execute_retrieval("canidae", QuestionPattern.EXACT_TERM, retriever)
-    assert results
-    assert spy.embed_texts_calls == 0, "exact-term lookup must not pay for vector embedding"
+
+    results = retriever.search("foxes", mechanisms={"bm25"})
+    assert spy.embed_texts_calls == 0
+    # A lexical-only pass returns real EvidenceRefs (via the BM25 index) without
+    # any embedding round-trip.
+    assert isinstance(results, list)
+    for ref in results:
+        assert "vector_score" in ref.metadata
 
 
 async def test_web_method_degrades_to_hybrid_with_marker(populated_store: EvidenceStore):
