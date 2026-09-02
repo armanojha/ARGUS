@@ -1,0 +1,746 @@
+[
+  {
+    "mode": "default",
+    "id": "A_simple",
+    "cat": "A. Simple factual",
+    "ok": true,
+    "error": null,
+    "latency_s": 2.38,
+    "answer": "The standard period for returning a purchase and receiving a refund is **30 days from the original purchase date**. Customers can request a full refund within this 30‑day window, and the refund will be processed back to the original payment method within five business days [1].  \n\nNo other evidence specifies a different “standard” returns window; the only additional detail mentions that premium members receive an “extended 30‑day returns” benefit, which aligns with the same 30‑day timeframe for eligible items [6].  \n\nIf you need information about any exceptions or special cases (e.g., non‑refundable items), those are covered separately in the policy [2].",
+    "citation_sources": [
+      "/corpus/member_benefits.txt",
+      "/corpus/refund_exceptions.txt",
+      "/corpus/refund_policy.txt"
+    ],
+    "n_citations": 3,
+    "question_pattern": "conceptual",
+    "plan_evidence_type": "factual",
+    "plan_methods": [
+      "hybrid"
+    ],
+    "plan_subq_n": 1,
+    "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+    "iterations": 1,
+    "sub_queries_issued": [
+      "What is the standard returns and refund period?"
+    ],
+    "token_usage_estimate": 455,
+    "warnings": [],
+    "evidence_tasks": 0,
+    "calls": 1,
+    "failed": 0,
+    "tokens": 1012,
+    "llm_ms": [
+      2025
+    ],
+    "decisions": [
+      {
+        "ct": "synthesis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 2025,
+        "err": null
+      }
+    ]
+  },
+  {
+    "mode": "default",
+    "id": "B_multihop",
+    "cat": "B. Multi-hop",
+    "ok": true,
+    "error": null,
+    "latency_s": 7.65,
+    "answer": "Synthesis was unavailable; returning the top retrieved evidence instead:\n- The following items are non-refundable: perishable goods, opened hygiene products, and custom-ordered items. Physical gift cards are also non-refundable once shipped. Digital downloads cannot be returned after 24 hours of purchase. [1]\n- Customers may request a full refund within 30 days of the original purchase date. Refunds are processed back to the original payment method within 5 business days. Refund requests must include the order confirmation number. [2]\n- Standard shipping takes 3 to 5 business days after dispatch. Express shipping takes 1 to 2 business days. Free standard shipping is applied to all orders over 50 dollars. Orders under 50 dollars incur a flat shipping fee of 6 dollars. [3]",
+    "citation_sources": [
+      "/corpus/refund_exceptions.txt",
+      "/corpus/refund_policy.txt",
+      "/corpus/shipping_policy.txt"
+    ],
+    "n_citations": 3,
+    "question_pattern": "conceptual",
+    "plan_evidence_type": "general",
+    "plan_methods": [
+      "bm25",
+      "vector"
+    ],
+    "plan_subq_n": 1,
+    "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+    "iterations": 1,
+    "sub_queries_issued": [
+      "What does the retailer's return policy state regarding the eligibility of custom-ordered items for return and refund within the standard return window?"
+    ],
+    "token_usage_estimate": 450,
+    "warnings": [
+      "synthesis_fallback: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199304, Requested 1023. Please try again in 2m21.264s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_degraded_to_raw_evidence"
+    ],
+    "evidence_tasks": 0,
+    "calls": 4,
+    "failed": 1,
+    "tokens": 3276,
+    "llm_ms": [
+      744,
+      1533,
+      924,
+      4012
+    ],
+    "decisions": [
+      {
+        "ct": "query_analysis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 744,
+        "err": null
+      },
+      {
+        "ct": "research_planning",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 1533,
+        "err": null
+      },
+      {
+        "ct": "evidence_extraction",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 924,
+        "err": null
+      },
+      {
+        "ct": "synthesis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4012,
+        "err": "RATE_LIMIT_ERROR"
+      }
+    ]
+  },
+  {
+    "mode": "default",
+    "id": "C_comparison",
+    "cat": "C. Multi-doc comparison",
+    "ok": true,
+    "error": null,
+    "latency_s": 16.03,
+    "answer": "Synthesis was unavailable; returning the top retrieved evidence instead:\n- Premium members receive free express shipping on every order, extended 30-day returns on eligible items, and 2x rewards points on all purchases. Premium membership costs 49 dollars per year and renews automatically. [1]\n- The following items are non-refundable: perishable goods, opened hygiene products, and custom-ordered items. Physical gift cards are also non-refundable once shipped. Digital downloads cannot be returned after 24 hours of purchase. [2]\n- Standard shipping takes 3 to 5 business days after dispatch. Express shipping takes 1 to 2 business days. Free standard shipping is applied to all orders over 50 dollars. Orders under 50 dollars incur a flat shipping fee of 6 dollars. [3]",
+    "citation_sources": [
+      "/corpus/member_benefits.txt",
+      "/corpus/refund_exceptions.txt",
+      "/corpus/shipping_policy.txt"
+    ],
+    "n_citations": 3,
+    "question_pattern": "conceptual",
+    "plan_evidence_type": "general",
+    "plan_methods": [
+      "hybrid"
+    ],
+    "plan_subq_n": 1,
+    "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+    "iterations": 1,
+    "sub_queries_issued": [
+      "Compare the refund/return benefits of a premium member versus a standard customer."
+    ],
+    "token_usage_estimate": 446,
+    "warnings": [
+      "query_analysis_fallback: query_analysis call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199295, Requested 727. Please try again in 9.504s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "research_plan_fallback: research_planning call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199287, Requested 1147. Please try again in 3m7.488s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "assessment_fallback: evidence_extraction call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199277, Requested 1327. Please try again in 4m20.928s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_fallback: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199267, Requested 1014. Please try again in 2m1.392s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_degraded_to_raw_evidence"
+    ],
+    "evidence_tasks": 0,
+    "calls": 4,
+    "failed": 4,
+    "tokens": 0,
+    "llm_ms": [
+      3874,
+      3601,
+      4087,
+      4067
+    ],
+    "decisions": [
+      {
+        "ct": "query_analysis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3874,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "research_planning",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3601,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "evidence_extraction",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4087,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "synthesis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4067,
+        "err": "RATE_LIMIT_ERROR"
+      }
+    ]
+  },
+  {
+    "mode": "default",
+    "id": "D_crossdoc",
+    "cat": "D. Cross-doc reasoning",
+    "ok": true,
+    "error": null,
+    "latency_s": 12.92,
+    "answer": "Synthesis was unavailable; returning the top retrieved evidence instead:\n- Electronics carry a 1-year limited warranty covering manufacturing defects. The warranty does not cover accidental damage, liquid damage, or normal wear and tear. To file a claim, contact support with the serial number and proof of purchase. [1]\n- Customer support is available Monday through Friday from 9 am to 5 pm Eastern Time. Live chat is available 24 hours a day, 7 days a week for premium members only. Email support has a response target of 24 hours. [2]\n- This policy describes how we collect and process customer personal data. User personal data is retained for a period of 12 months after account closure. Analytics data is aggregated and anonymized before use. [3]",
+    "citation_sources": [
+      "/corpus/privacy_doc.txt",
+      "/corpus/support_hours.txt",
+      "/corpus/warranty_policy.txt"
+    ],
+    "n_citations": 3,
+    "question_pattern": "historical",
+    "plan_evidence_type": "general",
+    "plan_methods": [
+      "hybrid"
+    ],
+    "plan_subq_n": 1,
+    "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+    "iterations": 1,
+    "sub_queries_issued": [
+      "If an electronics purchase suffers manufacturing defects, what coverage is available and how do you file a claim?"
+    ],
+    "token_usage_estimate": 446,
+    "warnings": [
+      "research_plan_fallback: research_planning call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199909, Requested 1180. Please try again in 7m50.448s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "assessment_fallback: evidence_extraction call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199899, Requested 1347. Please try again in 8m58.272s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_fallback: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199890, Requested 1015. Please try again in 6m30.96s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_degraded_to_raw_evidence"
+    ],
+    "evidence_tasks": 0,
+    "calls": 4,
+    "failed": 3,
+    "tokens": 653,
+    "llm_ms": [
+      1043,
+      3733,
+      3562,
+      3776
+    ],
+    "decisions": [
+      {
+        "ct": "query_analysis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 1043,
+        "err": null
+      },
+      {
+        "ct": "research_planning",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3733,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "evidence_extraction",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3562,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "synthesis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3776,
+        "err": "RATE_LIMIT_ERROR"
+      }
+    ]
+  },
+  {
+    "mode": "default",
+    "id": "E_summary",
+    "cat": "E. Summarization",
+    "ok": true,
+    "error": null,
+    "latency_s": 16.42,
+    "answer": "Synthesis was unavailable; returning the top retrieved evidence instead:\n- Standard shipping takes 3 to 5 business days after dispatch. Express shipping takes 1 to 2 business days. Free standard shipping is applied to all orders over 50 dollars. Orders under 50 dollars incur a flat shipping fee of 6 dollars. [1]\n- Premium members receive free express shipping on every order, extended 30-day returns on eligible items, and 2x rewards points on all purchases. Premium membership costs 49 dollars per year and renews automatically. [2]\n- This policy describes how we collect and process customer personal data. User personal data is retained for a period of 12 months after account closure. Analytics data is aggregated and anonymized before use. [3]",
+    "citation_sources": [
+      "/corpus/member_benefits.txt",
+      "/corpus/privacy_doc.txt",
+      "/corpus/shipping_policy.txt"
+    ],
+    "n_citations": 3,
+    "question_pattern": "conceptual",
+    "plan_evidence_type": "general",
+    "plan_methods": [
+      "hybrid"
+    ],
+    "plan_subq_n": 1,
+    "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+    "iterations": 1,
+    "sub_queries_issued": [
+      "Summarize the company's shipping policy."
+    ],
+    "token_usage_estimate": 452,
+    "warnings": [
+      "query_analysis_fallback: query_analysis call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199881, Requested 720. Please try again in 4m19.632s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "research_plan_fallback: research_planning call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199872, Requested 1203. Please try again in 7m44.4s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "assessment_fallback: evidence_extraction call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199862, Requested 1324. Please try again in 8m32.352s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_fallback: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199852, Requested 1011. Please try again in 6m12.816s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_degraded_to_raw_evidence"
+    ],
+    "evidence_tasks": 0,
+    "calls": 4,
+    "failed": 4,
+    "tokens": 0,
+    "llm_ms": [
+      3860,
+      4015,
+      4067,
+      4174
+    ],
+    "decisions": [
+      {
+        "ct": "query_analysis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3860,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "research_planning",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4015,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "evidence_extraction",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4067,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "synthesis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4174,
+        "err": "RATE_LIMIT_ERROR"
+      }
+    ]
+  },
+  {
+    "mode": "default",
+    "id": "F_extract",
+    "cat": "F. Specific extraction",
+    "ok": true,
+    "error": null,
+    "latency_s": 16.84,
+    "answer": "Synthesis was unavailable; returning the top retrieved evidence instead:\n- This policy describes how we collect and process customer personal data. User personal data is retained for a period of 12 months after account closure. Analytics data is aggregated and anonymized before use. [1]\n- Account records and user personal data are retained for 24 months after account closure. Structured transaction logs are kept for 24 months to support dispute resolution. Aggregated analytics are kept indefinitely but are fully anonymized. [2]\n- All data in transit is encrypted with TLS 1.3. Data at rest is encrypted with AES-256. Multi-factor authentication is mandatory for all employee access. Production credentials are stored in a vault and rotated every 90 days. [3]",
+    "citation_sources": [
+      "/corpus/privacy_doc.txt",
+      "/corpus/retention_doc.txt",
+      "/corpus/security_standard.txt"
+    ],
+    "n_citations": 3,
+    "question_pattern": "conceptual",
+    "plan_evidence_type": "general",
+    "plan_methods": [
+      "hybrid"
+    ],
+    "plan_subq_n": 1,
+    "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+    "iterations": 1,
+    "sub_queries_issued": [
+      "What exact retention period for user personal data is stated in the policies, and in which documents?"
+    ],
+    "token_usage_estimate": 453,
+    "warnings": [
+      "query_analysis_fallback: query_analysis call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199842, Requested 731. Please try again in 4m7.536s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "research_plan_fallback: research_planning call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199832, Requested 1214. Please try again in 7m31.872s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "assessment_fallback: evidence_extraction call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199823, Requested 1333. Please try again in 8m19.392s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_fallback: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199813, Requested 1016. Please try again in 5m58.128s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_degraded_to_raw_evidence"
+    ],
+    "evidence_tasks": 0,
+    "calls": 4,
+    "failed": 4,
+    "tokens": 0,
+    "llm_ms": [
+      4686,
+      4024,
+      3717,
+      4057
+    ],
+    "decisions": [
+      {
+        "ct": "query_analysis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4686,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "research_planning",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4024,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "evidence_extraction",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3717,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "synthesis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4057,
+        "err": "RATE_LIMIT_ERROR"
+      }
+    ]
+  },
+  {
+    "mode": "default",
+    "id": "G_ambiguous",
+    "cat": "G. Ambiguous",
+    "ok": true,
+    "error": null,
+    "latency_s": 16.12,
+    "answer": "Synthesis was unavailable; returning the top retrieved evidence instead:\n- This policy describes how we collect and process customer personal data. User personal data is retained for a period of 12 months after account closure. Analytics data is aggregated and anonymized before use. [1]\n- Account records and user personal data are retained for 24 months after account closure. Structured transaction logs are kept for 24 months to support dispute resolution. Aggregated analytics are kept indefinitely but are fully anonymized. [2]\n- The following items are non-refundable: perishable goods, opened hygiene products, and custom-ordered items. Physical gift cards are also non-refundable once shipped. Digital downloads cannot be returned after 24 hours of purchase. [3]",
+    "citation_sources": [
+      "/corpus/privacy_doc.txt",
+      "/corpus/refund_exceptions.txt",
+      "/corpus/retention_doc.txt"
+    ],
+    "n_citations": 3,
+    "question_pattern": "conceptual",
+    "plan_evidence_type": "general",
+    "plan_methods": [
+      "hybrid"
+    ],
+    "plan_subq_n": 1,
+    "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+    "iterations": 1,
+    "sub_queries_issued": [
+      "What is the retention policy for customer data?"
+    ],
+    "token_usage_estimate": 450,
+    "warnings": [
+      "query_analysis_fallback: query_analysis call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199804, Requested 777. Please try again in 4m10.992s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "research_plan_fallback: research_planning call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199795, Requested 1204. Please try again in 7m11.568s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "assessment_fallback: evidence_extraction call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199785, Requested 1320. Please try again in 7m57.36s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_fallback: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199776, Requested 1069. Please try again in 6m5.039999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_degraded_to_raw_evidence"
+    ],
+    "evidence_tasks": 0,
+    "calls": 4,
+    "failed": 4,
+    "tokens": 0,
+    "llm_ms": [
+      3734,
+      4185,
+      3738,
+      4101
+    ],
+    "decisions": [
+      {
+        "ct": "query_analysis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3734,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "research_planning",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4185,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "evidence_extraction",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3738,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "synthesis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4101,
+        "err": "RATE_LIMIT_ERROR"
+      }
+    ]
+  },
+  {
+    "mode": "default",
+    "id": "H_weak",
+    "cat": "H. Weak evidence",
+    "ok": true,
+    "error": null,
+    "latency_s": 16.6,
+    "answer": "Synthesis was unavailable; returning the top retrieved evidence instead:\n- All data in transit is encrypted with TLS 1.3. Data at rest is encrypted with AES-256. Multi-factor authentication is mandatory for all employee access. Production credentials are stored in a vault and rotated every 90 days. [1]\n- This policy describes how we collect and process customer personal data. User personal data is retained for a period of 12 months after account closure. Analytics data is aggregated and anonymized before use. [2]\n- The following items are non-refundable: perishable goods, opened hygiene products, and custom-ordered items. Physical gift cards are also non-refundable once shipped. Digital downloads cannot be returned after 24 hours of purchase. [3]",
+    "citation_sources": [
+      "/corpus/privacy_doc.txt",
+      "/corpus/refund_exceptions.txt",
+      "/corpus/security_standard.txt"
+    ],
+    "n_citations": 3,
+    "question_pattern": "conceptual",
+    "plan_evidence_type": "general",
+    "plan_methods": [
+      "hybrid"
+    ],
+    "plan_subq_n": 1,
+    "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+    "iterations": 1,
+    "sub_queries_issued": [
+      "What is the company's policy on pets being allowed in the office?"
+    ],
+    "token_usage_estimate": 446,
+    "warnings": [
+      "query_analysis_fallback: query_analysis call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199766, Requested 718. Please try again in 3m29.088s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "research_plan_fallback: research_planning call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199757, Requested 1145. Please try again in 6m29.664s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "assessment_fallback: evidence_extraction call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199747, Requested 1333. Please try again in 7m46.56s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_fallback: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199737, Requested 1071. Please try again in 5m49.056s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_degraded_to_raw_evidence"
+    ],
+    "evidence_tasks": 0,
+    "calls": 4,
+    "failed": 4,
+    "tokens": 0,
+    "llm_ms": [
+      4134,
+      4026,
+      3823,
+      4206
+    ],
+    "decisions": [
+      {
+        "ct": "query_analysis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4134,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "research_planning",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4026,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "evidence_extraction",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3823,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "synthesis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4206,
+        "err": "RATE_LIMIT_ERROR"
+      }
+    ]
+  },
+  {
+    "mode": "default",
+    "id": "I_synthesis",
+    "cat": "I. Synthesis",
+    "ok": true,
+    "error": null,
+    "latency_s": 16.42,
+    "answer": "Synthesis was unavailable; returning the top retrieved evidence instead:\n- Electronics carry a 1-year limited warranty covering manufacturing defects. The warranty does not cover accidental damage, liquid damage, or normal wear and tear. To file a claim, contact support with the serial number and proof of purchase. [1]\n- Premium members receive free express shipping on every order, extended 30-day returns on eligible items, and 2x rewards points on all purchases. Premium membership costs 49 dollars per year and renews automatically. [2]\n- Customer support is available Monday through Friday from 9 am to 5 pm Eastern Time. Live chat is available 24 hours a day, 7 days a week for premium members only. Email support has a response target of 24 hours. [3]",
+    "citation_sources": [
+      "/corpus/member_benefits.txt",
+      "/corpus/support_hours.txt",
+      "/corpus/warranty_policy.txt"
+    ],
+    "n_citations": 3,
+    "question_pattern": "historical",
+    "plan_evidence_type": "general",
+    "plan_methods": [
+      "hybrid"
+    ],
+    "plan_subq_n": 1,
+    "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+    "iterations": 1,
+    "sub_queries_issued": [
+      "If I am a premium member, what combined benefits and shipping speeds apply to my orders, and what is my warranty coverage for an electronics order with a manufacturing defect?"
+    ],
+    "token_usage_estimate": 447,
+    "warnings": [
+      "query_analysis_fallback: query_analysis call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199728, Requested 745. Please try again in 3m24.335999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "research_plan_fallback: research_planning call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199719, Requested 1228. Please try again in 6m49.104s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "assessment_fallback: evidence_extraction call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199708, Requested 1437. Please try again in 8m14.64s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_fallback: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199699, Requested 1099. Please try again in 5m44.736s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_degraded_to_raw_evidence"
+    ],
+    "evidence_tasks": 0,
+    "calls": 4,
+    "failed": 4,
+    "tokens": 0,
+    "llm_ms": [
+      3855,
+      4036,
+      4214,
+      3691
+    ],
+    "decisions": [
+      {
+        "ct": "query_analysis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3855,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "research_planning",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4036,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "evidence_extraction",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4214,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "synthesis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3691,
+        "err": "RATE_LIMIT_ERROR"
+      }
+    ]
+  },
+  {
+    "mode": "default",
+    "id": "J_research",
+    "cat": "J. Complex research",
+    "ok": true,
+    "error": null,
+    "latency_s": 16.67,
+    "answer": "Synthesis was unavailable; returning the top retrieved evidence instead:\n- This policy describes how we collect and process customer personal data. User personal data is retained for a period of 12 months after account closure. Analytics data is aggregated and anonymized before use. [1]\n- The API service guarantees a p99 latency under 200 milliseconds. The service autoscales between 3 and 20 instances based on CPU utilization. Target CPU utilization for scaling is 70 percent. Regional failover is configured for the primary region. [2]\n- All data in transit is encrypted with TLS 1.3. Data at rest is encrypted with AES-256. Multi-factor authentication is mandatory for all employee access. Production credentials are stored in a vault and rotated every 90 days. [3]",
+    "citation_sources": [
+      "/corpus/privacy_doc.txt",
+      "/corpus/security_standard.txt",
+      "/corpus/serving_slo.txt"
+    ],
+    "n_citations": 3,
+    "question_pattern": "long_report",
+    "plan_evidence_type": "general",
+    "plan_methods": [
+      "hybrid"
+    ],
+    "plan_subq_n": 1,
+    "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+    "iterations": 1,
+    "sub_queries_issued": [
+      "Provide a comprehensive summary of the company's security, privacy, data retention, and service-level commitments, and note any inconsistencies you find between documents."
+    ],
+    "token_usage_estimate": 453,
+    "warnings": [
+      "query_analysis_fallback: query_analysis call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199691, Requested 734. Please try again in 3m3.6s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "research_plan_fallback: research_planning call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199681, Requested 1168. Please try again in 6m6.768s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "assessment_fallback: evidence_extraction call failed: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199672, Requested 1353. Please try again in 7m22.8s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_fallback: [RATE_LIMIT_ERROR] Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m1br4mkmed6ttx74zj5hhhzt` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199662, Requested 1082. Please try again in 5m21.408s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing",
+      "synthesis_degraded_to_raw_evidence"
+    ],
+    "evidence_tasks": 0,
+    "calls": 4,
+    "failed": 4,
+    "tokens": 0,
+    "llm_ms": [
+      3797,
+      3900,
+      3686,
+      4804
+    ],
+    "decisions": [
+      {
+        "ct": "query_analysis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3797,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "research_planning",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3900,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "evidence_extraction",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 3686,
+        "err": "RATE_LIMIT_ERROR"
+      },
+      {
+        "ct": "synthesis",
+        "prov": "groq",
+        "model": "openai/gpt-oss-120b",
+        "fb": false,
+        "ms": 4804,
+        "err": "RATE_LIMIT_ERROR"
+      }
+    ]
+  }
+]
