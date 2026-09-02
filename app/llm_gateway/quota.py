@@ -213,6 +213,60 @@ class ProviderQuota:
             "models": {name: q.get_status() for name, q in self.models.items()},
         }
 
+    def update_from_headers(self, headers: dict[str, str]) -> None:
+        """Calibrate this provider's quota windows from response rate-limit headers.
+
+        Expected headers (provider-specific):
+        - x-ratelimit-remaining-requests / x-ratelimit-remaining-requests-day
+        - x-ratelimit-remaining-tokens / x-ratelimit-remaining-tokens-day
+        - x-ratelimit-limit-tokens-day / x-ratelimit-limit-requests-day
+        - x-ratelimit-reset / x-ratelimit-reset-tokens / x-ratelimit-reset-tokens-day
+
+        Per-minute *and* per-day variants are honoured; the day-level figures
+        calibrate the trackers that govern daily (TPD/RPD) exhaustion. A caller
+        must hold the quota tracker's lock if sharing this provider across
+        threads.
+        """
+        def _int(value: str) -> int | None:
+            try:
+                return int(float(value))
+            except (TypeError, ValueError):
+                return None
+
+        headers = {k.lower(): v for k, v in headers.items()}
+
+        # --- per-minute windows ---
+        rem_requests = _int(headers.get("x-ratelimit-remaining-requests"))
+        if rem_requests is not None:
+            self.requests_per_minute.used = max(0, self.requests_per_minute.limit - rem_requests)
+        rem_tokens = _int(headers.get("x-ratelimit-remaining-tokens"))
+        if rem_tokens is not None:
+            self.tokens_per_minute.used = max(0, self.tokens_per_minute.limit - rem_tokens)
+
+        reset_seconds = _int(headers.get("x-ratelimit-reset") or headers.get("x-ratelimit-reset-tokens"))
+        if reset_seconds is not None:
+            now = time.time()
+            self.requests_per_minute.window_start = now - max(0, self.requests_per_minute.window_seconds - reset_seconds)
+            self.tokens_per_minute.window_start = now - max(0, self.tokens_per_minute.window_seconds - reset_seconds)
+
+        # --- per-day windows (govern TPD/RPD exhaustion) ---
+        lim_tokens_day = _int(headers.get("x-ratelimit-limit-tokens-day"))
+        rem_tokens_day = _int(headers.get("x-ratelimit-remaining-tokens-day"))
+        if lim_tokens_day is not None and rem_tokens_day is not None:
+            self.tokens_per_day.limit = lim_tokens_day
+            self.tokens_per_day.used = max(0, lim_tokens_day - rem_tokens_day)
+        lim_requests_day = _int(headers.get("x-ratelimit-limit-requests-day"))
+        rem_requests_day = _int(headers.get("x-ratelimit-remaining-requests-day"))
+        if lim_requests_day is not None and rem_requests_day is not None:
+            self.requests_per_day.limit = lim_requests_day
+            self.requests_per_day.used = max(0, lim_requests_day - rem_requests_day)
+
+        reset_day = _int(headers.get("x-ratelimit-reset-tokens-day"))
+        if reset_day is not None:
+            now = time.time()
+            self.tokens_per_day.window_start = now - max(0, self.tokens_per_day.window_seconds - reset_day)
+            self.requests_per_day.window_start = now - max(0, self.requests_per_day.window_seconds - reset_day)
+
 
 class QuotaTracker:
     """Central quota tracker for all providers.
@@ -257,63 +311,13 @@ class QuotaTracker:
                 quota.record_request(model_name, prompt_tokens, completion_tokens)
 
     def update_from_headers(self, provider_name: str, headers: dict[str, str]) -> None:
-        """Update quota from provider response headers.
-
-        Expected headers (provider-specific):
-        - x-ratelimit-remaining-requests / x-ratelimit-remaining-requests-day
-        - x-ratelimit-remaining-tokens / x-ratelimit-remaining-tokens-day
-        - x-ratelimit-reset / x-ratelimit-reset-tokens / x-ratelimit-reset-tokens-day
-        - x-ratelimit-limit-tokens-day (used to compute "used" for the day window)
-
-        Providers (e.g. Groq/Gemini) expose per-minute and per-day variants; the
-        day-level figures calibrate the trackers that govern TPD exhaustion, and
-        per-minute figures calibrate the short-lived windows.
-        """
+        """Update quota from provider response headers (delegates to ProviderQuota)."""
         quota = self.get_quota(provider_name)
         if quota is None:
             return
 
-        def _int(value: str) -> int | None:
-            try:
-                return int(float(value))
-            except (TypeError, ValueError):
-                return None
-
         with self._lock:
-            headers = {k.lower(): v for k, v in headers.items()}
-
-            # --- per-minute windows ---
-            rem_requests = _int(headers.get("x-ratelimit-remaining-requests"))
-            if rem_requests is not None:
-                quota.requests_per_minute.used = max(0, quota.requests_per_minute.limit - rem_requests)
-            rem_tokens = _int(headers.get("x-ratelimit-remaining-tokens"))
-            if rem_tokens is not None:
-                quota.tokens_per_minute.used = max(0, quota.tokens_per_minute.limit - rem_tokens)
-
-            # Reset windows per minute from a reset-seconds header.
-            reset_seconds = _int(headers.get("x-ratelimit-reset") or headers.get("x-ratelimit-reset-tokens"))
-            if reset_seconds is not None:
-                now = time.time()
-                quota.requests_per_minute.window_start = now - max(0, quota.requests_per_minute.window_seconds - reset_seconds)
-                quota.tokens_per_minute.window_start = now - max(0, quota.tokens_per_minute.window_seconds - reset_seconds)
-
-            # --- per-day windows (govern TPD/RPD exhaustion) ---
-            lim_tokens_day = _int(headers.get("x-ratelimit-limit-tokens-day"))
-            rem_tokens_day = _int(headers.get("x-ratelimit-remaining-tokens-day"))
-            if lim_tokens_day is not None and rem_tokens_day is not None:
-                quota.tokens_per_day.limit = lim_tokens_day
-                quota.tokens_per_day.used = max(0, lim_tokens_day - rem_tokens_day)
-            lim_requests_day = _int(headers.get("x-ratelimit-limit-requests-day"))
-            rem_requests_day = _int(headers.get("x-ratelimit-remaining-requests-day"))
-            if lim_requests_day is not None and rem_requests_day is not None:
-                quota.requests_per_day.limit = lim_requests_day
-                quota.requests_per_day.used = max(0, lim_requests_day - rem_requests_day)
-
-            reset_day = _int(headers.get("x-ratelimit-reset-tokens-day"))
-            if reset_day is not None:
-                now = time.time()
-                quota.tokens_per_day.window_start = now - max(0, quota.tokens_per_day.window_seconds - reset_day)
-                quota.requests_per_day.window_start = now - max(0, quota.requests_per_day.window_seconds - reset_day)
+            quota.update_from_headers(headers)
 
     def get_all_status(self) -> dict[str, Any]:
         with self._lock:

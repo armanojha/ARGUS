@@ -651,6 +651,55 @@ class TestAgentCoordinator:
         assert by_chunk[chunk_id] == 0.9  # higher score preserved, not overwritten
         assert merged[0].score >= merged[1].score  # sorted by score descending
 
+    def test_conflicting_evidence_handles_identical_scores(self, mock_coordinator):
+        """Equal evidence scores must not raise StatisticsError.
+
+        Regression for the fragile disagreement heuristic: all-identical scores
+        (a plausible real case) previously made statistics.stdev() raise, which
+        propagated out of should_activate_agents()/run_debate().
+        """
+        from uuid import uuid4
+
+        from app.evidence.models import EvidenceRef, SourceType
+
+        def ref(score):
+            return EvidenceRef(
+                chunk_id=uuid4(),
+                document_id=uuid4(),
+                source_id=uuid4(),
+                source_path="doc.txt",
+                source_type=SourceType.TEXT,
+                text="evidence",
+                score=score,
+                rank=1,
+            )
+
+        identical = [ref(0.9) for _ in range(4)]
+        # No exception, and no conflict signalled (zero spread).
+        assert mock_coordinator._has_conflicting_evidence(identical) is False
+
+    def test_conflicting_evidence_detects_true_divergence(self, mock_coordinator):
+        """High score divergence (large coefficient of variation) is a conflict."""
+        from uuid import uuid4
+
+        from app.evidence.models import EvidenceRef, SourceType
+
+        def ref(score):
+            return EvidenceRef(
+                chunk_id=uuid4(),
+                document_id=uuid4(),
+                source_id=uuid4(),
+                source_path="doc.txt",
+                source_type=SourceType.TEXT,
+                text="evidence",
+                score=score,
+                rank=1,
+            )
+
+        # Strong divergence: 0.1 vs 0.95 vs 0.9 -> high CV across the spread.
+        divergent = [ref(0.1), ref(0.95), ref(0.9)]
+        assert mock_coordinator._has_conflicting_evidence(divergent) is True
+
 
 class TestMultiAgentIntegration:
     """Integration tests for multi-agent debate flow."""
@@ -973,6 +1022,50 @@ class TestMultiAgentIntegration:
         coordinator = create_agent_coordinator(mock_router, settings, retriever, reranker)
         assert isinstance(coordinator, AgentCoordinator)
         assert coordinator._max_rounds == 3
+
+    @pytest.mark.asyncio
+    async def test_run_debate_returns_typed_state_not_plain_dict(self, mock_coordinator):
+        """run_debate must return the same OrchestrationState it mutated, not a
+        converted plain dict (regression for the `# type: ignore[return-value]`).
+
+        Debate keys are added in place on the TypedDict and the reference phase-02
+        keys are preserved.
+        """
+        state = OrchestrationState(
+            request_id="test-typed-123",
+            query="Typed state question",
+            max_iterations=3,
+            token_budget=6000,
+            plan=None,
+            pending_subquestions=[],
+            issued_subqueries=[],
+            evidence=[],
+            consecutive_empty_retrievals=0,
+            iteration=1,
+            tokens_used=100,
+            sufficient=True,
+            stop_reason="sufficient_evidence",
+            answer=None,
+            warnings=[],
+        )
+        from app.orchestration.models import ResearchPlan
+        state["plan"] = ResearchPlan(
+            objective="Typed state question",
+            risk_level="low",
+            subquestions=["Typed state question"],
+        )
+
+        result = await mock_coordinator.run_debate(state, max_rounds=1)
+
+        # Returns the SAME mutated state object (no plain-dict round-trip).
+        assert result is state
+        # Debate keys present on the typed state.
+        assert result["debate_active"] is False
+        assert isinstance(result["agent_messages"], list)
+        assert result["agent_round"] >= 0
+        # Phase-02 keys preserved.
+        assert result["query"] == "Typed state question"
+        assert result["tokens_used"] == 100
 
 
 if __name__ == "__main__":

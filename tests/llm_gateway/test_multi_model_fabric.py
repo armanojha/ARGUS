@@ -231,6 +231,54 @@ class TestQuotaTracker:
         assert status["requests_per_minute"]["used"] == 1
         assert status["tokens_per_minute"]["used"] == 100
 
+    def test_quota_tracker_update_from_headers_day_windows(self):
+        """Day-level rate-limit headers must calibrate the TPD/RPD windows.
+
+        Regression for the Phase 07 finding that quota tracking never read the
+        provider's rate-limit headers: the tracker's local counters drift from
+        the true remaining budget. Providers like Groq/Gemini expose
+        x-ratelimit-* ... -day figures that govern daily exhaustion.
+        """
+        config = {
+            "requests_per_minute": 30,
+            "requests_per_day": 1000,
+            "tokens_per_minute": 8000,
+            "tokens_per_day": 200000,
+            "enabled": True,
+        }
+        quota = ProviderQuota.from_config("groq", config)
+
+        # Simulate a Groq response reporting a partially-consumed day budget.
+        quota.update_from_headers({
+            "x-ratelimit-limit-tokens-day": "200000",
+            "x-ratelimit-remaining-tokens-day": "150000",
+            "x-ratelimit-limit-requests-day": "1000",
+            "x-ratelimit-remaining-requests-day": "800",
+        })
+        assert quota.tokens_per_day.used == 50000
+        assert quota.tokens_per_day.remaining() == 150000
+        assert quota.requests_per_day.used == 200
+        assert quota.requests_per_day.remaining() == 800
+
+    def test_quota_tracker_update_from_headers_calibrates_daily_exhaustion(self):
+        """A near-exhausted day header must make can_make_request() refuse."""
+        config = {
+            "requests_per_minute": 30,
+            "requests_per_day": 1000,
+            "tokens_per_minute": 8000,
+            "tokens_per_day": 200000,
+            "enabled": True,
+        }
+        quota = ProviderQuota.from_config("groq", config)
+        quota.update_from_headers({
+            "x-ratelimit-limit-tokens-day": "200000",
+            "x-ratelimit-remaining-tokens-day": "300",  # ~exhausted
+        })
+        assert quota.tokens_per_day.remaining() == 300
+        # A request larger than the remaining budget must be refused.
+        assert quota.can_make_request(estimated_tokens=500) is False
+        assert quota.can_make_request(estimated_tokens=100) is True
+
 
 class TestMultiModelRouter:
     """Test MultiModelRouter routing logic."""
