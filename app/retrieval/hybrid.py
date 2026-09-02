@@ -74,6 +74,7 @@ class HybridRetriever:
         top_k: int | None = None,
         bm25_weight: float = 0.5,
         vector_weight: float = 0.5,
+        mechanisms: set[str] | None = None,
     ) -> list[EvidenceRef]:
         """Hybrid search combining BM25 and vector scores.
 
@@ -82,6 +83,10 @@ class HybridRetriever:
             top_k: Number of results to return (after fusion)
             bm25_weight: Weight for BM25 scores in fusion
             vector_weight: Weight for vector scores in fusion
+            mechanisms: Which retrieval mechanisms to run, e.g. ``{"bm25"}`` or
+                ``{"vector"}``. When set, only those passes execute — so a
+                lexical-only pattern never pays the embedding-generation cost.
+                Default ``None`` runs the full hybrid (BM25 + vector).
 
         Returns:
             List of EvidenceRef with fused scores, sorted by fused score.
@@ -97,16 +102,28 @@ class HybridRetriever:
                 bm25_weight /= total_weight
                 vector_weight /= total_weight
 
-        # BM25 search
-        bm25_results = self.bm25.search(query, top_k=top_k * 2)
-        bm25_scores = {cid: score for cid, score in bm25_results}
-        logger.debug("hybrid_search_bm25", query=query, bm25_results=len(bm25_results))
+        want_bm25 = mechanisms is None or "bm25" in mechanisms
+        want_vector = mechanisms is None or "vector" in mechanisms
 
-        # Vector search
-        query_embedding = self.embedder.embed_texts([query])[0]
-        vector_results = self.vector.search(query_embedding, top_k=top_k * 2)
-        vector_scores = {cid: score for cid, score in vector_results}
-        logger.debug("hybrid_search_vector", query=query, vector_results=len(vector_results))
+        # BM25 search
+        bm25_scores: dict[Any, float] = {}
+        if want_bm25:
+            bm25_results = self.bm25.search(query, top_k=top_k * 2)
+            bm25_scores = {cid: score for cid, score in bm25_results}
+            logger.debug("hybrid_search_bm25", query=query, bm25_results=len(bm25_results))
+
+        # Vector search (skipped entirely when only BM25 is needed — saves an
+        # embedding round-trip on exact-term lookups).
+        vector_scores: dict[Any, float] = {}
+        if want_vector:
+            query_embedding = self.embedder.embed_texts([query])[0]
+            vector_results = self.vector.search(query_embedding, top_k=top_k * 2)
+            vector_scores = {cid: score for cid, score in vector_results}
+            logger.debug("hybrid_search_vector", query=query, vector_results=len(vector_results))
+
+        if not bm25_scores and not vector_scores:
+            logger.info("hybrid_search_empty", query=query[:50])
+            return []
 
         # Fuse scores (reciprocal rank fusion or weighted sum)
         all_chunk_ids = set(bm25_scores.keys()) | set(vector_scores.keys())

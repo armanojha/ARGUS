@@ -206,6 +206,29 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
         if method == RetrievalMethod.VECTOR:
             return retriever.search_vector_only(query, top_k=upper_k)
         if method == RetrievalMethod.HYBRID:
+            # HARDEN-06.5.5: a hybrid pass should only run the lexical and/or
+            # dense mechanisms the rest of the mix does NOT already cover with a
+            # dedicated single-mechanism method. Concretely:
+            #   * an explicit VECTOR method already provides dense coverage, so
+            #     the hybrid only contributes BM25 (no duplicate embedding);
+            #   * a mix with an explicit BM25 method and no vector source
+            #     (e.g. EXACT_TERM) is lexical-only, so the hybrid runs BM25 only
+            #     and skips the embedding round-trip entirely.
+            # A mix with no single-mechanism method (LONG_REPORT -> HYBRID only)
+            # still runs the full hybrid.
+            needed = self._needed_mechanisms(mix, upper_k)
+            if needed is not None:
+                if not needed:
+                    logger.debug("policy_hybrid_skipped")
+                    return []
+                logger.debug("policy_hybrid_limited", mechanisms=sorted(needed))
+                return retriever.search(
+                    query,
+                    top_k=upper_k,
+                    bm25_weight=mix.bm25_weight,
+                    vector_weight=mix.vector_weight,
+                    mechanisms=needed,
+                )
             return retriever.search(
                 query, top_k=upper_k, bm25_weight=mix.bm25_weight, vector_weight=mix.vector_weight
             )
@@ -224,6 +247,34 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
                 ref.metadata["policy_fallback"] = "web->hybrid"
             return refs
         return retriever.search(query, top_k=upper_k)
+
+    @staticmethod
+    def _needed_mechanisms(
+        mix: RetrievalMix, upper_k: int
+    ) -> set[str] | None:
+        """Mechanisms a HYBRID method should run, or None to run a full hybrid.
+
+        Returns None (full hybrid) when no dedicated BM25/VECTOR sibling exists.
+        Otherwise the hybrid only supplies the mechanism NOT covered by the
+        single-mechanism siblings:
+          * an explicit VECTOR method covers dense -> hybrid contributes {"bm25"};
+          * a lexical-only mix (BM25 + HYBRID, no vector source) is best served
+            purely lexically -> hybrid contributes {"bm25"}, skipping the expensive
+            query embedding entirely;
+          * both BM25 and VECTOR are explicit -> hybrid adds nothing -> {}.
+        """
+        has_bm25 = RetrievalMethod.BM25 in mix.methods
+        has_vector = RetrievalMethod.VECTOR in mix.methods
+        if has_bm25 and has_vector:
+            # Both mechanisms already dispatched by dedicated methods.
+            return set()
+        if has_vector:
+            # VECTOR covers dense; hybrid only adds the lexical pass.
+            return {"bm25"}
+        if has_bm25:
+            # Only BM25 + HYBRID -> lexical-only mix; no embedding needed.
+            return {"bm25"}
+        return None
 
     def _graph_dispatch(
         self,

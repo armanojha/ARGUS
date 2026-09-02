@@ -610,6 +610,144 @@ class TestAgentCoordinator:
         assert AgentRole.SKEPTIC in active_roles
         assert AgentRole.ALTERNATIVE_HYPOTHESIS in active_roles
 
+    @pytest.mark.asyncio
+    async def test_coordinator_skips_verifier_on_high_confidence_low_risk(self, mock_coordinator):
+        """HARDEN-06.5.4: well-grounded, low-risk evidence skips claim verification."""
+        from uuid import uuid4
+
+        from app.evidence.models import EvidenceRef, SourceType
+        from app.orchestration.models import ResearchPlan
+
+        evidence = [
+            EvidenceRef(
+                chunk_id=uuid4(),
+                document_id=uuid4(),
+                source_id=uuid4(),
+                source_path=f"doc{i}.txt",
+                source_type=SourceType.TEXT,
+                text=f"Strong evidence {i}",
+                score=0.9,  # avg 0.9 >= verify_threshold 0.8
+                rank=i,
+            )
+            for i in range(1, 4)
+        ]
+
+        state = OrchestrationState(
+            request_id="test-high-confidence",
+            query="What is a fox?",
+            max_iterations=3,
+            token_budget=6000,
+            plan=ResearchPlan(objective="What is a fox?", risk_level="low", subquestions=["What is a fox?"]),
+            pending_subquestions=[],
+            issued_subqueries=[],
+            evidence=evidence,
+            consecutive_empty_retrievals=0,
+            iteration=1,
+            tokens_used=100,
+            sufficient=False,
+            stop_reason=None,
+            answer=None,
+            warnings=[],
+        )
+
+        active_roles = mock_coordinator.should_activate_agents(state)
+        # Selectively verified -> no verifier, and only Researcher+Judge remain
+        # so the graph will NOT enter the debate (>2 is required).
+        assert AgentRole.VERIFIER not in active_roles
+        assert AgentRole.SKEPTIC not in active_roles
+        assert AgentRole.ALTERNATIVE_HYPOTHESIS not in active_roles
+        assert AgentRole.RESEARCHER in active_roles
+        assert AgentRole.JUDGE in active_roles
+        assert len(active_roles) == 2
+
+    @pytest.mark.asyncio
+    async def test_coordinator_keeps_verifier_for_high_risk_high_score(self, mock_coordinator):
+        """HARDEN-06.5.4: even strong evidence must still be verified when risk is high."""
+        from uuid import uuid4
+
+        from app.evidence.models import EvidenceRef, SourceType
+        from app.orchestration.models import ResearchPlan
+
+        evidence = [
+            EvidenceRef(
+                chunk_id=uuid4(),
+                document_id=uuid4(),
+                source_id=uuid4(),
+                source_path=f"doc{i}.txt",
+                source_type=SourceType.TEXT,
+                text=f"Strong evidence {i}",
+                score=0.9,
+                rank=i,
+            )
+            for i in range(1, 4)
+        ]
+
+        state = OrchestrationState(
+            request_id="test-high-risk",
+            query="Risky medical question",
+            max_iterations=3,
+            token_budget=6000,
+            plan=ResearchPlan(objective="Risky medical question", risk_level="high", subquestions=["x"]),
+            pending_subquestions=[],
+            issued_subqueries=[],
+            evidence=evidence,
+            consecutive_empty_retrievals=0,
+            iteration=1,
+            tokens_used=100,
+            sufficient=False,
+            stop_reason=None,
+            answer=None,
+            warnings=[],
+        )
+
+        active_roles = mock_coordinator.should_activate_agents(state)
+        assert AgentRole.VERIFIER in active_roles
+
+    @pytest.mark.asyncio
+    async def test_coordinator_keeps_verifier_for_low_score_low_risk(self, mock_coordinator):
+        """HARDEN-06.5.4: low-confidence evidence must still be verified even when risk is low."""
+        from uuid import uuid4
+
+        from app.evidence.models import EvidenceRef, SourceType
+        from app.orchestration.models import ResearchPlan
+
+        evidence = [
+            EvidenceRef(
+                chunk_id=uuid4(),
+                document_id=uuid4(),
+                source_id=uuid4(),
+                source_path=f"doc{i}.txt",
+                source_type=SourceType.TEXT,
+                text=f"Weak evidence {i}",
+                score=0.4,  # avg 0.4 < verify_threshold 0.8
+                rank=i,
+            )
+            for i in range(1, 4)
+        ]
+
+        state = OrchestrationState(
+            request_id="test-low-score",
+            query="Weakly grounded question",
+            max_iterations=3,
+            token_budget=6000,
+            plan=ResearchPlan(objective="Weakly grounded question", risk_level="low", subquestions=["x"]),
+            pending_subquestions=[],
+            issued_subqueries=[],
+            evidence=evidence,
+            consecutive_empty_retrievals=0,
+            iteration=1,
+            tokens_used=100,
+            sufficient=False,
+            stop_reason=None,
+            answer=None,
+            warnings=[],
+        )
+
+        active_roles = mock_coordinator.should_activate_agents(state)
+        # Weak grounding -> verifier kept, skeptic/alt-hyp added below skeptic threshold.
+        assert AgentRole.VERIFIER in active_roles
+        assert AgentRole.SKEPTIC in active_roles
+
     def test_coordinator_merge_evidence_keeps_highest_score(self):
         """Re-retrieved evidence may add or raise but never lower a chunk's score."""
         from uuid import uuid4

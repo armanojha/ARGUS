@@ -114,6 +114,24 @@ def test_get_retrieval_mix_matches_policy_table():
     assert RetrievalMethod.HYBRID in mix.methods
 
 
+def test_uncovered_mechanisms_limits_hybrid_pass():
+    """HARDEN-06.5.5: a hybrid method skips mechanisms an explicit method already covers."""
+    exact_mix = RetrievalMix(methods=[RetrievalMethod.BM25, RetrievalMethod.HYBRID])
+    conceptual_mix = RetrievalMix(methods=[RetrievalMethod.VECTOR, RetrievalMethod.HYBRID])
+    hybrid_only_mix = RetrievalMix(methods=[RetrievalMethod.HYBRID])
+    both_mix = RetrievalMix(methods=[RetrievalMethod.BM25, RetrievalMethod.VECTOR, RetrievalMethod.HYBRID])
+
+    needed = RetrievalPolicyRouter._needed_mechanisms
+    # EXACT_TERM is lexical-only: hybrid runs BM25 only, no query embedding.
+    assert needed(exact_mix, 20) == {"bm25"}
+    # CONCEPTUAL: VECTOR covers dense; hybrid only adds lexical.
+    assert needed(conceptual_mix, 20) == {"bm25"}
+    # HYBRID alone -> full hybrid (base case unchanged).
+    assert needed(hybrid_only_mix, 20) is None
+    # Both explicit -> hybrid fully redundant.
+    assert needed(both_mix, 20) == set()
+
+
 def test_default_policy_covers_all_documented_patterns():
     policy = get_default_retrieval_policy()
     table = {entry.pattern: entry.retrieval_mix for entry in policy.entries}
@@ -170,6 +188,36 @@ async def test_execute_retrieval_dedups_and_weights_are_consistent(populated_sto
     scores = [r.score for r in results]
     assert scores == sorted(scores, reverse=True)  # descending by fused score
     assert all("policy_score" in r.metadata for r in results)
+
+
+async def test_exact_term_lookup_skips_vector_embedding(populated_store: EvidenceStore):
+    """HARDEN-06.5.5: an EXACT_TERM pattern (BM25 + HYBRID) never embeds the query.
+
+    The policy router reports it used only lexical coverage; the embedding call
+    count must stay zero across the whole execution.
+    """
+    import numpy as np
+
+    class CountingEmbedder:
+        def __init__(self):
+            self.embed_texts_calls = 0
+
+        def embed_texts(self, texts):
+            self.embed_texts_calls += len(texts)
+            return np.zeros((len(texts), 384), dtype=np.float32)
+
+        def embed_chunks(self, chunks):
+            return np.zeros((len(chunks), 384), dtype=np.float32)
+
+    retriever = HybridRetriever(populated_store)
+    retriever.ensure_indexes()
+
+    spy = CountingEmbedder()
+    retriever.embedder = spy
+    router = get_retrieval_policy_router(settings=Settings(_env_file=None))
+    results = await router.execute_retrieval("canidae", QuestionPattern.EXACT_TERM, retriever)
+    assert results
+    assert spy.embed_texts_calls == 0, "exact-term lookup must not pay for vector embedding"
 
 
 async def test_web_method_degrades_to_hybrid_with_marker(populated_store: EvidenceStore):
