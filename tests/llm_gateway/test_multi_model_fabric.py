@@ -56,8 +56,13 @@ def mock_providers():
 
 
 @pytest.fixture
-def router(mock_providers, monkeypatch):
-    """Create a MultiModelRouter with mock providers."""
+def router(mock_providers):
+    """Create a MultiModelRouter with mock providers.
+
+    Mock providers are injected directly through the router's ``providers=``
+    argument; the router hands them to its internal ProviderRegistry, so no
+    config-driven provider creation or monkeypatching is required.
+    """
     # Reset quota tracker for test isolation
     from app.llm_gateway.quota import reset_quota_tracker
     reset_quota_tracker()
@@ -67,19 +72,7 @@ def router(mock_providers, monkeypatch):
         multimodel_providers_config_path="configs/model_policy.yaml",
     )
 
-    # Mock provider creation to return our mocks
-    async def mock_create_provider_instance(self, provider_name, config):
-        return mock_providers[provider_name]
-
-    monkeypatch.setattr(
-        MultiModelRouter,
-        "_create_provider_instance",
-        mock_create_provider_instance,
-    )
-
-    router = MultiModelRouter(settings=settings)
-    router._provider_cache = mock_providers
-    router._initialized = True
+    router = MultiModelRouter(settings=settings, providers=mock_providers)
     return router
 
 
@@ -141,6 +134,30 @@ class TestModelPolicy:
         })
         assert policy.get_policy("unknown").primary == "groq/default"
         assert policy.get_policy("known").primary == "gemini/specific"
+
+    def test_tiers_loaded_from_yaml(self):
+        """query_analysis defines tier chains parsed from model_policy.yaml."""
+        settings = Settings(multimodel_providers_config_path="configs/model_policy.yaml")
+        policy = load_model_policy(settings)
+        qa = policy.call_types["query_analysis"]
+        assert "fast" in qa.tiers
+        assert "strong" in qa.tiers
+        assert qa.tiers["fast"][0].startswith("zen/")
+
+    def test_get_model_chain_resolves_tier(self):
+        """get_model_chain with a tier returns the tier chain, else default."""
+        policy = ModelPolicy(call_types={
+            "qa": CallTypePolicy(
+                primary="zen/a",
+                fallbacks=["groq/b"],
+                tiers={"fast": ["zen/cheap", "groq/cheap2"], "strong": ["zen/hard"]},
+            ),
+        })
+        assert policy.get_model_chain("qa") == ["zen/a", "groq/b"]
+        assert policy.get_model_chain("qa", tier="fast") == ["zen/cheap", "groq/cheap2"]
+        assert policy.get_model_chain("qa", tier="strong") == ["zen/hard"]
+        # Unknown tier falls back to default chain.
+        assert policy.get_model_chain("qa", tier="nonexistent") == ["zen/a", "groq/b"]
 
 
 class TestModelSpec:
@@ -292,6 +309,35 @@ class TestMultiModelRouter:
         )
         # query_analysis primary is zen/mimo-v2.5-free (D-014 rev 2026-08-31)
         assert response.provider == "zen"
+
+    @pytest.mark.asyncio
+    async def test_router_uses_tier_specific_chain(self, router):
+        """A complexity tier should select a different chain for the call type.
+
+        query_analysis strong tier primary is zen/big-pickle (vs zen/mimo for
+        the default/fast chain), proving task-adaptive selection (HARDEN-06.5.2).
+        """
+        # Auto-classified from a comparative query -> STRONG tier.
+        strong_resp = await router.complete(
+            [Message(role=MessageRole.USER, content="compare X to Y")],
+            call_type="query_analysis",
+            query="how does policy A differ from policy B?",
+        )
+        # Explicit tier override -> STRONG chain (big-pickle).
+        fast_resp = await router.complete(
+            [Message(role=MessageRole.USER, content="Test")],
+            call_type="query_analysis",
+            tier="fast",
+        )
+
+        # Mock providers record the requested model in completion log.
+        from tests.mocks.mock_provider import MockProvider
+        zen: MockProvider = router._registry.get("zen")  # type: ignore[union-attr]
+        strong_models = [c["model"] for c in zen.call_log]
+
+        # strong chain primary = zen/big-pickle; fast chain primary = zen/mimo.
+        assert "big-pickle" in strong_resp.model
+        assert "mimo" in fast_resp.model
 
     @pytest.mark.asyncio
     async def test_router_fallback_on_provider_failure(self, router, mock_providers):

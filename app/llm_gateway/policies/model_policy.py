@@ -26,9 +26,14 @@ class CallTypePolicy:
     Attributes:
         primary: Primary model ID for this call type.
         fallbacks: Ordered list of fallback model IDs.
+        tiers: Optional task-complexity tier -> ordered model chain
+            (HARDEN-06.5.2). Keys are one of "fast" / "balanced" / "strong".
+            When a tier is requested and present, it fully overrides
+            primary+fallbacks. Values are full "provider/model" chains.
     """
     primary: str
     fallbacks: list[str] = field(default_factory=list)
+    tiers: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -47,9 +52,15 @@ class ModelPolicy:
         """Get policy for a call type, falling back to 'general'."""
         return self.call_types.get(call_type, self.call_types.get("general", CallTypePolicy(primary="")))
 
-    def get_model_chain(self, call_type: str) -> list[str]:
-        """Get the full model chain (primary + fallbacks) for a call type."""
+    def get_model_chain(self, call_type: str, tier: str | None = None) -> list[str]:
+        """Get the full model chain (primary + fallbacks) for a call type.
+
+        If ``tier`` is given and the call type defines a matching tier chain,
+        that chain is used instead of the default primary+fallbacks.
+        """
         policy = self.get_policy(call_type)
+        if tier and tier in policy.tiers:
+            return list(policy.tiers[tier])
         return [policy.primary] + policy.fallbacks
 
 
@@ -87,9 +98,14 @@ def load_model_policy(settings: Settings | None = None) -> ModelPolicy:
 
     call_types = {}
     for ct_name, ct_data in data.get("call_types", {}).items():
+        tiers = {}
+        for tier_name, chain in (ct_data.get("tiers", {}) or {}).items():
+            if isinstance(chain, list):
+                tiers[tier_name] = [str(s) for s in chain]
         call_types[ct_name] = CallTypePolicy(
             primary=ct_data.get("primary", ""),
             fallbacks=ct_data.get("fallbacks", []),
+            tiers=tiers,
         )
 
     return ModelPolicy(

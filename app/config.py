@@ -364,6 +364,11 @@ class Settings(BaseSettings):
         default=0.3,
         description="Disagreement severity threshold for targeted retrieval.",
     )
+    multiagent_verify_threshold: float = Field(
+        default=0.8,
+        description="HARDEN-06.5.4: average evidence score above which the verifier (and "
+        "entire claim-verification debate) is skipped for low-risk, well-grounded queries.",
+    )
 
     # --- Multimodal Intelligence (Phase 11) ---
     multimodal_enabled: bool = Field(

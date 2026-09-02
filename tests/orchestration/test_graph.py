@@ -245,3 +245,57 @@ class TestAgenticLoop:
         assert isinstance(result, OrchestrationResult)
         assert result.plan.objective  # fallback plan still has an objective
         assert result.answer  # synthesis fallback still produces something
+
+
+class TestSimpleQueryFastPath:
+    """HARDEN-06.5.3: simple queries skip the analyze/plan/assess LLM calls (retrieve -> synthesize)."""
+
+    async def test_simple_query_skips_analysis_and_planning(self, retriever, settings):
+        """'What is' query -> fast path: no query_analysis/research_planning/evidence_extraction LLM calls."""
+        provider = ScriptedProvider({"synthesis": ["A fox is a canid [1]."]})
+        router = LLMRouter(provider)
+        result = await run_query(
+            "What is a fox?", router=router, retriever=retriever, reranker=NoOpReranker(), settings=settings
+        )
+        # Fast path must not spend structured-planning calls on a simple lookup.
+        assert "query_analysis" not in provider.calls
+        assert "research_planning" not in provider.calls
+        assert "evidence_extraction" not in provider.calls
+        assert "synthesis" in provider.calls
+        # A deterministic fallback plan still underlies the synthesized answer.
+        assert result.plan is not None
+        assert result.plan.subquestions == ["What is a fox?"]
+        assert result.answer
+
+    async def test_simple_query_single_retrieval_iteration(self, retriever, settings):
+        provider = ScriptedProvider({"synthesis": ["answered [1]."]})
+        router = LLMRouter(provider)
+        result = await run_query(
+            "What is a fox?", router=router, retriever=retriever, reranker=NoOpReranker(), settings=settings
+        )
+        # No assess loop -> a single subquery is issued and exactly one iteration runs.
+        assert len(result.sub_queries_issued) == 1
+        assert result.iterations_used == 1
+
+    async def test_research_query_still_uses_full_pipeline(self, retriever, settings):
+        """A non-fast query must NOT take the fast path (guards against over-eager skipping)."""
+        provider = ScriptedProvider(
+            {
+                "query_analysis": [ANALYSIS_OK],
+                "research_planning": [plan_payload(["fox behavior"])],
+                "evidence_extraction": [assessment_payload(True)],
+                "synthesis": ["Foxes jump [1]."],
+            }
+        )
+        router = LLMRouter(provider)
+        result = await run_query(
+            "How does habitat change affect fox behavior?",
+            router=router,
+            retriever=retriever,
+            reranker=NoOpReranker(),
+            settings=settings,
+        )
+        # Comparative/causal phrasing -> full pipeline retained.
+        assert "query_analysis" in provider.calls
+        assert "research_planning" in provider.calls
+        assert len(provider.calls) >= 4

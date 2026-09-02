@@ -47,6 +47,19 @@ call_types:
       - "zen/nemotron-3.5-lightning-free"
       - "groq/openai/gpt-oss-20b"
       - "cerebras/gpt-oss-120b"
+    # Task-adaptive complexity tiers (HARDEN-06.5.2). A tier chain fully
+    # replaces primary+fallbacks for that call type when a tier is requested
+    # by the router (explicit tier or auto-classified query complexity).
+    # FAST  = simple lookups -> cheapest/lowest-latency model.
+    # STRONG = comparative/causal/abstract reasoning -> quality model.
+    tiers:
+      fast:
+        - "zen/mimo-v2.5-free"
+        - "zen/nemotron-3.5-lightning-free"
+      strong:
+        - "zen/big-pickle"
+        - "zen/nemotron-3-ultra-free"
+        - "groq/openai/gpt-oss-120b"
 
   research_planning:
     primary: "zen/big-pickle"

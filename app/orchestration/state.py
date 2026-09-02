@@ -62,3 +62,7 @@ class OrchestrationState(TypedDict):
     agent_round: NotRequired[int]
     debate_active: NotRequired[bool]
     disagreement_detected: NotRequired[bool]
+
+    # Phase 06.5.3 fast-path marker: set when a simple query skips the
+    # analyze/plan/assess nodes and runs a single retrieve -> synthesize pass.
+    fast_path: NotRequired[bool]

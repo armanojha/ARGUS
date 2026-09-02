@@ -20,6 +20,7 @@ from app.config import Settings, get_settings
 from app.llm_gateway.capabilities import get_capabilities
 from app.llm_gateway.policies.model_policy import load_model_policy
 from app.llm_gateway.providers.base import LLMProvider
+from app.llm_gateway.providers.registry import ProviderRegistry
 from app.llm_gateway.providers.exceptions import (
     CallCeilingExceededError,
     ConfigurationError,
@@ -119,12 +120,17 @@ class MultiModelRouter:
         self,
         settings: Settings | None = None,
         providers: dict[str, LLMProvider] | None = None,
+        registry: ProviderRegistry | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._policy = load_model_policy(self._settings)
-        self._providers: dict[str, LLMProvider] = providers or {}
-        self._provider_cache: dict[str, LLMProvider] = {}
-        self._initialized = False
+        # Provider lifecycle is owned by the registry (HARDEN-06.5.1): the
+        # router only consumes providers by name and never constructs/tears
+        # them down directly.
+        self._registry = registry or ProviderRegistry(
+            settings=self._settings,
+            providers=providers or {},
+        )
         # Cache cross-model verification settings to avoid re-reading YAML
         from app.config import load_yaml_config
         policy_path = self._settings.config_dir / "model_policy.yaml"
@@ -134,75 +140,13 @@ class MultiModelRouter:
         self._allow_same_provider_diff_model = cross_verification.get("allow_same_provider_different_model", True)
         self._preferred_verifiers = cross_verification.get("preferred_verifier_providers", ["gemini", "groq", "cerebras"])
 
-    async def _ensure_initialized(self) -> None:
-        """Lazy-initialize all configured providers."""
-        if self._initialized:
-            return
-
-        # Providers injected at construction time (tests, embedding, etc.)
-        # take precedence and must be usable by routing.
-        for name, provider in self._providers.items():
-            self._provider_cache.setdefault(name, provider)
-
-        # Load all enabled providers from config
-        data = self._load_providers_config()
-        for entry in data.get("providers", []) or []:
-            if not entry.get("enabled", False):
-                continue
-            provider_name = entry.get("name")
-            if not provider_name:
-                continue
-            try:
-                provider = await self._create_provider_instance(provider_name, entry)
-                self._provider_cache[provider_name] = provider
-            except (ConfigurationError, ValueError, OSError) as exc:
-                logger.warning(
-                    "multi_model_provider_init_failed",
-                    provider=provider_name,
-                    error=str(exc),
-                )
-
-        self._initialized = True
-
-    def _load_providers_config(self) -> dict[str, Any]:
-        from app.config import load_providers_config
-        return load_providers_config(self._settings)
-
-    async def _create_provider_instance(self, provider_name: str, config: dict[str, Any]) -> LLMProvider:
-        """Create a provider instance from config."""
-        from app.llm_gateway.providers import get_provider_factory
-
-        factory = get_provider_factory(provider_name)
-        if factory is None:
-            raise ConfigurationError(f"Unknown provider: {provider_name}")
-
-        api_key_env = str(config.get("api_key_env") or f"{provider_name.upper()}_API_KEY")
-        import os
-        api_key = os.getenv(api_key_env, "")
-        if not api_key:
-            raise ConfigurationError(f"Missing API key for provider '{provider_name}': {api_key_env} not set")
-
-        kwargs: dict[str, Any] = {
-            "api_key": api_key,
-            "timeout": config.get("timeout", self._settings.llm_timeout),
-            "max_retries": config.get("max_retries", self._settings.llm_max_retries),
-        }
-        if config.get("default_model"):
-            kwargs["model"] = config["default_model"]
-        # base_url is config-driven (D-014): forward it when the providers.yaml
-        # entry specifies it (provider constructors accept the override).
-        if config.get("base_url"):
-            kwargs["base_url"] = config["base_url"]
-
-        return factory(**kwargs)  # type: ignore[return-value]
-
     def _get_provider(self, provider_name: str) -> LLMProvider | None:
-        """Get a provider instance, creating if necessary."""
-        return self._provider_cache.get(provider_name)
+        """Get a provider instance from the registry."""
+        return self._registry.get(provider_name)
 
-    def _resolve_model_chain(self, call_type: str) -> list[ModelSpec]:
-        """Resolve the full model chain (primary + fallbacks) for a call type."""
-        model_chain = self._policy.get_model_chain(call_type)
+    def _resolve_model_chain(self, call_type: str, tier: str | None = None) -> list[ModelSpec]:
+        """Resolve the model chain (primary + fallbacks, or a tier chain) for a call type."""
+        model_chain = self._policy.get_model_chain(call_type, tier=tier)
         results = []
         for spec in model_chain:
             if not spec:
@@ -269,8 +213,13 @@ class MultiModelRouter:
         estimated_tokens: int = 0,
         exclude_models: set[str] | None = None,
         exclude_providers: set[str] | None = None,
+        tier: str | None = None,
     ) -> RoutingResult | None:
         """Select the best available model for a call type.
+
+        ``tier`` (optional) selects a task-complexity-specific model chain
+        when the call-type policy defines one (HARDEN-06.5.2); otherwise the
+        default primary+fallbacks chain is used.
 
         Exclusion is tracked at two scopes so that an intentional
         intra-provider fallback stays reachable after a model failure:
@@ -283,7 +232,7 @@ class MultiModelRouter:
         """
         exclude_models = exclude_models or set()
         exclude_providers = exclude_providers or set()
-        model_chain = self._resolve_model_chain(call_type)
+        model_chain = self._resolve_model_chain(call_type, tier=tier)
         provider_fallbacks = self._get_provider_fallbacks()
 
         # First try the call-type specific chain
@@ -385,14 +334,23 @@ class MultiModelRouter:
         timeout: float = 30.0,
         call_type: str = "general",
         request_id: str | None = None,
+        tier: str | None = None,
+        query: str | None = None,
     ) -> CompletionResponse:
         """Complete with multi-model routing and fallback.
 
         If `model` is explicitly provided, it's treated as a provider/model
         override (e.g., "groq/openai/gpt-oss-120b"). Otherwise, the call_type
-        policy determines the model chain.
+        policy determines the model chain; `tier` (or auto-classification of
+        `query`) selects a complexity-specific chain when configured
+        (HARDEN-06.5.2).
         """
-        await self._ensure_initialized()
+
+        # Task-adaptive tier resolution (HARDEN-06.5.2): an explicit tier wins;
+        # otherwise a query is auto-classified to a complexity tier.
+        if tier is None:
+            from app.llm_gateway.routing.complexity import classify_complexity
+            tier = classify_complexity(query or "").value
 
         # Estimate tokens for quota check
         estimated_tokens = sum(len(m.content or "") for m in messages) // 4
@@ -428,6 +386,7 @@ class MultiModelRouter:
             response_format=response_format,
             tools=tools,
             estimated_tokens=estimated_tokens,
+            tier=tier,
         )
 
         if routing_result is None:
@@ -512,6 +471,7 @@ class MultiModelRouter:
                     estimated_tokens=estimated_tokens,
                     exclude_models=exclude_models,
                     exclude_providers=exclude_providers,
+                    tier=tier,
                 )
                 if routing_result is None:
                     break
@@ -642,7 +602,6 @@ class MultiModelRouter:
         This implements the cross-model verification requirement:
         the verifier MUST use a different provider than the synthesizer.
         """
-        await self._ensure_initialized()
 
         # Use cached cross-model verification settings
         verifier_must_differ = self._verifier_must_differ
@@ -708,6 +667,7 @@ class MultiModelRouter:
 
         # If no preferred verifier available, fall back to normal routing
         # but still exclude synthesizer's provider if required by policy.
+        # Verification is high-stakes: prefer the STRONG tier.
         routing_result = self._select_model_for_call_type(
             call_type=call_type,
             response_format=response_format,
@@ -715,6 +675,7 @@ class MultiModelRouter:
             estimated_tokens=estimated_tokens,
             exclude_models=set(),
             exclude_providers={policy_exclude_provider} if policy_exclude_provider else None,
+            tier="strong",
         )
 
         if routing_result is None:
@@ -767,6 +728,7 @@ class MultiModelRouter:
                     estimated_tokens=estimated_tokens,
                     exclude_models=exclude_models,
                     exclude_providers=exclude_providers,
+                    tier="strong",
                 )
                 if routing_result is None:
                     break
@@ -774,11 +736,8 @@ class MultiModelRouter:
         raise last_error or ConfigurationError("Cross-model verification failed: no available verifier")
 
     async def aclose(self) -> None:
-        """Close all provider connections."""
-        for provider in self._provider_cache.values():
-            await provider.aclose()
-        self._provider_cache.clear()
-        self._initialized = False
+        """Close all provider connections (delegates to the registry)."""
+        await self._registry.close_all()
 
     def get_available_models(self, call_type: str | None = None) -> list[dict[str, Any]]:
         """Get list of available models for a call type (for debugging/telemetry)."""

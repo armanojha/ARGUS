@@ -23,13 +23,21 @@ from __future__ import annotations
 from functools import partial
 from typing import Any
 
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, START, StateGraph
 
 from app.config import Settings, get_settings
 from app.llm_gateway import get_router
+from app.llm_gateway.routing.complexity import ComplexityTier, classify_complexity
 from app.logging_config import get_logger
 from app.orchestration.agents.coordinator import AgentCoordinator, create_agent_coordinator
-from app.orchestration.models import OrchestrationCitation, OrchestrationResult, StopReason
+from app.orchestration.models import (
+    ComplexityLevel,
+    OrchestrationCitation,
+    OrchestrationResult,
+    QueryAnalysis,
+    ResearchPlan,
+    StopReason,
+)
 from app.orchestration.nodes import (
     extract_cited_indices,
     make_analyze_node,
@@ -48,6 +56,46 @@ from app.retrieval.router import get_retrieval_policy_router
 from app.retrieval.seeking import get_adaptive_gap_detector
 
 logger = get_logger("argus.orchestration.graph")
+
+
+def _is_simple_query(query: str) -> bool:
+    """Whether a query is simple enough to skip the analyze/plan/assess LLM calls.
+
+    Uses the zero-LLM complexity classifier (HARDEN-06.5.2); a FAST tier
+    means a single retrieve -> synthesize pass is sufficient — no research
+    planning or iterative sufficiency assessment needed (HARDEN-06.5.3).
+    """
+    return classify_complexity(query) == ComplexityTier.FAST
+
+
+def _fast_path_plan(query: str) -> ResearchPlan:
+    """Deterministic, no-LLM ResearchPlan for a simple query.
+
+    A simple lookup needs no decomposition: the single research objective is
+    the query itself, and we do a single-pass grounding retrieval.
+    """
+    return ResearchPlan(
+        objective=query.strip(),
+        entities=[],
+        time_window=None,
+        subquestions=[query.strip()],
+        evidence_type="factual",
+        preferred_retrieval_methods=["hybrid"],
+        required_sources=[],
+        risk_level="low",
+    )
+
+
+def _route_entry(state: OrchestrationState) -> str:
+    """Graph entry router: simple queries skip analyze/plan via the fast path."""
+    return "retrieve" if state.get("fast_path") else "analyze"
+
+
+def _route_after_retrieve(state: OrchestrationState) -> str:
+    """After retrieval: fast-path queries synthesize immediately (no assess loop)."""
+    if state.get("fast_path"):
+        return "synthesize"
+    return "assess"
 
 
 def _route_after_assess(state: OrchestrationState) -> str:
@@ -147,14 +195,23 @@ def build_graph(
         workflow.add_node("debate", partial(_debate_node, agent_coordinator=agent_coordinator))  # type: ignore
     workflow.add_node("synthesize", make_synthesize_node(router, settings))  # type: ignore
 
-    workflow.set_entry_point("analyze")
+    workflow.add_conditional_edges(
+        START,
+        _route_entry,
+        {"analyze": "analyze", "retrieve": "retrieve"},
+    )
     workflow.add_edge("analyze", "plan")
     if memory_store is not None:
         workflow.add_edge("plan", "memory_enhance")
         workflow.add_edge("memory_enhance", "retrieve")
     else:
         workflow.add_edge("plan", "retrieve")
-    workflow.add_edge("retrieve", "assess")
+    # Fast-path queries skip the assess/stop_check loop entirely.
+    workflow.add_conditional_edges(
+        "retrieve",
+        _route_after_retrieve,
+        {"assess": "assess", "synthesize": "synthesize"},
+    )
     workflow.add_edge("assess", "stop_check")
 
     # Route after stop_check: if debate is enabled and agents should activate, go to debate
@@ -185,13 +242,25 @@ def build_graph(
 
 
 def _initial_state(query: str, request_id: str | None, settings: Settings) -> OrchestrationState:
+    fast_path = _is_simple_query(query)
+    pre_analysis: QueryAnalysis | None = None
+    pre_plan: ResearchPlan | None = None
+    if fast_path:
+        logger.info("orchestration_fast_path", request_id=request_id, query=query[:100])
+        pre_analysis = QueryAnalysis(
+            complexity=ComplexityLevel.SIMPLE,
+            reasoning="Query classified as simple (fast tier); skipping research planning.",
+            suggested_subquestion_count=1,
+        )
+        pre_plan = _fast_path_plan(query)
+
     return OrchestrationState(
         request_id=request_id,
         query=query,
         max_iterations=settings.orchestration_max_iterations,
         token_budget=settings.orchestration_token_budget,
-        query_analysis=None,
-        plan=None,
+        query_analysis=pre_analysis,
+        plan=pre_plan,
         pending_subquestions=[],
         issued_subqueries=[],
         evidence=[],
@@ -215,6 +284,8 @@ def _initial_state(query: str, request_id: str | None, settings: Settings) -> Or
         agent_round=0,
         debate_active=False,
         disagreement_detected=False,
+        # Phase 06.5.3 fast-path marker
+        fast_path=fast_path,
     )
 
 

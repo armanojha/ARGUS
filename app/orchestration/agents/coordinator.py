@@ -46,6 +46,8 @@ class AgentCoordinator(AgentCoordinatorInterface):
         self._max_rounds = settings.multiagent_max_rounds
         self._skeptic_threshold = settings.multiagent_skeptic_threshold
         self._disagreement_threshold = settings.multiagent_disagreement_threshold
+        # HARDEN-06.5.4: verifier-debate skip gate.
+        self._verify_threshold = settings.multiagent_verify_threshold
 
     def should_activate_agents(self, state: OrchestrationState) -> list[AgentRole]:
         """Determine which agents should activate for this state."""
@@ -54,6 +56,16 @@ class AgentCoordinator(AgentCoordinatorInterface):
 
         plan = state.get("plan")
         evidence = state.get("evidence", [])
+
+        # HARDEN-06.5.4 selective verification: when the evidence base is already
+        # high-confidence and low-risk, claim verification (the verifier + skeptic +
+        # alternative-hypothesis debate) is unnecessary. Only Researcher + Judge remain,
+        # which keeps `len(active_roles) <= 2` so the graph synthesizes directly instead
+        # of entering the expensive debate. This reserves the verifier LLM budget for
+        # genuinely uncertain/risky answers.
+        if self._should_skip_verification(plan, evidence):
+            logger.info("multi_agent_skip_verification")
+            return [AgentRole.RESEARCHER, AgentRole.JUDGE]
 
         # Always activate Researcher and Verifier
         active_roles = [AgentRole.RESEARCHER, AgentRole.VERIFIER]
@@ -134,6 +146,28 @@ class AgentCoordinator(AgentCoordinatorInterface):
         """
         avg_score = sum(e.score for e in evidence) / len(evidence)
         return avg_score < self._skeptic_threshold
+
+    def _should_skip_verification(self, plan: Any | None, evidence: list[Any]) -> bool:
+        """HARDEN-06.5.4: whether claim verification can be safely skipped.
+
+        Skips verification only when the evidence base is well-grounded
+        (average score >= ``multiagent_verify_threshold``), low-risk, non-conflicting,
+        and not high-uncertainty. Any of those warning signs forces verification back on.
+        """
+        if not evidence:
+            return False  # nothing to be confident in; verify
+        if plan is not None and plan.risk_level in ("medium", "high"):
+            return False  # risky question; verify regardless of score
+
+        avg_score = sum(e.score for e in evidence) / len(evidence)
+
+        requires_verification = (
+            avg_score < self._verify_threshold
+            or self._below_skeptic_threshold(evidence)
+            or self._has_high_uncertainty(evidence)
+            or self._has_conflicting_evidence(evidence)
+        )
+        return not requires_verification
 
     async def run_debate(
         self,

@@ -71,8 +71,13 @@ async def _safe_structured_call(
     call_type: str,
     settings: Settings,
     request_id: str | None,
+    query: str | None = None,
 ) -> tuple[Any | None, str | None]:
     """Run a structured LLM call, returning (parsed_model_or_None, error_message_or_None).
+
+    ``query`` (optional) is forwarded to the router so it can auto-classify
+    task complexity for tier-adaptive routing (HARDEN-06.5.2) without an
+    extra LLM round-trip.
 
     Never raises: provider errors, malformed JSON, and schema validation
     failures are all normalized into an error string so callers can
@@ -85,6 +90,7 @@ async def _safe_structured_call(
             timeout=settings.orchestration_llm_timeout,
             call_type=call_type,
             request_id=request_id,
+            query=query,
         )
     except LLMProviderError as exc:
         logger.warning("orchestration_llm_call_failed", call_type=call_type, error=str(exc))
@@ -113,6 +119,7 @@ def make_analyze_node(router: LLMRouter, settings: Settings) -> NodeFn:
             call_type="query_analysis",
             settings=settings,
             request_id=state["request_id"],
+            query=state["query"],
         )
         warnings = list(state["warnings"])
         if analysis is None:
@@ -142,6 +149,7 @@ def make_plan_node(router: LLMRouter, settings: Settings) -> NodeFn:
             call_type="research_planning",
             settings=settings,
             request_id=state["request_id"],
+            query=state["query"],
         )
         warnings = list(state["warnings"])
         if plan is None:
@@ -294,6 +302,7 @@ def make_assess_node(
             call_type="evidence_extraction",
             settings=settings,
             request_id=state["request_id"],
+            query=state["query"],
         )
 
         warnings = list(state["warnings"])
@@ -426,6 +435,8 @@ def make_synthesize_node(router: LLMRouter, settings: Settings) -> NodeFn:
                 timeout=settings.orchestration_llm_timeout,
                 call_type="synthesis",
                 request_id=state["request_id"],
+                query=state["query"],
+                tier="strong",
             )
             answer = response.content or ""
         except LLMProviderError as exc:

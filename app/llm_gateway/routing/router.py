@@ -41,11 +41,16 @@ class LLMRouter:
         timeout: float = 30.0,
         call_type: str = "general",
         request_id: str | None = None,
+        tier: str | None = None,
+        query: str | None = None,
     ) -> CompletionResponse:
         """Delegate to the underlying provider.
 
-        Phase 12.2: additively records a telemetry routing decision per call
-        when a telemetry run is active (no-op otherwise).
+        ``tier``/``query`` are accepted for a uniform signature with
+        ``MultiModelRouter`` but are not used by the single-provider path
+        (there is no routing decision to adapt). Phase 12.2: additively
+        records a telemetry routing decision per call when a telemetry run is
+        active (no-op otherwise).
         """
         t0 = time.monotonic()
         selected_model = str(model or self._provider.default_model)
