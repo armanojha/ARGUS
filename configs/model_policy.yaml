@@ -21,32 +21,36 @@
 # provider_fallbacks: ["provider1", "provider2", ...]
 #   Ordered list of providers to try if the primary provider fails entirely.
 #
-# D-014 (2026-08-30): all primary assignments moved to OpenCode Zen's free
-# NVIDIA-hosted models. Non-zen providers remain as secondary fallbacks so
-# the fabric keeps redundancy and cross-model verification stays possible.
+# D-014 (2026-08-30): primary assignments moved to OpenCode Zen's free
+# NVIDIA-hosted models.
 #
 # D-014 revision (2026-08-31, Model Policy Optimization): primary tiers split
-# by latency vs quality. MiMo-V2.5 Free (mimo-v2.5-free) handles the
-# latency-sensitive extractive call types; Big Pickle (big-pickle — NEW to the
-# fabric, verified live on the configured Zen endpoint) handles the
-# quality-sensitive generative/reasoning call types; Nemotron retains the
-# primary fallback role. Non-zen secondary fallbacks unchanged.
+# by latency vs quality.
+#
+# POST-06.5 VALIDATION (2026-09-03): live validation established that the
+# Zen free-tier models repeatedly hit timeouts/rate-limits on the current free
+# tier, while Groq and Gemini serve reliably. The MultiModelRouter was paying
+# ~15s per failed Zen primary attempt before falling back, making it 15-60x
+# slower than the working default runtime for equivalent answer quality.
+# Therefore primaries move to the verified-working providers (Groq / Gemini),
+# and the unreliable Zen free-tier models are demoted to LAST-resort fallbacks
+# so a reliably-serving provider is always tried first. The MultiModelRouter
+# and its fallback mechanism are unchanged; only the explicit chains change.
 
 call_types:
   general:
-    primary: "zen/nemotron-3-ultra-free"
+    primary: "groq/openai/gpt-oss-120b"
     fallbacks:
-      - "zen/nemotron-3.5-lightning-free"
-      - "groq/openai/gpt-oss-120b"
       - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zen/nemotron-3.5-lightning-free"
 
   query_analysis:
-    primary: "zen/mimo-v2.5-free"
+    primary: "groq/openai/gpt-oss-20b"
     fallbacks:
-      - "zen/nemotron-3.5-lightning-free"
-      - "groq/openai/gpt-oss-20b"
+      - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zen/nemotron-3.5-lightning-free"
     # Task-adaptive complexity tiers (HARDEN-06.5.2). A tier chain fully
     # replaces primary+fallbacks for that call type when a tier is requested
     # by the router (explicit tier or auto-classified query complexity).
@@ -54,67 +58,65 @@ call_types:
     # STRONG = comparative/causal/abstract reasoning -> quality model.
     tiers:
       fast:
-        - "zen/mimo-v2.5-free"
+        - "groq/openai/gpt-oss-20b"
+        - "gemini/gemini-3.5-flash-lite"
         - "zen/nemotron-3.5-lightning-free"
       strong:
-        - "zen/big-pickle"
-        - "zen/nemotron-3-ultra-free"
         - "groq/openai/gpt-oss-120b"
+        - "gemini/gemini-3.5-flash-lite"
+        - "zen/nemotron-3-ultra-free"
 
   research_planning:
-    primary: "zen/big-pickle"
+    # Gemini promoted to primary: gpt-oss-120b cannot reliably generate the
+    # 12-field ResearchPlan strict schema (MODEL_LIMITATION, audited
+    # 2026-08-31), while gemini-3.5-flash-lite can. Zen big-pickle demoted
+    # to a last-resort fallback (was primary, unreliable on free tier).
+    primary: "gemini/gemini-3.5-flash-lite"
     fallbacks:
-      - "zen/nemotron-3-ultra-free"
       - "groq/openai/gpt-oss-120b"
-      - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
-    # Gemini added 2026-08-31 (live audit): gpt-oss-120b cannot reliably
-    # generate the 12-field ResearchPlan strict schema (MODEL_LIMITATION),
-    # while gemini-3.5-flash-lite does. This keeps a reachable, capable
-    # fallback for the planner when the Zen primary is unavailable. Zen
-    # big-pickle remains primary; Gemini is a fallback, not primary.
+      - "zen/big-pickle"
 
   evidence_extraction:
-    primary: "zen/mimo-v2.5-free"
+    primary: "groq/openai/gpt-oss-120b"
     fallbacks:
-      - "zen/nemotron-3.5-lightning-free"
-      - "groq/openai/gpt-oss-120b"
+      - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zen/mimo-v2.5-free"
 
   reasoning:
-    primary: "zen/big-pickle"
+    primary: "groq/openai/gpt-oss-120b"
     fallbacks:
-      - "zen/nemotron-3-ultra-free"
-      - "groq/openai/gpt-oss-120b"
+      - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zen/nemotron-3-ultra-free"
 
   synthesis:
-    primary: "zen/big-pickle"
+    primary: "groq/openai/gpt-oss-120b"
     fallbacks:
-      - "zen/nemotron-3-ultra-free"
-      - "groq/openai/gpt-oss-120b"
+      - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zen/nemotron-3-ultra-free"
 
   verification:
-    primary: "zen/big-pickle"
+    primary: "gemini/gemini-3.5-flash-lite"
     fallbacks:
-      - "zen/mimo-v2.5-free"
-      - "zen/nemotron-3-ultra-free"
       - "groq/openai/gpt-oss-20b"
       - "cerebras/gpt-oss-120b"
+      - "zen/mimo-v2.5-free"
 
   revision:
-    primary: "zen/mimo-v2.5-free"
+    primary: "groq/openai/gpt-oss-20b"
     fallbacks:
-      - "zen/nemotron-3.5-lightning-free"
-      - "groq/openai/gpt-oss-20b"
+      - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zen/nemotron-3.5-lightning-free"
 
 provider_fallbacks:
-  - "zen"
   - "groq"
   - "gemini"
   - "cerebras"
+  - "zen"
 
 # Quota tracking configuration (deterministic, configuration-driven)
 # Phase 07 implements basic quota awareness for free-tier providers.
