@@ -13,7 +13,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MessageRole(str, Enum):
@@ -105,3 +105,8 @@ class CompletionResponse(BaseModel):
     provider: str | None = None
     request_id: str | None = None
     """ARGUS-side request ID (propagated from the caller), not the provider's own ID."""
+    rate_limit_headers: dict[str, str] = Field(
+        default_factory=dict,
+        description="Provider rate-limit response headers (e.g. x-ratelimit-remaining-tokens), "
+        "surfaced so the quota tracker can calibrate against live limits.",
+    )

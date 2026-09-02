@@ -213,7 +213,12 @@ class OpenAICompatibleProvider:
 
     # -- response parsing -------------------------------------------------
 
-    def _parse_response(self, data: dict[str, Any], model: str) -> CompletionResponse:
+    def _parse_response(
+        self,
+        data: dict[str, Any],
+        model: str,
+        headers: dict[str, str] | None = None,
+    ) -> CompletionResponse:
         # Some OpenAI-compatible gateways (e.g. OpenCode Zen) occasionally
         # return HTTP 200 with a non-standard body that has no "choices"
         # (e.g. an upstream error envelope). Normalize that instead of
@@ -256,6 +261,11 @@ class OpenAICompatibleProvider:
             usage=usage,
             finish_reason=choice.get("finish_reason"),
             provider=self._name,
+            rate_limit_headers={
+                k.lower(): v
+                for k, v in (headers or {}).items()
+                if k.lower().startswith(("x-ratelimit", "retry-after"))
+            },
         )
 
     # -- error normalization -------------------------------------------------
@@ -393,7 +403,7 @@ class OpenAICompatibleProvider:
 
         response = await self._request_with_retry(payload, timeout=timeout)
         data = response.json()
-        result = self._parse_response(data, resolved_model)
+        result = self._parse_response(data, resolved_model, headers=response.headers)
         result = result.model_copy(update={"request_id": request_id})
 
         logger.info(

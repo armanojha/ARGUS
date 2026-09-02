@@ -582,6 +582,15 @@ class MultiModelRouter:
                     prompt_tokens=response.usage.prompt_tokens,
                     completion_tokens=response.usage.completion_tokens,
                 )
+                # Calibrate the tracker against the provider's live rate-limit
+                # headers (Phase 07 quota awareness): the tracker's local
+                # counters are otherwise only advanced by our own requests and
+                # drift from the provider's true remaining budget.
+                if response.rate_limit_headers:
+                    quota_tracker.update_from_headers(
+                        model_spec.provider,
+                        response.rate_limit_headers,
+                    )
 
             return response
 
