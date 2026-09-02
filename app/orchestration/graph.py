@@ -20,6 +20,7 @@ and gateway-agnostic.
 
 from __future__ import annotations
 
+import asyncio
 from functools import partial
 from typing import Any
 
@@ -28,12 +29,18 @@ from langgraph.graph import END, START, StateGraph
 from app.config import Settings, get_settings
 from app.llm_gateway import get_router
 from app.llm_gateway.routing.complexity import ComplexityTier, classify_complexity
+from app.llm_gateway.telemetry import check_call_ceiling
 from app.logging_config import get_logger
-from app.orchestration.agents.coordinator import AgentCoordinator, create_agent_coordinator
+from app.orchestration.agents.coordinator import (
+    AgentCoordinator,
+    create_agent_coordinator,
+    should_skip_verification,
+)
 from app.orchestration.models import (
     ComplexityLevel,
     OrchestrationCitation,
     OrchestrationResult,
+    OrchestrationVerification,
     QueryAnalysis,
     ResearchPlan,
     StopReason,
@@ -344,6 +351,104 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
     )
 
 
+async def _run_selective_verification(
+    final_state: OrchestrationState,
+    *,
+    router: Any,
+    settings: Settings,
+    request_id: str | None,
+) -> OrchestrationVerification | None:
+    """Phase 07b: run the deterministic, selective verification post-step.
+
+    Disabled entirely unless ``settings.verification_enabled`` is True.
+
+    The stage is *fail-safe by design*: it runs *after* the synthesize node
+    has already produced a grounded, cited answer, and it can only annotate
+    that answer — never replace or collapse it. Verification is invoked at
+    most once and adds at most a single ``verification`` LLM call, gated by:
+
+      * ``check_call_ceiling()``  — never spend the last of the run's call
+        budget (which the synthesizer already used) on verification.
+      * ``should_skip_verification`` — the shared 06.5.4 gate: simple/low-
+        risk, high-confidence, non-conflicting evidence is NOT verified.
+
+    Any failure (LLM error, malformed output, timeout) is captured into
+    :class:`OrchestrationVerification` with ``status="error"`` and the
+    grounded answer is returned unchanged.
+    """
+    if not getattr(settings, "verification_enabled", False):
+        return OrchestrationVerification(triggered=False, skipped_reason="disabled")
+
+    plan = final_state.get("plan")
+    evidence = final_state.get("evidence") or []
+
+    if check_call_ceiling():
+        logger.info("verification_skipped_call_budget", request_id=request_id)
+        return OrchestrationVerification(triggered=False, skipped_reason="call_budget")
+
+    if should_skip_verification(plan, evidence, settings):
+        logger.info("verification_skipped_low_risk", request_id=request_id)
+        return OrchestrationVerification(triggered=False, skipped_reason="low_risk")
+
+    answer = final_state.get("answer") or ""
+    if not answer:
+        logger.info("verification_skipped_no_answer", request_id=request_id)
+        return OrchestrationVerification(triggered=False, skipped_reason="no_answer")
+
+    # Map the cited chunk ids used to ground the answer into the verifier.
+    built_result = _build_result(final_state)
+    from uuid import UUID, uuid4
+
+    from app.verification.engine import verify_claim
+    from app.verification.models import VerificationRequest
+
+    entity_names = list(plan.entities) if plan is not None else []
+    temporal_context = plan.time_window if plan is not None else None
+    supporting_chunk_ids = []
+    for c in built_result.citations:
+        try:
+            supporting_chunk_ids.append(UUID(c.chunk_id))
+        except (ValueError, AttributeError):
+            logger.debug("verification_skip_invalid_chunk_id", chunk_id=c.chunk_id)
+    verification_request = VerificationRequest(
+        claim_id=uuid4(),
+        claim_text=answer,
+        supporting_chunk_ids=supporting_chunk_ids,
+        entity_names=entity_names,
+        temporal_context=temporal_context,
+    )
+    try:
+        from app.evidence.store import get_evidence_store
+        from app.graph.store import get_graph_store
+
+        verification_result = await asyncio.wait_for(
+            verify_claim(
+                verification_request,
+                router=router,
+                evidence_store=get_evidence_store(),
+                graph_store=get_graph_store(),
+                settings=settings,
+                request_id=request_id,
+            ),
+            timeout=getattr(settings, "orchestration_llm_timeout", 30.0) + 5.0,
+        )
+        return OrchestrationVerification(
+            triggered=True,
+            status=getattr(verification_result.status, "value", str(verification_result.status)),
+            confidence=verification_result.confidence,
+            contradiction_detected=bool(verification_result.contradictions),
+            reasoning=verification_result.reasoning or None,
+        )
+    except Exception as exc:  # noqa: BLE001 - fail-safe: annotate, don't crash
+        logger.warning("verification_stage_failed", request_id=request_id, error=str(exc))
+        return OrchestrationVerification(
+            triggered=True,
+            status="error",
+            error=str(exc),
+            reasoning="verification failed; returning the grounded, cited answer unchanged",
+        )
+
+
 async def run_query(
     query: str,
     *,
@@ -431,7 +536,6 @@ async def run_query(
         initial_state["user_early_stop"] = True
 
     logger.info("orchestration_run_started", request_id=request_id, query=query[:100])
-    import asyncio
     final_state: OrchestrationState = await asyncio.wait_for(
         graph.ainvoke(initial_state),
         timeout=getattr(settings, "orchestration_timeout", None) or 120,
@@ -445,4 +549,25 @@ async def run_query(
         evidence_count=len(final_state["evidence"]),
     )
 
-    return _build_result(final_state)
+    result = _build_result(final_state)
+
+    # Phase 07b: selective claim verification, post-synthesis and fail-safe.
+    # Runs after the grounded answer exists and can only annotate it (never
+    # replace it). Bounded to a single `verification` LLM call, opt-in via
+    # `verification_enabled`, and skipped by the 06.5.4 gate or the call
+    # ceiling. Import here so a verifier-sharing/LLM hiccup can never break
+    # the Phase 02/06 loop.
+    try:
+        verification = await _run_selective_verification(
+            final_state,
+            router=router,
+            settings=settings,
+            request_id=request_id,
+        )
+    except Exception as exc:  # noqa: BLE001 - fail-safe by construction
+        logger.warning("verification_stage_unavailable", request_id=request_id, error=str(exc))
+        verification = OrchestrationVerification(triggered=False, skipped_reason="disabled")
+    if verification is not None:
+        result = result.model_copy(update={"verification": verification})
+
+    return result

@@ -198,6 +198,12 @@ class TestGetRouter:
         import app.llm_gateway as gateway
         gateway._router = None
 
+        # Phase 07b: the default is resilient MultiModelRouter; this test
+        # exercises the explicit single-provider escape hatch, so opt out to
+        # LLMRouter by flipping the flag.
+        from app.config import Settings
+        monkeypatch.setattr(gateway, "get_settings", lambda: Settings(multimodel_enabled=False))
+
         # Mock create_provider to return our mock provider (sync function)
         import app.llm_gateway as gateway_module
         
@@ -215,6 +221,9 @@ class TestGetRouter:
     async def test_close_router_resets_singleton(self, mock_router, monkeypatch):
         import app.llm_gateway as gateway
         gateway._router = None
+
+        from app.config import Settings
+        monkeypatch.setattr(gateway, "get_settings", lambda: Settings(multimodel_enabled=False))
 
         # Mock create_provider to return our mock provider (sync function)
         import app.llm_gateway as gateway_module

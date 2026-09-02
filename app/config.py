@@ -256,8 +256,10 @@ class Settings(BaseSettings):
 
     # --- Multi-Model Fabric (Phase 07) ---
     multimodel_enabled: bool = Field(
-        default=False,
-        description="Whether multi-model fabric is enabled.",
+        default=True,
+        description="Whether multi-model fabric is enabled. Defaults to True so a "
+        "stock deployment uses the resilient MultiModelRouter (health + fallback + "
+        "quota); set to False explicitly to opt out to the single-provider LLMRouter.",
     )
     multimodel_providers_config_path: str = Field(
         default="configs/providers.yaml",

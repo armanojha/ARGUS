@@ -156,6 +156,13 @@ class TestPhase00Smoke:
         # Reset global state
         gateway_module._router = None
 
+        # Phase 07b: the default is resilient MultiModelRouter; this test
+        # exercises the explicit single-provider escape hatch, so opt out to
+        # LLMRouter by flipping the flag.
+        from app.config import Settings
+        original_get_settings = gateway_module.get_settings
+        gateway_module.get_settings = lambda: Settings(multimodel_enabled=False)
+
         # Mock the factory to return our mock provider
         mock_provider = MockProvider()
         mock_router = LLMRouter(mock_provider)
@@ -180,6 +187,7 @@ class TestPhase00Smoke:
             await close_router()
         finally:
             gateway_module.create_provider = original_create_provider
+            gateway_module.get_settings = original_get_settings
 
 
 # Allow running this file directly for quick smoke test

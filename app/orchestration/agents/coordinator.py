@@ -28,6 +28,56 @@ from app.retrieval.hybrid import HybridRetriever
 logger = get_logger("argus.orchestration.agents.coordinator")
 
 
+def _evidence_score_stats(evidence: list[Any]) -> tuple[float | None, float]:
+    """Return ``(mean_score, coefficient_of_variation)`` for evidence scores.
+
+    ``mean_score`` is ``None`` when ``evidence`` is empty; CV is 0 for a
+    single item or no score spread (stdev is undefined). Used by the 06.5.4
+    verification-gate predicate below.
+    """
+    if not evidence:
+        return None, 0.0
+    scores = [e.score for e in evidence]
+    mean_score = sum(scores) / len(scores)
+    if len(scores) < 2:
+        return mean_score, 0.0
+    try:
+        stdev = statistics.stdev(scores)
+    except statistics.StatisticsError:  # identical values -> no divergence
+        return mean_score, 0.0
+    cv = stdev / mean_score if mean_score > 0 else 0.0
+    return mean_score, cv
+
+
+def should_skip_verification(plan: Any | None, evidence: list[Any], settings: Settings) -> bool:
+    """HARDEN-06.5.4: whether claim verification can be safely skipped.
+
+    Shared predicate used by the multi-agent coordinator *and* the Phase 07b
+    selective-verification stage so the risk/confidence gate is a single
+    source of truth (no duplicated logic). Verification is skipped only when
+    the evidence base is non-empty, low-risk, and well-grounded (average score
+    >= ``multiagent_verify_threshold``) with no high-uncertainty or conflicting
+    signals. Any warning sign forces verification back on.
+    """
+    if not evidence:
+        return False  # nothing to be confident in; verify
+    if plan is not None and plan.risk_level in ("medium", "high"):
+        return False  # risky question; verify regardless of score
+
+    avg_score, cv = _evidence_score_stats(evidence)
+    verify_threshold = settings.multiagent_verify_threshold
+    skeptic_threshold = settings.multiagent_skeptic_threshold
+    disagreement_threshold = settings.multiagent_disagreement_threshold
+
+    requires_verification = (
+        avg_score is not None and avg_score < verify_threshold
+        or avg_score is not None and avg_score < skeptic_threshold
+        or avg_score is not None and avg_score < 0.5  # high uncertainty
+        or len(evidence) >= 3 and cv > disagreement_threshold
+    )
+    return not requires_verification
+
+
 class AgentCoordinator(AgentCoordinatorInterface):
     """Coordinates multi-agent debate for high-risk questions."""
 
@@ -46,8 +96,6 @@ class AgentCoordinator(AgentCoordinatorInterface):
         self._max_rounds = settings.multiagent_max_rounds
         self._skeptic_threshold = settings.multiagent_skeptic_threshold
         self._disagreement_threshold = settings.multiagent_disagreement_threshold
-        # HARDEN-06.5.4: verifier-debate skip gate.
-        self._verify_threshold = settings.multiagent_verify_threshold
 
     def should_activate_agents(self, state: OrchestrationState) -> list[AgentRole]:
         """Determine which agents should activate for this state."""
@@ -150,24 +198,11 @@ class AgentCoordinator(AgentCoordinatorInterface):
     def _should_skip_verification(self, plan: Any | None, evidence: list[Any]) -> bool:
         """HARDEN-06.5.4: whether claim verification can be safely skipped.
 
-        Skips verification only when the evidence base is well-grounded
-        (average score >= ``multiagent_verify_threshold``), low-risk, non-conflicting,
-        and not high-uncertainty. Any of those warning signs forces verification back on.
+        Delegates to the module-level :func:`should_skip_verification` so the
+        multi-agent debate and the Phase 07b selective-verification stage share
+        one gate (single source of truth).
         """
-        if not evidence:
-            return False  # nothing to be confident in; verify
-        if plan is not None and plan.risk_level in ("medium", "high"):
-            return False  # risky question; verify regardless of score
-
-        avg_score = sum(e.score for e in evidence) / len(evidence)
-
-        requires_verification = (
-            avg_score < self._verify_threshold
-            or self._below_skeptic_threshold(evidence)
-            or self._has_high_uncertainty(evidence)
-            or self._has_conflicting_evidence(evidence)
-        )
-        return not requires_verification
+        return should_skip_verification(plan, evidence, self._settings)
 
     async def run_debate(
         self,

@@ -126,6 +126,40 @@ class OrchestrationCitation(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class OrchestrationVerification(BaseModel):
+    """Selective claim verification metadata attached to a query result (Phase 07b).
+
+    Additive and defaulted-``None`` so existing consumers of
+    ``OrchestrationResult`` are unaffected. ``triggered`` distinguishes
+    "verification was considered and skipped" from "not applicable"; the
+    fail-safe principle is that verification can *annotate* but never
+    *replace* a grounded, cited answer.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    triggered: bool = Field(
+        description="Whether the selective verification stage fired for this query "
+        "(False when disabled, over call budget, or skipped by the 06.5.4 gate)."
+    )
+    skipped_reason: str | None = Field(
+        default=None, description="Why verification was skipped (disabled / call_budget / low_risk)."
+    )
+    status: str | None = Field(
+        default=None, description="VerificationStatus value when triggered: supported/partial/contradicted/unsupported/error."
+    )
+    confidence: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Overall verification confidence (0-1) when triggered."
+    )
+    contradiction_detected: bool | None = Field(
+        default=None, description="Whether a material contradiction was detected, when triggered."
+    )
+    reasoning: str | None = Field(default=None, description="Verifier's explanation, when triggered.")
+    error: str | None = Field(
+        default=None, description="Verification failure detail, if any (never discards the cited answer)."
+    )
+
+
 class OrchestrationResult(BaseModel):
     """Final result of a query → plan → retrieve → synthesize run."""
 
@@ -170,4 +204,10 @@ class OrchestrationResult(BaseModel):
     )
     disagreement_detected: bool | None = Field(
         default=None, description="Whether material disagreement was detected during debate."
+    )
+    # Phase 07b selective verification traceability (additive; None when skipped/off)
+    verification: OrchestrationVerification | None = Field(
+        default=None,
+        description="Selective claim verification metadata for this query, when the 07b "
+        "verification stage fired. Verification annotates but never replaces the answer.",
     )
