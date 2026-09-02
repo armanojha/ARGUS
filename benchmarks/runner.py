@@ -18,7 +18,6 @@ import json
 import math
 import tempfile
 import time
-import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -32,8 +31,6 @@ from app.retrieval.bm25 import BM25Retriever
 from app.retrieval.embeddings import EmbeddingGenerator
 from app.retrieval.hybrid import HybridRetriever
 from app.retrieval.vector import FAISSVectorStore
-from app.verification.engine import verify_claim
-from app.verification.models import VerificationRequest, VerificationStatus
 
 from .metrics import aggregate_scores, by_type_breakdown, compute_item_scores
 from .models import BenchmarkItem, BenchmarkRunOutput, CorpusContext
@@ -226,28 +223,14 @@ def make_full_argus_pipeline(
         cited_ids = [str(c.chunk_id) for c in result.citations]
         status = None
         contradiction = False
-        if verify_answer and result.answer:
-            try:
-                verifier = await verify_claim(
-                    VerificationRequest(
-                        claim_id=uuid.uuid4(),
-                        claim_text=result.answer,
-                        supporting_chunk_ids=[uuid.UUID(c) for c in cited_ids],
-                        temporal_context=result.plan.time_window or None,
-                        entity_names=list(result.plan.entities),
-                    ),
-                    router=router,
-                    evidence_store=evidence_store,
-                    graph_store=graph_store,
-                    settings=settings,
-                    request_id=result.request_id,
-                )
-                status = verifier.status.value
-                contradiction = verifier.status == VerificationStatus.CONTRADICTED or bool(
-                    verifier.contradictions
-                )
-            except Exception:  # noqa: BLE001 - verification failure degrades to ERROR status
-                status = VerificationStatus.ERROR.value
+        # Phase 07b: verification now runs on the query path itself (selective,
+        # post-synthesis, fail-safe). Read its metadata instead of duplicating a
+        # second `verify_claim` call — keeps the benchmark aligned with the live
+        # `/query` behavior and avoids double verification.
+        verification = result.verification
+        if verify_answer and result.answer and verification is not None and verification.triggered:
+            status = verification.status
+            contradiction = bool(verification.contradiction_detected)
 
         return BenchmarkRunOutput(
             item_id=item.id,

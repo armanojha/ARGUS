@@ -432,12 +432,16 @@ async def _run_selective_verification(
             ),
             timeout=getattr(settings, "orchestration_llm_timeout", 30.0) + 5.0,
         )
+        status_value = getattr(verification_result.status, "value", str(verification_result.status))
         return OrchestrationVerification(
             triggered=True,
-            status=getattr(verification_result.status, "value", str(verification_result.status)),
+            status=status_value,
             confidence=verification_result.confidence,
             contradiction_detected=bool(verification_result.contradictions),
             reasoning=verification_result.reasoning or None,
+            error=str(verification_result.metadata.get("error", "")) or None
+            if status_value == "error"
+            else None,
         )
     except Exception as exc:  # noqa: BLE001 - fail-safe: annotate, don't crash
         logger.warning("verification_stage_failed", request_id=request_id, error=str(exc))
