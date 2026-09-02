@@ -27,7 +27,8 @@ from __future__ import annotations
 import json
 import math
 import time
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -360,10 +361,12 @@ async def _run_all_variants(
     * per-variant — a failing variant is recorded in `variant_failures` and
       the remaining variants still run and are scored.
 
-    When `checkpoint_path` is set, a partial JSON checkpoint of every completed
-    variant is written after each variant so a hard process interruption still
-    preserves the work already done (the final report is only written by
-    `run_ablation` after all variants finish).
+    When `checkpoint_path` is set, progress is checkpointed: after every item
+    of the in-flight variant (per-item outputs, so an interrupted variant is
+    continued rather than restarted) and after every completed variant
+    (aggregated scores, so a later re-launch skips completed variants). On
+    startup any existing checkpoint is loaded and the run resumes from it, so a
+    hard process interruption preserves all variants already scored.
 
     Returns ``(per_variant, variant_failures, item_failures)``: per-variant
     label/description/metrics/by_type; a map of variant_id -> error string for
@@ -375,13 +378,64 @@ async def _run_all_variants(
     per_variant: dict[str, dict[str, Any]] = {}
     variant_failures: dict[str, str] = {}
     item_failures: dict[str, list[dict[str, str]]] = {}
+    partial: dict[str, dict[str, Any]] = {}
+
+    restored = _load_checkpoint(checkpoint_path)
+    if restored:
+        per_variant = dict(restored.get("per_variant") or {})
+        variant_failures = dict(restored.get("variant_failures") or {})
+        item_failures = {k: list(v) for k, v in (restored.get("item_failures") or {}).items()}
+        partial = {k: dict(v) for k, v in (restored.get("partial") or {}).items()}
+        if per_variant:
+            logger.info("ablation_resumed", completed_variants=sorted(per_variant))
+
     try:
         for variant_id in VARIANT_ORDER:
+            if variant_id in per_variant:
+                continue
             try:
                 pipeline = make_variants(router=router, corpus=corpus, settings=settings)[
                     variant_id
                 ]
-                outputs, failures = await _run_all(pipeline, items, corpus)
+                resume_state = partial.get(variant_id)
+                resume_outputs = (
+                    [_output_from_dict(d) for d in resume_state.get("outputs", [])]
+                    if resume_state
+                    else []
+                )
+                resume_failures = (
+                    list(resume_state.get("failures", [])) if resume_state else []
+                )
+
+                def after_item(
+                    all_outputs: list[BenchmarkRunOutput],
+                    all_failures: list[dict[str, str]],
+                    _variant_id: str = variant_id,
+                ) -> None:
+                    partial[_variant_id] = {
+                        "outputs": [_output_to_dict(o) for o in all_outputs],
+                        "failures": all_failures,
+                    }
+                    try:
+                        _write_checkpoint(
+                            checkpoint_path,
+                            active_variant=_variant_id,
+                            per_variant=per_variant,
+                            variant_failures=variant_failures,
+                            item_failures=item_failures,
+                            partial=partial,
+                        )
+                    except OSError:  # noqa: BLE001 - checkpoint must never abort the run
+                        logger.warning("ablation_checkpoint_write_failed")
+
+                outputs, failures = await _run_all(
+                    pipeline,
+                    items,
+                    corpus,
+                    resume_outputs=resume_outputs,
+                    resume_failures=resume_failures,
+                    after_item=after_item if checkpoint_path is not None else None,
+                )
                 scored = score_items(items, outputs, corpus)
                 per_variant[variant_id] = {
                     "label": VARIANTS[variant_id].label,
@@ -391,22 +445,16 @@ async def _run_all_variants(
                 }
                 if failures:
                     item_failures[variant_id] = failures
+                partial.pop(variant_id, None)
                 if checkpoint_path is not None:
                     try:
-                        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-                        checkpoint_path.write_text(
-                            json.dumps(
-                                {
-                                    "variant_id": variant_id,
-                                    "completed_variants": sorted(per_variant),
-                                    "per_variant": per_variant,
-                                    "variant_failures": variant_failures,
-                                    "item_failures": item_failures,
-                                },
-                                indent=2,
-                                default=str,
-                            ),
-                            encoding="utf-8",
+                        _write_checkpoint(
+                            checkpoint_path,
+                            active_variant=None,
+                            per_variant=per_variant,
+                            variant_failures=variant_failures,
+                            item_failures=item_failures,
+                            partial=partial,
                         )
                     except OSError:  # noqa: BLE001 - checkpoint must never abort the run
                         logger.warning("ablation_checkpoint_write_failed")
@@ -428,17 +476,85 @@ async def _run_all_variants(
     return per_variant, variant_failures, item_failures
 
 
+def _load_checkpoint(checkpoint_path: Path | None) -> dict[str, Any]:
+    """Load a prior ablation_checkpoint.json ({} when absent/corrupt).
+
+    The checkpoint is the single source of truth for resuming: completed
+    variants (aggregated scores) are skipped, and an in-flight variant's
+    per-item outputs are continued rather than restarted.
+    """
+    if checkpoint_path is None or not checkpoint_path.exists():
+        return {}
+    try:
+        data = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_checkpoint(
+    checkpoint_path: Path,
+    *,
+    active_variant: VariantId | None,
+    per_variant: dict[str, dict[str, Any]],
+    variant_failures: dict[str, str],
+    item_failures: dict[str, list[dict[str, str]]],
+    partial: dict[str, dict[str, Any]],
+) -> None:
+    """Persist the running state; callers must wrap OSError so this never aborts."""
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint_path.write_text(
+        json.dumps(
+            {
+                "active_variant": active_variant,
+                "completed_variants": sorted(per_variant),
+                "per_variant": per_variant,
+                "variant_failures": variant_failures,
+                "item_failures": item_failures,
+                "partial": partial,
+            },
+            indent=2,
+            default=str,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _output_to_dict(output: BenchmarkRunOutput) -> dict[str, Any]:
+    return asdict(output)
+
+
+def _output_from_dict(data: dict[str, Any]) -> BenchmarkRunOutput:
+    return BenchmarkRunOutput(**data)
+
+
 async def _run_all(
-    pipeline: Pipeline, items: list[BenchmarkItem], corpus: CorpusContext
+    pipeline: Pipeline,
+    items: list[BenchmarkItem],
+    corpus: CorpusContext,
+    *,
+    resume_outputs: list[BenchmarkRunOutput] | None = None,
+    resume_failures: list[dict[str, str]] | None = None,
+    after_item: Callable[[list[BenchmarkRunOutput], list[dict[str, str]]], None] | None = None,
 ) -> tuple[list[BenchmarkRunOutput], list[dict[str, str]]]:
     """Run every item for one variant; a single failing item must not abort the rest.
 
     Returns ``(outputs, failures)`` where ``failures`` is the list of recorded
     item failures in run order (empty when every item completed).
+
+    Resume: when ``resume_outputs``/``resume_failures`` are provided (from the
+    per-item checkpoint of a previously interrupted variant), items whose id is
+    already recorded are skipped and the partial outputs are continued.
+    ``after_item`` (when set) is invoked after every newly-run item with the
+    running (outputs, failures); checkpoint writers use it to persist progress
+    so an interruption loses at most the in-flight item.
     """
-    outputs: list[BenchmarkRunOutput] = []
-    failures: list[dict[str, str]] = []
+    outputs = list(resume_outputs or [])
+    failures = list(resume_failures or [])
+    done_ids = {o.item_id for o in outputs}
     for item in items:
+        if item.id in done_ids:
+            continue
         try:
             outputs.append(await pipeline(item, corpus))
         except Exception as exc:  # noqa: BLE001 - per-item fault isolation
@@ -457,6 +573,11 @@ async def _run_all(
                     metadata={"item_error": error},
                 )
             )
+        if after_item is not None:
+            try:
+                after_item(outputs, failures)
+            except (OSError, TypeError, ValueError):  # noqa: BLE001 - checkpoint must never abort the run
+                logger.warning("ablation_checkpoint_write_failed")
     return outputs, failures
 
 

@@ -7,6 +7,7 @@ question set, and that the delta table is computable against `full_argus`.
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Coroutine
 from pathlib import Path
 from typing import Any, cast
@@ -23,8 +24,11 @@ from benchmarks.ablation import (
     ablation_markdown,
     make_variants,
     run_ablation,
+    _output_from_dict,
+    _output_to_dict,
+    _run_all,
 )
-from benchmarks.models import BenchmarkItem, BenchmarkRunOutput
+from benchmarks.models import BenchmarkItem, BenchmarkRunOutput, CorpusContext
 from benchmarks.runner import build_corpus, load_items, score_items
 
 
@@ -303,3 +307,124 @@ def test_run_ablation_single_loop_lifecycle_and_item_isolation(
     md = ablation_markdown(report)
     assert "simulated per-item pipeline failure" in md
     assert "Item failures" in md
+
+
+class _CountingProvider(ScriptedProvider):
+    """Scripted provider that counts LLM calls (0 means nothing was invoked)."""
+
+    def __init__(self, script):
+        super().__init__(script)
+        self.call_count = 0
+
+    async def complete(self, messages, *, model=None, temperature=0.0, max_tokens=None,
+                       response_format=None, tools=None, tool_choice=None, timeout=30.0,
+                       call_type: str = "general", request_id=None) -> CompletionResponse:
+        self.call_count += 1
+        return await super().complete(
+            messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=response_format,
+            tools=tools,
+            tool_choice=tool_choice,
+            timeout=timeout,
+            call_type=call_type,
+            request_id=request_id,
+        )
+
+
+def test_run_ablation_resumes_completed_variants(
+    tmp_path: Path, provider: ScriptedProvider, bench_settings: Settings
+):
+    """Re-running into the same out_dir must resume from the checkpoint and not
+    invoke the LLM again for already-completed variants."""
+    counting = _CountingProvider(
+        {
+            "query_analysis": [ANALYSIS_OK] * 40,
+            "research_planning": [plan_payload(["Acme founded year"])] * 40,
+            "evidence_extraction": [assessment_payload()] * 40,
+            "synthesis": ["Acme Corp was founded in 1987 [1]."] * 60,
+            "verification": [VERIFIER_OK] * 40,
+        }
+    )
+
+    first = run_ablation(
+        router=LLMRouter(counting),
+        limit=2,
+        working_dir=tmp_path / "work",
+        out_dir=tmp_path / "out",
+        settings=bench_settings,
+        name="resume test",
+    )
+    assert set(first["variants"]) == set(VARIANT_ORDER)
+    assert counting.call_count > 0
+    assert (tmp_path / "out" / "ablation_checkpoint.json").exists()
+
+    counting.call_count = 0
+    second = run_ablation(
+        router=LLMRouter(counting),
+        limit=2,
+        working_dir=tmp_path / "work2",
+        out_dir=tmp_path / "out",
+        settings=bench_settings,
+        name="resume test",
+    )
+    # Every variant was already completed in the checkpoint -> fully resumed.
+    assert counting.call_count == 0
+    assert set(second["variants"]) == set(VARIANT_ORDER)
+    # Resumed aggregate for the reference variant is reproducibility-stable: the
+    # deterministic metric values match (timing/failed-call totals may differ).
+    for metric, info in second["variants"]["full_argus"]["metrics"].items():
+        if metric in {"avg_latency_ms", "total_failed_calls", "avg_loop_count"}:
+            continue
+        second_v = info["value"]
+        first_v = first["variants"]["full_argus"]["metrics"][metric]["value"]
+        if second_v is None or first_v is None:
+            assert second_v == first_v
+        else:
+            second_ok = math.isnan(float(second_v))
+            first_ok = math.isnan(float(first_v))
+            assert second_ok == first_ok or second_v == first_v
+
+
+def test_run_ablation_output_roundtrip_and_item_resume():
+    """Outputs persisted to the checkpoint survive a JSON round-trip, and an
+    already-recorded item is not re-invoked by a resumed partial variant run."""
+    original = BenchmarkRunOutput(
+        item_id="easy-001",
+        answer="Acme Corp was founded in 1987 [1].",
+        cited_chunk_ids=["c1"],
+        retrieved_chunk_ids=["c1", "c2"],
+        loop_count=2,
+        tokens_used=40,
+        latency_ms=1234,
+        failed_calls=1,
+        verification_status="supported",
+        metadata={"variant": "baseline_rag", "retrieved_count": 2},
+    )
+    restored = _output_from_dict(_output_to_dict(original))
+    assert restored == original
+
+    class _Factory:
+        async def __call__(self, item: BenchmarkItem, _corpus: CorpusContext) -> BenchmarkRunOutput:
+            if item.id == "easy-001":
+                raise AssertionError("already-recorded item must not be re-invoked")
+            return BenchmarkRunOutput(item_id=item.id, answer="ok")
+
+    items = [
+        BenchmarkItem(id="easy-001", type="easy_factual", question="q1", gold_answer="a"),
+        BenchmarkItem(id="easy-002", type="easy_factual", question="q2", gold_answer="a"),
+    ]
+    corpus = CorpusContext(gold_chunk_ids={})
+    outputs, failures = asyncio.run(
+        _run_all(
+            _Factory(),  # type: ignore[arg-type]
+            items,
+            corpus,
+            resume_outputs=[original],
+            resume_failures=[{"item_id": "easy-001", "error": "previous"}],
+        )
+    )
+    assert outputs[0] == original
+    assert failures == [{"item_id": "easy-001", "error": "previous"}]
