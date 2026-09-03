@@ -28,54 +28,86 @@ from app.retrieval.hybrid import HybridRetriever
 logger = get_logger("argus.orchestration.agents.coordinator")
 
 
-def _evidence_score_stats(evidence: list[Any]) -> tuple[float | None, float]:
-    """Return ``(mean_score, coefficient_of_variation)`` for evidence scores.
+def _evidence_scores(evidence: list[Any]) -> list[float]:
+    """Return the raw evidence scores (empty list for empty evidence)."""
+    return [e.score for e in evidence]
 
-    ``mean_score`` is ``None`` when ``evidence`` is empty; CV is 0 for a
-    single item or no score spread (stdev is undefined). Used by the 06.5.4
-    verification-gate predicate below.
+
+def _evidence_grounding_score(evidence: list[Any]) -> float | None:
+    """Best grounded-evidence confidence: the highest evidence score.
+
+    The 06.5.4 gate is a *confidence* gate, so it must read the score on the
+    same scale the retriever produced. The hybrid retriever fuses BM25 and
+    vector scores into ``[0, 1]`` (top BM25 hit -> 1.0, vector cosine is
+    already in ``[0, 1]``): a single high score therefore means "the answer
+    chunk is well-grounded". The *mean* over the whole top-K list is a poor
+    proxy for that confidence on real corpora, because top-K lists routinely
+    contain lower-scoring filler chunks that dilute the average — so the mean
+    is not comparable to an absolute confidence threshold (HARDEN-07d.1).
+    Returns ``None`` when ``evidence`` is empty.
     """
     if not evidence:
-        return None, 0.0
-    scores = [e.score for e in evidence]
+        return None
+    return max(e.score for e in evidence)
+
+
+def _evidence_conflict(evidence: list[Any], disagreement_threshold: float) -> bool:
+    """Whether the evidence base looks *conflicting* rather than well-grounded.
+
+    A high coefficient of variation over the evidence score spread signals
+    that the retrieved chunks support the answer with materially different
+    strengths — the case a verifier exists to check. Kept deliberately
+    unchanged from the 06.5.4 guard so high-risk/conflicting evidence is never
+    un-protected (quality >= efficiency; HARDEN-07d.1).
+    """
+    if len(evidence) < 3:
+        return False
+    scores = _evidence_scores(evidence)
     mean_score = sum(scores) / len(scores)
-    if len(scores) < 2:
-        return mean_score, 0.0
+    if mean_score <= 0:
+        return False
     try:
-        stdev = statistics.stdev(scores)
+        cv = statistics.stdev(scores) / mean_score
     except statistics.StatisticsError:  # identical values -> no divergence
-        return mean_score, 0.0
-    cv = stdev / mean_score if mean_score > 0 else 0.0
-    return mean_score, cv
+        return False
+    return cv > disagreement_threshold
 
 
 def should_skip_verification(plan: Any | None, evidence: list[Any], settings: Settings) -> bool:
-    """HARDEN-06.5.4: whether claim verification can be safely skipped.
+    """HARDEN-06.5.4 / HARDEN-07d.1: whether claim verification can be safely skipped.
 
     Shared predicate used by the multi-agent coordinator *and* the Phase 07b
     selective-verification stage so the risk/confidence gate is a single
     source of truth (no duplicated logic). Verification is skipped only when
-    the evidence base is non-empty, low-risk, and well-grounded (average score
-    >= ``multiagent_verify_threshold``) with no high-uncertainty or conflicting
-    signals. Any warning sign forces verification back on.
+    the evidence base is non-empty, low-risk, and well-grounded — measured on
+    the *grounding* score (the highest retrieved-chunk score, i.e. the chunk
+    the answer is actually grounded on) against ``multiagent_verify_threshold``
+    — with no conflicting signals (high score-spread) and no high-risk plan.
+
+    The confidence test was realigned from the diluted top-K mean to the
+    highest evidence score (HARDEN-07d.1): the mean is pulled down by
+    lower-scoring filler chunks in top-K and is therefore not comparable to an
+    absolute confidence threshold, whereas the top score is on the retriever's
+    fused ``[0, 1]`` scale. Any warning sign (conflict, high risk, empty
+    evidence) still forces verification back on — this pass only repairs the
+    scale semantics, it never strips protection from genuinely risky answers.
     """
     if not evidence:
         return False  # nothing to be confident in; verify
     if plan is not None and plan.risk_level in ("medium", "high"):
         return False  # risky question; verify regardless of score
 
-    avg_score, cv = _evidence_score_stats(evidence)
+    grounding_score = _evidence_grounding_score(evidence)
     verify_threshold = settings.multiagent_verify_threshold
-    skeptic_threshold = settings.multiagent_skeptic_threshold
     disagreement_threshold = settings.multiagent_disagreement_threshold
 
-    requires_verification = (
-        avg_score is not None and avg_score < verify_threshold
-        or avg_score is not None and avg_score < skeptic_threshold
-        or avg_score is not None and avg_score < 0.5  # high uncertainty
-        or len(evidence) >= 3 and cv > disagreement_threshold
-    )
-    return not requires_verification
+    if grounding_score is not None and grounding_score < verify_threshold:
+        return False  # no chunk grounds the answer well enough; verify
+
+    if _evidence_conflict(evidence, disagreement_threshold):
+        return False  # conflicting evidence; verify
+
+    return True
 
 
 class AgentCoordinator(AgentCoordinatorInterface):
