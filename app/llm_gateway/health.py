@@ -273,6 +273,42 @@ class ProviderHealthTracker:
             entry.status = HealthStatus.HEALTHY
             return entry.status
 
+    def recovery_candidate(self, specs: list[tuple[str, str | None]]) -> tuple[str, str | None, float] | None:
+        """Pick the provider/model most-likely to have recovered from a transient
+        failure, for a single bounded in-session recovery probe (Phase 07e).
+
+        ``specs`` is an ordered list of ``(provider, model)`` candidates. This
+        returns the candidate whose entity is in cooldown with the *earliest
+        expiry* (i.e. closest to recovery) that has cooled past its cooldown
+        (``cooldown_remaining <= 0``) — the one most likely to serve again.
+        Returns ``None`` when there is no such candidate (nothing has cooled,
+        so probing would only re-hit a known-dead endpoint -> 0-repeat guarantee).
+
+        This is deliberately a *bounded, health-backed* selection:
+          * It never proposes a provider whose cooldown is still active (no
+            hammering during a burst).
+          * It proposes at most ONE candidate, which the caller probes once.
+          * It only fires when the caller has no other eligible provider, so it
+            adds no work to the healthy path.
+
+        Returns ``(provider, model, cooldown_remaining_s)`` where
+        ``cooldown_remaining_s <= 0`` indicates the cooldown has elapsed.
+        """
+        now = time.monotonic()
+        best: tuple[str, str | None, float] | None = None
+        with self._lock:
+            for provider, model in specs:
+                key = self._model_key(provider, model) if model else self._provider_key(provider)
+                entry = self._health.get(key)
+                if entry is None or not entry.in_cooldown(now):
+                    continue
+                remaining = entry.cooldown_until - now
+                if remaining > 0:
+                    continue  # still cooling; probing would just re-hit the failure
+                if best is None or remaining < best[2]:
+                    best = (entry.name, entry.model, remaining)
+        return best
+
     def get_all_status(self) -> dict[str, dict]:
         with self._lock:
             return {key: self._describe(entry) for key, entry in self._health.items()}

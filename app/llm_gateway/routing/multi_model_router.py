@@ -515,7 +515,115 @@ class MultiModelRouter:
                     break
 
         # All attempts failed
+        # Phase 07e: before converting to a hard "no available model" error,
+        # attempt ONE bounded in-session recovery probe against a provider that
+        # has cooled past its cooldown (health-backed, single attempt). This
+        # re-eligibilizes a technically-recovered provider without waiting for
+        # an arbitrary future query to lazily route back to it — yet only when
+        # no other provider is available, and never hammering a still-cooling
+        # or still-failing one (0-repeat).
+        if last_error is not None:
+            probed_response, _routed = await self._recovery_probe(
+                messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format=response_format,
+                tools=tools,
+                tool_choice=tool_choice,
+                timeout=timeout,
+                call_type=call_type,
+                request_id=request_id,
+            )
+            if probed_response is not None:
+                return probed_response
         raise last_error or ConfigurationError(f"All routing attempts failed for call_type '{call_type}'")
+
+    async def _recovery_probe(
+        self,
+        messages: list[Message],
+        *,
+        temperature: float,
+        max_tokens: int | None,
+        response_format: type[BaseModel] | None,
+        tools: list[Tool] | None,
+        tool_choice: ToolChoice | None,
+        timeout: float,
+        call_type: str,
+        request_id: str | None,
+    ) -> tuple[CompletionResponse | None, RoutingResult | None]:
+        """Attempt one bounded in-session recovery probe (Phase 07e).
+
+        Fires only when the router would otherwise raise "No available model":
+        every configured model is in cooldown or failing. It probes ONE
+        provider that has *cooled past its cooldown* (health-backed), the most
+        likely to have recovered, with a single attempt and the caller's hard
+        per-attempt timeout. A success clears the entity in the health tracker
+        (in-session recovery without a restart); a failure re-records it and
+        re-asserts the cooldown so it is NOT repeatedly probed (0-repeat).
+        Returns ``(None, None)`` if there is no cooled candidate, so the
+        normal raise/conversion path is preserved.
+        """
+        candidate = get_provider_health_tracker(self._settings).recovery_candidate(
+            self._provider_fallback_skips(call_type)
+        )
+        if candidate is None:
+            return None, None
+        cand_provider, cand_model, _remaining = candidate
+        provider = self._get_provider(cand_provider)
+        if provider is None:
+            return None, None
+        model_spec = ModelSpec(provider=cand_provider, model=cand_model or provider.default_model)
+        try:
+            response = await provider.complete(
+                messages,
+                model=model_spec.model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format=response_format,
+                tools=tools,
+                tool_choice=tool_choice,
+                timeout=timeout,
+                call_type=call_type,
+                request_id=request_id,
+            )
+            get_provider_health_tracker(self._settings).record_success(
+                model_spec.provider,
+                model=model_spec.model,
+                scope="provider",
+            )
+            get_provider_health_tracker(self._settings).record_success(
+                model_spec.provider,
+                model=model_spec.model,
+                scope="model",
+            )
+            return response, RoutingResult(
+                model_spec=model_spec,
+                provider_instance=provider,
+                is_fallback=True,
+                fallback_reason="in_session_recovery_probe",
+                attempt=0,
+            )
+        except LLMProviderError:
+            get_provider_health_tracker(self._settings).record_failure(
+                model_spec.provider,
+                "RATE_LIMIT_ERROR",
+                "recovery probe refused; provider not yet recovered",
+                model=model_spec.model,
+                scope="model",
+            )
+            return None, None
+
+    def _provider_fallback_skips(self, call_type: str) -> list[tuple[str, str | None]]:
+        """Ordered list of ``(provider, model)`` identities for the call-type
+        chain, used to select a recovery-probe candidate (Phase 07e)."""
+        specs: list[tuple[str, str | None]] = []
+        for m in self._resolve_model_chain(call_type):
+            specs.append((m.provider, m.model))
+        for p in self._get_provider_fallbacks():
+            provider = self._get_provider(p)
+            if provider is not None and (p, provider.default_model) not in specs:
+                specs.append((p, provider.default_model))
+        return specs
 
     async def _execute_with_telemetry(
         self,
