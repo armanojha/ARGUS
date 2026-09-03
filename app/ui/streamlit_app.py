@@ -34,6 +34,18 @@ from app.ui.api_client import ARGUSAPIClient, ARGUSAPIClientError
 
 st.set_page_config(page_title="ARGUS", page_icon=":material/science:", layout="wide")
 
+# File types the modern chat attach accepts (mirrors the server's supported set).
+_SUPPORTED_UI_EXTENSIONS: set[str] = {
+    "pdf",
+    "txt",
+    "md",
+    "markdown",
+    "csv",
+    "xlsx",
+    "xls",
+    "xlsm",
+}
+
 # React upgrade path (V3 §18): a future React client can reuse the exact same
 # `/api/v1/query` + `/api/v1/verify` + knowledge-base/brain/obsidian contract;
 # nothing here is Streamlit-specific except the rendering layer.
@@ -399,95 +411,203 @@ def _render_obsidian_brain(client: ARGUSAPIClient) -> None:
                 st.warning("; ".join(result.get("failed") or []))
 
 
-def _render_evidence_section(client: ARGUSAPIClient, base_url: str) -> None:
-    """Chat / Research: ask a question, see the grounded cited answer."""
-    st.caption("Ask ARGUS anything. Answers are grounded in the Knowledge Base with citations.")
-    query_text = st.text_input(
-        "Research question", key="query", placeholder="e.g. Which evidence supports the claim that Acme acquired Beta?"
-    )
-    go = st.button("Run research", type="primary")
-
-    if not go:
-        st.info("Enter a question and press **Run research**. The API must be running first:")
-        st.code("uvicorn app.api.main:app --reload", language="bash")
-        return
-
-    if not query_text.strip():
-        _fail("Please enter a question.")
-        return
-
-    with st.spinner("Running the research loop…"):
+def _run_query(client: ARGUSAPIClient, question: str) -> dict[str, Any] | None:
+    """Run one question through the research loop and return the result (or None)."""
+    with st.spinner("Researching and grounding the answer…"):
         try:
-            result = client.query(query_text.strip(), user_early_stop=False)
+            return client.query(question, user_early_stop=False)
         except ARGUSAPIClientError as exc:
-            _fail(f"API call failed — is the API running? {exc}")
-            return
+            st.error(f"API call failed — is the API running? {exc}")
+            return None
 
-    _render_loop_stats(result)
-    _render_telemetry(result.get("telemetry"))
+
+def _citation_lines(citations: list[dict[str, Any]]) -> list[str]:
+    """Short, user-friendly source references for an answer."""
+    lines: list[str] = []
+    for i, cit in enumerate(citations, 1):
+        loc = ""
+        if cit.get("page_start"):
+            loc = f" p.{int(cit['page_start'])}"
+        path = cit.get("source_path") or "source"
+        lines.append(f"{i}. `{path}`{loc}")
+    return lines
+
+
+def _render_chat(client: ARGUSAPIClient) -> None:
+    """Unified, ChatGPT-like chat: ask a question OR attach a file, in one thread."""
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "processing" not in st.session_state:
+        st.session_state.processing = False
+
+    chat_title = st.container()
+    with chat_title:
+        st.title("ARGUS")
+        st.caption("Ask a question or drop a file. Answers are grounded in your Knowledge Base.")
+
+    chat_container = st.container()
+    with chat_container:
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                for block in msg.get("blocks", [msg]):
+                    kind = block.get("kind", "text")
+                    if kind == "text":
+                        st.markdown(block.get("text", ""))
+                    elif kind == "sources":
+                        st.caption(block.get("label", "Sources"))
+                        for line in block.get("lines", []):
+                            st.markdown(line)
+                    elif kind == "pill":
+                        st.caption(block.get("text", ""))
 
     with st.container(border=True):
-        st.markdown(f"**Answer:**  \n{result.get('answer') or ''}")
-
-    memory_consulted = result.get("memory_consulted")
-    if memory_consulted:
-        st.info(
-            "This query also selectively consulted **ARGUS memory** (derived knowledge, "
-            "distinct from your document evidence): "
-            + ", ".join(f"`{m}`" for m in memory_consulted)
-            + ". Memory is used for continuity only and never replaces document evidence."
-        )
-    else:
-        st.caption("This query did not consult ARGUS memory — it was answered from document evidence only.")
-
-    _render_plan(result.get("plan") or {})
-    _render_evidence(result.get("citations") or [])
-    _render_source_trail(result.get("citations") or [])
-
-    citations = result.get("citations") or []
-    claim_text = result.get("answer") or result.get("query") or ""
-    with st.spinner("Verifying the answer against evidence…"):
-        try:
-            verification = client.verify(
-                claim_text,
-                [str(c.get("chunk_id")) for c in citations],
-                entity_names=(result.get("plan") or {}).get("entities") or [],
-                temporal_context=(result.get("plan") or {}).get("time_window"),
+        attach_col, dispatch_col = st.columns([1, 1])
+        with attach_col:
+            uploaded = st.file_uploader(
+                "Attach a document",
+                type=list(_SUPPORTED_UI_EXTENSIONS),
+                key="chat_attach",
+                label_visibility="collapsed",
             )
-        except ARGUSAPIClientError as exc:
-            _fail(f"Verification failed: {exc}")
-            verification = None
-    if verification is not None:
-        _render_verification(verification)
+        with dispatch_col, st.container():
+            st.markdown("&nbsp;")
+            st.markdown("**Ask below, or attach and then ask.**")
 
-    _render_run_traces(client)
+    prompt = st.chat_input("Ask ARGUS a question…")
+
+    if uploaded is not None and not st.session_state.processing:
+        st.session_state.processing = True
+        filename = uploaded.name or "document"
+        st.session_state.messages.append({"role": "user", "blocks": [{"kind": "text", "text": f"Uploaded: **{filename}**"}]})
+        with chat_container, st.chat_message("user"):
+            st.markdown(f"Uploaded: **{filename}**")
+        _ingest_upload(client, uploaded, filename, chat_container)
+        question = f"Summarize the document '{filename}' in a clear, well-structured way."
+        _ask(client, question, chat_container, from_upload=True)
+        st.session_state.processing = False
+        st.rerun()
+
+    if prompt and not st.session_state.processing:
+        st.session_state.processing = True
+        st.session_state.messages.append({"role": "user", "blocks": [{"kind": "text", "text": prompt}]})
+        with chat_container, st.chat_message("user"):
+            st.markdown(prompt)
+        _ask(client, prompt, chat_container)
+        st.session_state.processing = False
+        st.rerun()
+
+
+def _ingest_upload(
+    client: ARGUSAPIClient,
+    uploaded: Any,
+    filename: str,
+    container: Any,
+) -> None:
+    """Ingest an attached file into the Knowledge Base and reflect the outcome in chat."""
+    import tempfile
+
+    file_paths: list[str] = []
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dest = Path(tmpdir) / Path(filename).name
+        dest.write_bytes(uploaded.getvalue())
+        file_paths.append(str(dest))
+        with st.spinner("Ingesting the attached file…"):
+            try:
+                result = client.upload_files(file_paths)
+            except ARGUSAPIClientError as exc:
+                with container, st.chat_message("assistant"):
+                    st.error(f"Upload failed: {exc}")
+                st.session_state.messages.append(
+                    {"role": "assistant", "blocks": [{"kind": "text", "text": f"Upload failed: {exc}"}]}
+                )
+                return
+
+    uploaded_count = len(result.get("uploaded") or [])
+    rejected = result.get("rejected") or []
+    if uploaded_count == 0:
+        reason = rejected[0].get("reason", "unsupported file") if rejected else "unknown"
+        with container, st.chat_message("assistant"):
+            st.error(f"Could not ingest `{filename}`: {reason}")
+        st.session_state.messages.append(
+            {"role": "assistant", "blocks": [{"kind": "text", "text": f"Could not ingest `{filename}`: {reason}"}]}
+        )
+        return
+
+    with container, st.chat_message("assistant"):
+        st.markdown(f"`{filename}` ingested ({uploaded_count} file(s)). Index refreshed — you can ask about it now.")
+    st.session_state.messages.append(
+        {"role": "assistant", "blocks": [{"kind": "text", "text": f"`{filename}` ingested and indexed."}]}
+    )
+
+
+def _ask(
+    client: ARGUSAPIClient,
+    question: str,
+    container: Any,
+    *,
+    from_upload: bool = False,
+) -> None:
+    """Run the question, render the assistant answer and sources, remember it."""
+    result = _run_query(client, question)
+    if result is None:
+        return
+
+    answer = (result.get("answer") or "").strip()
+    citations = result.get("citations") or []
+    memory_consulted = result.get("memory_consulted") or []
+
+    blocks: list[dict[str, Any]] = []
+    if answer:
+        blocks.append({"kind": "text", "text": answer})
+    elif not from_upload:
+        blocks.append({"kind": "text", "text": "_No answer returned._"})
+
+    if memory_consulted:
+        blocks.append(
+            {
+                "kind": "pill",
+                "text": "Consulted ARGUS memory (derived knowledge, kept distinct from your document evidence).",
+            }
+        )
+
+    if citations:
+        blocks.append({"kind": "sources", "label": "Sources", "lines": _citation_lines(citations)})
+    else:
+        blocks.append({"kind": "pill", "text": "_No sources found — check that the Knowledge Base has been ingested._"})
+
+    with container, st.chat_message("assistant"):
+        for block in blocks:
+            if block["kind"] == "text":
+                st.markdown(block["text"])
+            elif block["kind"] == "pill":
+                st.caption(block["text"])
+            elif block["kind"] == "sources":
+                st.markdown(f"**{block['label']}**")
+                for line in block["lines"]:
+                    st.markdown(line)
+
+    st.session_state.messages.append({"role": "assistant", "blocks": blocks})
 
 
 def run() -> None:
-    """ARGUS knowledge system: four-layer UI main entry point."""
-    st.title("ARGUS")
-    st.caption("User Knowledge Base · ARGUS Brain · ARGUS Obsidian Brain — one front door.")
+    """ARGUS knowledge system: ChatGPT-like unified chat + management sidebar."""
+    chat_col, side_col = st.columns([3, 1], gap="large")
 
-    with st.sidebar:
-        st.header("Control")
-        base_url = st.text_input("API base URL", value="http://localhost:8000")
-        st.caption("Model selection stays explicit server-side via `configs/model_policy.yaml` — the UI never selects models.")
-        section = st.radio(
-            "Layer",
-            ["Chat / Research", "Knowledge Base", "ARGUS Brain", "Obsidian Brain"],
-            key="layer_radio",
-        )
+    with side_col:
+        st.markdown("### System")
+        with st.expander("Connect", expanded=True):
+            base_url = st.text_input("API base URL", value="http://localhost:8000")
+        client = ARGUSAPIClient(base_url=base_url)
+        with st.expander("Knowledge Base", expanded=False):
+            _render_knowledge_base(client)
+        with st.expander("ARGUS Brain (memory)", expanded=False):
+            _render_brain(client)
+        with st.expander("Obsidian Brain", expanded=False):
+            _render_obsidian_brain(client)
+        st.caption("Management views for operators. The chat above is the end-user surface.")
 
-    client = ARGUSAPIClient(base_url=base_url)
-
-    if section == "Knowledge Base":
-        _render_knowledge_base(client)
-    elif section == "ARGUS Brain":
-        _render_brain(client)
-    elif section == "Obsidian Brain":
-        _render_obsidian_brain(client)
-    else:
-        _render_evidence_section(client, base_url)
+    with chat_col:
+        _render_chat(client)
 
 
 run()
