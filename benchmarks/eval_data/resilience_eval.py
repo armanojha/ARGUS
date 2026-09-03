@@ -19,25 +19,23 @@ import asyncio
 import json
 import pathlib
 import sys
-import time
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1]))
 
-from tests.mocks.mock_provider import MockProvider
 from app.config import Settings
+from app.llm_gateway.health import (
+    get_provider_health_tracker,
+    reset_provider_health_tracker,
+)
 from app.llm_gateway.providers.exceptions import (
     RateLimitError,
     TimeoutOrNetworkError,
 )
-from app.llm_gateway.providers.models import Message, MessageRole, CompletionResponse, Usage
-from app.llm_gateway.routing.multi_model_router import MultiModelRouter
-from app.llm_gateway.health import (
-    get_provider_health_tracker,
-    reset_provider_health_tracker,
-    HealthStatus,
-)
+from app.llm_gateway.providers.models import Message, MessageRole
 from app.llm_gateway.quota import reset_quota_tracker
+from app.llm_gateway.routing.multi_model_router import MultiModelRouter
+from tests.mocks.mock_provider import MockProvider
 
 
 def _providers():

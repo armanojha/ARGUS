@@ -425,7 +425,7 @@ async def _run_all_variants(
                             item_failures=item_failures,
                             partial=partial,
                         )
-                    except OSError:  # noqa: BLE001 - checkpoint must never abort the run
+                    except OSError:
                         logger.warning("ablation_checkpoint_write_failed")
 
                 outputs, failures = await _run_all(
@@ -456,7 +456,7 @@ async def _run_all_variants(
                             item_failures=item_failures,
                             partial=partial,
                         )
-                    except OSError:  # noqa: BLE001 - checkpoint must never abort the run
+                    except OSError:
                         logger.warning("ablation_checkpoint_write_failed")
             except Exception as exc:  # noqa: BLE001 - variant-level fault isolation
                 variant_failures[variant_id] = f"{type(exc).__name__}: {exc}"
@@ -576,7 +576,7 @@ async def _run_all(
         if after_item is not None:
             try:
                 after_item(outputs, failures)
-            except (OSError, TypeError, ValueError):  # noqa: BLE001 - checkpoint must never abort the run
+            except (OSError, TypeError, ValueError):
                 logger.warning("ablation_checkpoint_write_failed")
     return outputs, failures
 

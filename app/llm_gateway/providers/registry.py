@@ -19,7 +19,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from app.config import Settings, load_providers_config, get_settings
+from app.config import Settings, get_settings, load_providers_config
 from app.llm_gateway.providers.base import LLMProvider
 from app.llm_gateway.providers.exceptions import ConfigurationError
 from app.logging_config import get_logger

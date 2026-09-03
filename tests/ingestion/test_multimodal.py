@@ -7,20 +7,28 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 import pymupdf
+import pytest
 
-from app.ingestion.ocr import (
-    extract_pdf_text_layer,
-    has_usable_text_layer,
-    extract_pdf_with_ocr_fallback,
-    extract_pdf_segments_with_ocr,
-    OCRResult,
+from app.ingestion.images import (
+    charts_to_text_segments,
+    extract_pdf_charts,
+    extract_pdf_images,
 )
-from app.ingestion.tables import extract_pdf_tables, tables_to_text_segments, ExtractedTable
-from app.ingestion.web import fetch_web_page, web_page_to_text_segments, is_valid_web_url
-from app.ingestion.spreadsheets import ingest_spreadsheet, spreadsheet_to_text_segments, is_valid_spreadsheet
-from app.ingestion.images import extract_pdf_images, extract_pdf_charts, images_to_text_segments, charts_to_text_segments
+from app.ingestion.ocr import (
+    OCRResult,
+    extract_pdf_segments_with_ocr,
+    extract_pdf_text_layer,
+    extract_pdf_with_ocr_fallback,
+    has_usable_text_layer,
+)
+from app.ingestion.spreadsheets import (
+    ingest_spreadsheet,
+    is_valid_spreadsheet,
+    spreadsheet_to_text_segments,
+)
+from app.ingestion.tables import ExtractedTable, extract_pdf_tables, tables_to_text_segments
+from app.ingestion.web import is_valid_web_url, web_page_to_text_segments
 
 
 def _create_text_pdf() -> bytes:
@@ -196,8 +204,9 @@ class TestWebIngestion:
 
     def test_web_page_result_structure(self):
         """Test WebPageResult structure."""
-        from app.ingestion.web import WebPageResult
         from datetime import UTC, datetime
+
+        from app.ingestion.web import WebPageResult
         
         result = WebPageResult(
             url="https://example.com",
@@ -218,9 +227,10 @@ class TestWebIngestion:
 
     def test_web_page_to_text_segments(self):
         """Test converting web page to text segments."""
-        from app.ingestion.web import WebPageResult
         from datetime import UTC, datetime
+
         from app.ingestion.chunking import TextSegment
+        from app.ingestion.web import WebPageResult
         
         result = WebPageResult(
             url="https://example.com",
@@ -275,9 +285,9 @@ class TestSpreadsheetIngestion:
 
     def test_spreadsheet_to_text_segments(self):
         """Test converting spreadsheet to text segments."""
-        from app.ingestion.spreadsheets import SpreadsheetResult, SpreadsheetSheet
         from app.ingestion.chunking import TextSegment
         from app.ingestion.multimodal import SpreadsheetCell
+        from app.ingestion.spreadsheets import SpreadsheetResult, SpreadsheetSheet
         
         sheet = SpreadsheetSheet(
             name="Sheet1",
@@ -365,9 +375,9 @@ class TestChartsImages:
 
     def test_charts_to_text_segments(self):
         """Test converting charts to text segments."""
+        from app.ingestion.chunking import TextSegment
         from app.ingestion.images import ExtractedChart
         from app.ingestion.multimodal import ChartDataPoint, ChartType
-        from app.ingestion.chunking import TextSegment
         
         chart = ExtractedChart(
             page_number=1,
@@ -396,7 +406,7 @@ class TestMultimodalPipelineIntegration:
 
     def test_pipeline_imports(self):
         """Test that all multimodal modules can be imported."""
-        from app.ingestion import ocr, tables, web, spreadsheets, images
+        from app.ingestion import images, ocr, spreadsheets, tables, web
 
         assert ocr is not None
         assert tables is not None

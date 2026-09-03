@@ -331,7 +331,6 @@ class TestMultiModelRouter:
         )
 
         # Mock providers record the requested model in completion log.
-        from tests.mocks.mock_provider import MockProvider
         groq: MockProvider = router._registry.get("groq")  # type: ignore[union-attr]
         strong_models = [c["model"] for c in groq.call_log]
 
@@ -533,9 +532,11 @@ class TestIntraProviderFallback:
 
     @staticmethod
     def _make_intra_zen_router(mock_providers):
+        import pathlib
+        import tempfile
+
         from app.config import Settings
         from app.llm_gateway.routing.multi_model_router import MultiModelRouter
-        import tempfile, pathlib
 
         tmp = pathlib.Path(tempfile.mkdtemp(prefix="argus_intra_"))
         (tmp / "model_policy.yaml").write_text(

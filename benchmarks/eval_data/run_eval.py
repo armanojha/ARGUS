@@ -17,7 +17,6 @@ import json
 import pathlib
 import sys
 import time
-import uuid
 from hashlib import sha1
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -37,13 +36,13 @@ def load_plan() -> dict:
 # Corpus construction (mirrors benchmarks/runner.build_corpus)
 # --------------------------------------------------------------------------
 def build_corpus(working_dir: pathlib.Path):
+    from app.evidence.models import Chunk, Document, Source, SourceType
     from app.evidence.store import EvidenceStore
-    from app.evidence.models import Source, SourceType, Document, Chunk
+    from app.graph.store import EvidenceGraphStore
     from app.retrieval.bm25 import BM25Retriever
-    from app.retrieval.vector import FAISSVectorStore
     from app.retrieval.embeddings import EmbeddingGenerator
     from app.retrieval.hybrid import HybridRetriever
-    from app.graph.store import EvidenceGraphStore
+    from app.retrieval.vector import FAISSVectorStore
 
     working_dir.mkdir(parents=True, exist_ok=True)
     store = EvidenceStore(
@@ -132,10 +131,10 @@ def make_routing_for_live(plan: dict):
 
 
 async def run_live(plan: dict, corpus: dict, limit: int, cutoff_queries, out_dir: pathlib.Path):
+    from app.config import get_settings
+    from app.llm_gateway.telemetry import end_run_telemetry, start_run_telemetry
     from app.orchestration.graph import run_query
     from app.reranking.reranker import NoOpReranker
-    from app.llm_gateway.telemetry import start_run_telemetry, end_run_telemetry
-    from app.config import get_settings
 
     settings = get_settings()
     router = make_routing_for_live(plan)
@@ -165,9 +164,9 @@ async def run_live(plan: dict, corpus: dict, limit: int, cutoff_queries, out_dir
     # selective-verification stage can resolve our chunk ids (production /query
     # uses the real global store; the app-level global here is unrelated to our
     # evaluation database).
-    import app.orchestration.graph as graph_mod
     import app.evidence.store as ev_store_mod
     import app.graph.store as gr_store_mod
+    import app.orchestration.graph as graph_mod
 
     _ev = ev_store_mod.get_evidence_store
     _gr = gr_store_mod.get_graph_store
@@ -237,11 +236,14 @@ async def run_live(plan: dict, corpus: dict, limit: int, cutoff_queries, out_dir
 # Resilience (mocks only - NO live API)
 # --------------------------------------------------------------------------
 async def run_resilience(plan: dict, corpus: dict, out_dir: pathlib.Path):
+    from app.config import get_settings
+    from app.llm_gateway.telemetry import end_run_telemetry, start_run_telemetry
     from app.orchestration.graph import run_query
     from app.reranking.reranker import NoOpReranker
-    from app.llm_gateway.telemetry import start_run_telemetry, end_run_telemetry
-    from app.config import get_settings
-    from tests.test_cross_phase_integration import ScriptedProvider, _write_multimodel_policy  # noqa: F401
+    from tests.test_cross_phase_integration import (  # noqa: F401
+        ScriptedProvider,
+        _write_multimodel_policy,
+    )
 
     settings = get_settings()
     reranker = NoOpReranker()

@@ -16,10 +16,6 @@ from pydantic import BaseModel
 from app.config import Settings
 from app.llm_gateway.providers.models import (
     CompletionResponse,
-    Message,
-    MessageRole,
-    Tool,
-    ToolChoice,
     Usage,
 )
 from app.orchestration.agents.agents import (
@@ -30,7 +26,7 @@ from app.orchestration.agents.agents import (
     VerifierAgent,
 )
 from app.orchestration.agents.coordinator import AgentCoordinator
-from app.orchestration.contracts import AgentActivationRule, AgentRole, AgentMessage
+from app.orchestration.contracts import AgentActivationRule, AgentMessage, AgentRole
 from app.orchestration.state import OrchestrationState
 from tests.mocks.mock_provider import MockProvider
 
@@ -86,8 +82,8 @@ def mock_router():
 @pytest.fixture
 def mock_coordinator(mock_router):
     """Create an AgentCoordinator with mock dependencies."""
-    from app.retrieval.hybrid import HybridRetriever
     from app.reranking.reranker import NoOpReranker
+    from app.retrieval.hybrid import HybridRetriever
 
     settings = Settings(
         multiagent_enabled=True,
@@ -162,7 +158,6 @@ class TestAgentProcessing:
     @pytest.mark.asyncio
     async def test_researcher_processes_evidence(self, mock_router):
         """Researcher should extract claims from evidence."""
-        from app.llm_gateway.providers.models import CompletionResponse, Usage
 
         # Pre-program researcher response
         researcher_output = ResearcherOutput(
@@ -208,7 +203,6 @@ class TestAgentProcessing:
     @pytest.mark.asyncio
     async def test_skeptic_challenges_claims(self, mock_router):
         """Skeptic should challenge researcher's claims."""
-        from app.llm_gateway.providers.models import CompletionResponse, Usage
 
         skeptic_output = SkepticOutput(
             challenges=["Claim 1 lacks quantitative evidence", "Rayleigh scattering explanation is oversimplified"],
@@ -260,7 +254,6 @@ class TestAgentProcessing:
     @pytest.mark.asyncio
     async def test_alternative_hypothesis_proposes_alternatives(self, mock_router):
         """Alternative Hypothesis should propose competing explanations."""
-        from app.llm_gateway.providers.models import CompletionResponse, Usage
 
         alt_output = AlternativeHypothesisOutput(
             alternative_explanations=["The sky appears blue due to human perception bias", "Atmospheric refraction causes blue appearance"],
@@ -318,7 +311,6 @@ class TestAgentProcessing:
     @pytest.mark.asyncio
     async def test_verifier_verifies_claims(self, mock_router):
         """Verifier should verify claims against evidence."""
-        from app.llm_gateway.providers.models import CompletionResponse, Usage
 
         verifier_output = VerifierOutput(
             claim="The sky is blue due to Rayleigh scattering",
@@ -372,7 +364,6 @@ class TestAgentProcessing:
     @pytest.mark.asyncio
     async def test_judge_synthesizes_final_answer(self, mock_router):
         """Judge should synthesize debate into final answer."""
-        from app.llm_gateway.providers.models import CompletionResponse, Usage
 
         judge_output = JudgeOutput(
             resolution="The sky is blue due to Rayleigh scattering; alternatives are less supported.",
@@ -477,8 +468,9 @@ class TestAgentCoordinator:
     @pytest.mark.asyncio
     async def test_coordinator_activates_for_conflicting_evidence(self, mock_coordinator):
         """Coordinator should activate skeptic/alt-hyp for conflicting evidence."""
-        from app.evidence.models import EvidenceRef, SourceType
         from uuid import uuid4
+
+        from app.evidence.models import EvidenceRef, SourceType
 
         # Create evidence with high variance (conflicting)
         evidence = [
@@ -873,7 +865,6 @@ class TestMultiAgentIntegration:
     @pytest.mark.asyncio
     async def test_run_debate_end_to_end(self, mock_router, mock_coordinator):
         """Full end-to-end debate flow with mocked agents."""
-        from app.llm_gateway.providers.models import CompletionResponse, Usage
 
         # Pre-program responses for each agent in order:
         # 1. Researcher
@@ -1022,7 +1013,6 @@ class TestMultiAgentIntegration:
     @pytest.mark.asyncio
     async def test_run_debate_disagreement_detection(self, mock_router, mock_coordinator):
         """Test that disagreement is detected during debate."""
-        from app.llm_gateway.providers.models import CompletionResponse, Usage
 
         # Pre-program responses - skeptic with high severity to trigger disagreement
         researcher_output = ResearcherOutput(
@@ -1143,9 +1133,9 @@ class TestMultiAgentIntegration:
     @pytest.mark.asyncio
     async def test_create_agent_coordinator(self, mock_router):
         """Factory function should create coordinator correctly."""
-        from app.retrieval.hybrid import HybridRetriever
-        from app.reranking.reranker import NoOpReranker
         from app.orchestration.agents.coordinator import create_agent_coordinator
+        from app.reranking.reranker import NoOpReranker
+        from app.retrieval.hybrid import HybridRetriever
 
         settings = Settings(
             multiagent_enabled=True,

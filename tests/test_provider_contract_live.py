@@ -28,7 +28,7 @@ import os
 import pytest
 from pydantic import BaseModel
 
-from app.config import load_providers_config, get_settings
+from app.config import get_settings, load_providers_config
 from app.llm_gateway.providers.base import LLMProvider
 from app.llm_gateway.providers.models import CompletionResponse, Message, MessageRole
 
