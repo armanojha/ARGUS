@@ -1,8 +1,13 @@
 #!/usr/bin/env python
-"""Ingestion CLI for the fixed curated corpus (Phase 01).
+"""Ingest/sync a document corpus into the ARGUS evidence store.
+
+Defaults to the persistent corpus at E:/KNOWLEDGE BASE so that dropping
+PDFs/TXT/Markdown/spreadsheets into that folder and running one command syncs
+them into the EvidenceStore. Idempotent: unchanged files are skipped via
+content checksums, so repeated runs are incremental and safe.
 
 Usage:
-    python scripts/ingest_corpus.py <corpus_directory> [--db-path PATH] [--bm25-index PATH] [--faiss-index PATH]
+    python scripts/ingest_corpus.py [corpus_directory] [--db-path PATH] [--bm25-index PATH] [--faiss-index PATH] [--rebuild-indexes]
 """
 
 from __future__ import annotations
@@ -29,8 +34,11 @@ def main() -> int:
     )
     parser.add_argument(
         "corpus_dir",
+        nargs="?",
         type=Path,
-        help="Path to directory containing documents to ingest (.pdf, .txt, .md)",
+        default=Path("E:/KNOWLEDGE BASE"),
+        help="Path to directory containing documents to ingest (.pdf, .txt, .md). "
+        "Defaults to the persistent corpus E:/KNOWLEDGE BASE.",
     )
     parser.add_argument(
         "--db-path",
