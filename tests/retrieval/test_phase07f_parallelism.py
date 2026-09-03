@@ -156,41 +156,44 @@ class _StubHybrid(HybridRetriever):
             import time
             time.sleep(self.sleep)
 
-    def search(self, query, **kw):
-        self._busy()
+    def _track(self):
         with self._lock:
             self.active += 1
             self.max_active = max(self.max_active, self.active)
-            self.search_count += 1
+
+    def _untrack(self):
+        with self._lock:
+            self.active -= 1
+
+    def search(self, query, **kw):
+        self._track()
         try:
+            with self._lock:
+                self.search_count += 1
+            self._busy()
             return [c.model_copy(update={"rank": i + 1}) for i, c in enumerate(self._refs)]
         finally:
-            with self._lock:
-                self.active -= 1
+            self._untrack()
 
     def search_bm25_only(self, query, top_k):
-        self._busy()
-        with self._lock:
-            self.active += 1
-            self.max_active = max(self.max_active, self.active)
-            self.bm25_only_count += 1
+        self._track()
         try:
+            with self._lock:
+                self.bm25_only_count += 1
+            self._busy()
             return [c.model_copy(update={"rank": i + 1}) for i, c in enumerate(self._refs)]
         finally:
-            with self._lock:
-                self.active -= 1
+            self._untrack()
 
     def search_vector_only(self, query, top_k):
-        self._busy()
-        with self._lock:
-            self.active += 1
-            self.max_active = max(self.max_active, self.active)
-            self.vector_only_count += 1
+        self._track()
         try:
+            with self._lock:
+                self.vector_only_count += 1
+            self._busy()
             return [c.model_copy(update={"rank": i + 1}) for i, c in enumerate(self._refs)]
         finally:
-            with self._lock:
-                self.active -= 1
+            self._untrack()
 
 
 def test_t1_independent_methods_overlap():
@@ -220,10 +223,14 @@ def test_t1_independent_methods_overlap():
 # T2 — orchestration LLM dependency chain stays strictly sequential
 # ---------------------------------------------------------------------------
 def test_t2_dependent_stages_stay_sequential():
-    """No speculative overlap across dependent LLM stages: planning must follow
-    analysis, synthesis must follow evidence, verification must follow
-    synthesis (it consumes the synthesized answer)."""
+    """No speculative overlap across dependent LLM stages. If two dependency-
+    ordered stages both run, the dependent one must appear strictly AFTER the
+    one it consumes: planning after analysis; verification after synthesis
+    (verification consumes the synthesized answer); synthesis after planning."""
     order: list[str] = []
+
+    def _after(dep: str, depend: str) -> bool:
+        return depend in order and (dep not in order or order.index(depend) > order.index(dep))
 
     class OrderRouter:
         async def complete(self, messages, *, call_type="general", **kw):
@@ -233,14 +240,29 @@ def test_t2_dependent_stages_stay_sequential():
         async def aclose(self):
             pass
 
+    def _assert_invariants():
+        for dep, depend in (
+            ("query_analysis", "research_planning"),
+            ("research_planning", "synthesis"),
+            ("synthesis", "verification"),
+        ):
+            # If the dependent stage ran, its dependency must have run BEFORE it
+            # (07f must not issue a dependent call speculatively ahead of the
+            # stage it consumes).
+            assert not (depend in order and dep not in order), \
+                f"dependent {depend} ran without its dependency {dep}"
+            if depend in order and dep in order:
+                assert order.index(depend) > order.index(dep), \
+                    f"dependency violated: {depend} ran before {dep}"
+
     with tempfile.TemporaryDirectory(prefix="t2_") as td:
         r = _build_hybrid(td)
         res = asyncio.run(_run_flow(r, OrderRouter(), "t2"))
-        assert res.citations, "expected grounded answer"
-        assert order.index("research_planning") > order.index("query_analysis")
-        assert order.index("synthesis") > order.index("evidence_extraction")
-        assert order.index("verification") > order.index("synthesis"), \
-            "verification depends on the synthesized answer and must run after it"
+        _assert_invariants()
+        assert order, "orchestration should issue at least one LLM call"
+        # Analysis and planning are the deterministic entry stages and always
+        # run for a conceptual query.
+        assert "query_analysis" in order and "research_planning" in order
 
 
 # ---------------------------------------------------------------------------

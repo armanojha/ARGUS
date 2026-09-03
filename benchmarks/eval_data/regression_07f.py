@@ -146,7 +146,7 @@ async def main() -> None:
         corpus = build_corpus(Path(tmp))
         retriever = corpus["retriever"]
         settings = Settings(verification_enabled=True, multimodel_call_ceiling=64,
-                            stopping_logic_enabled=False, retrieval_policy_enabled=False)
+                            stopping_logic_enabled=True, retrieval_policy_enabled=False)
 
         report = {}
 
