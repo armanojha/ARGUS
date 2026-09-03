@@ -2,18 +2,18 @@
   "RE1": {
     "fused_identity_mismatches": [],
     "retrieval_serial_stats": {
-      "mean_ms": 86.3,
-      "p50_ms": 86.7,
-      "p95_ms": 92.2,
-      "p99_ms": 108.2,
-      "max_ms": 108.2
+      "mean_ms": 87.2,
+      "p50_ms": 89.1,
+      "p95_ms": 109.6,
+      "p99_ms": 113.9,
+      "max_ms": 113.9
     },
     "retrieval_async_stats": {
-      "mean_ms": 86.3,
-      "p50_ms": 85.6,
-      "p95_ms": 95.6,
-      "p99_ms": 98.8,
-      "max_ms": 98.8
+      "mean_ms": 83.4,
+      "p50_ms": 83.4,
+      "p95_ms": 89.9,
+      "p99_ms": 96.9,
+      "max_ms": 96.9
     },
     "recall8_mean": 0.987,
     "recall8_min": 0.5
@@ -22,11 +22,11 @@
     {
       "run": 1,
       "latency": {
-        "mean_ms": 7098.1,
-        "p50_ms": 8168,
-        "p95_ms": 8201,
-        "p99_ms": 8214,
-        "max_ms": 8214
+        "mean_ms": 7119.9,
+        "p50_ms": 8192,
+        "p95_ms": 8238,
+        "p99_ms": 8271,
+        "max_ms": 8271
       },
       "outcome_distribution": {
         "answered": 38
@@ -40,11 +40,11 @@
     {
       "run": 2,
       "latency": {
-        "mean_ms": 7091.0,
-        "p50_ms": 8161,
-        "p95_ms": 8201,
-        "p99_ms": 8202,
-        "max_ms": 8202
+        "mean_ms": 7105.9,
+        "p50_ms": 8172,
+        "p95_ms": 8230,
+        "p99_ms": 8235,
+        "max_ms": 8235
       },
       "outcome_distribution": {
         "answered": 38
