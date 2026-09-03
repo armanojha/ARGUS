@@ -275,10 +275,77 @@ class MemoryStore(MemoryStoreInterface):
                     "UPDATE memory_records SET superseded_by_id = ? WHERE id = ?",
                     (str(record.id), str(record.supersedes_id)),
                 )
+            # Fresh-evidence-wins: auto-supersede older contradicting/outdated records
+            self._resolve_fresh_evidence(conn, record)
             # Enforce layer limits within the same transaction
             self._enforce_layer_limit_sync(conn, record.layer)
             conn.commit()
         logger.debug("memory_stored", memory_id=str(record.id), layer=record.layer.value)
+
+    def _resolve_fresh_evidence(self, conn: sqlite3.Connection, record: MemoryRecord) -> None:
+        """Apply fresh-evidence-wins semantics.
+
+        If a new record contradicts or updates an existing record on the same
+        ``(subject, predicate, object, layer)`` key with a different content, the
+        older record is superseded (archived) rather than hard-deleted, preserving
+        history while making the newer evidence authoritative.
+        """
+        if not record.subject or not record.predicate:
+            return
+        if record.supersedes_id:
+            return  # Explicit supersession already set
+
+        older = conn.execute(
+            """
+            SELECT * FROM memory_records
+            WHERE layer = ? AND subject = ? AND predicate = ?
+              AND id != ? AND content != ?
+              AND (object IS ? OR object = ?)
+              AND promotion_status IN (?, ?)
+            ORDER BY created_at ASC
+            LIMIT 1
+            """,
+            (
+                record.layer.value,
+                record.subject,
+                record.predicate,
+                str(record.id),
+                record.content,
+                record.object,
+                record.object,
+                MemoryPromotionStatus.PROVISIONAL.value,
+                MemoryPromotionStatus.PROMOTED.value,
+            ),
+        ).fetchone()
+
+        if older is None:
+            return
+
+        older_id = older["id"]
+        older_conf: float = older["confidence"]
+        older_created = datetime.fromisoformat(older["created_at"])
+        record_created = record.created_at
+
+        # Fresh-evidence-wins: prefer a strictly newer record; ties favour the
+        # higher-confidence record, and equal-confidence falls back to newer.
+        newer = record_created > older_created
+        if not newer and record_created == older_created:
+            newer = record.confidence >= older_conf
+        elif not newer and record.confidence > older_conf:
+            newer = True
+        if not newer:
+            return
+
+        conn.execute(
+            "UPDATE memory_records SET superseded_by_id = ?, promotion_status = ? WHERE id = ?",
+            (str(record.id), MemoryPromotionStatus.ARCHIVED.value, older_id),
+        )
+        logger.info(
+            "memory_fresh_evidence_superseded",
+            older_id=older_id,
+            newer_id=str(record.id),
+            layer=record.layer.value,
+        )
 
     def _enforce_layer_limit_sync(self, conn: sqlite3.Connection, layer: MemoryLayer) -> None:
         """Enforce max records per layer (synchronous, within existing transaction).

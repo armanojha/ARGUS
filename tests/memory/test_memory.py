@@ -16,6 +16,7 @@ from app.memory import (
     MemoryAwarePlanner,
     MemoryFactory,
     MemoryLayer,
+    MemoryPromotionStatus,
     MemoryQuery,
     MemoryRecord,
     MemoryScope,
@@ -265,6 +266,67 @@ class TestSQLiteMemoryStore:
         )
         assert len(results) == 1
         assert "mitochondria" in results[0].content.lower()
+
+    @pytest.mark.asyncio
+    async def test_fresh_evidence_wins_supersedes_older(self, memory_store):
+        """Test that newer contradicting evidence supersedes (archives) the older record."""
+        older = MemoryRecord(
+            id=uuid4(),
+            layer=MemoryLayer.LONG_TERM_KNOWLEDGE,
+            content="The CEO of Acme is A.",
+            subject="Acme",
+            predicate="ceo",
+            object="A",
+            confidence=0.8,
+        )
+        newer = MemoryRecord(
+            id=uuid4(),
+            layer=MemoryLayer.LONG_TERM_KNOWLEDGE,
+            content="The CEO of Acme is B.",
+            subject="Acme",
+            predicate="ceo",
+            object="B",
+            confidence=0.9,
+        )
+        await memory_store.store(older)
+        await memory_store.store(newer)
+
+        archived = await memory_store.get_by_id(str(older.id))
+        assert archived is not None
+        assert archived.promotion_status == MemoryPromotionStatus.ARCHIVED
+        assert archived.superseded_by_id == newer.id
+
+        current = await memory_store.get_by_id(str(newer.id))
+        assert current is not None
+        assert current.supersedes_id == older.id
+
+    @pytest.mark.asyncio
+    async def test_fresh_evidence_keeps_old_when_newer_has_lower_confidence_age(self, memory_store):
+        """Older contradicting evidence is not superseded by a lower-confidence record."""
+        older = MemoryRecord(
+            id=uuid4(),
+            layer=MemoryLayer.LONG_TERM_KNOWLEDGE,
+            content="The capital is A.",
+            subject="Country",
+            predicate="capital",
+            object="A",
+            confidence=0.7,
+        )
+        weaker = MemoryRecord(
+            id=uuid4(),
+            layer=MemoryLayer.LONG_TERM_KNOWLEDGE,
+            content="The capital is B.",
+            subject="Country",
+            predicate="capital",
+            object="B",
+            confidence=0.3,
+        )
+        await memory_store.store(older)
+        await memory_store.store(weaker)
+
+        kept = await memory_store.get_by_id(str(older.id))
+        assert kept.promotion_status != MemoryPromotionStatus.ARCHIVED
+        assert kept.superseded_by_id is None
 
 
 class TestGraphVersionManager:

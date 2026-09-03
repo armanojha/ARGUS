@@ -11,7 +11,7 @@ import pickle
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import networkx as nx
 
@@ -29,6 +29,13 @@ from app.graph.models import (
     GraphQueryResult,
 )
 from app.logging_config import get_logger
+from app.memory.versioning import (
+    DeltaStatus,
+    DeltaType,
+    GraphDelta,
+    GraphVersionManager,
+    get_version_manager,
+)
 
 logger = get_logger("argus.graph.store")
 
@@ -44,6 +51,7 @@ class EvidenceGraphStore:
         self,
         graph_path: Path | None = None,
         evidence_store: EvidenceStore | None = None,
+        version_manager: GraphVersionManager | None = None,
     ):
         settings = get_settings()
         self.graph_path = graph_path or (settings.data_dir / "graph" / "evidence_graph.pkl")
@@ -51,6 +59,7 @@ class EvidenceGraphStore:
         self.evidence_store = evidence_store or get_evidence_store()
         self._graph: nx.MultiDiGraph = nx.MultiDiGraph()
         self._entity_name_index: dict[str, UUID] = {}
+        self.version_manager = version_manager
         self._load_graph()
 
     def _load_graph(self) -> None:
@@ -112,6 +121,42 @@ class EvidenceGraphStore:
         """Check if node exists."""
         return self._graph.has_node(self._node_key(node_type, node_id))
 
+    def _record_delta(
+        self,
+        delta_type: DeltaType,
+        target_id: UUID,
+        target_type: str,
+        previous_state: dict[str, Any] | None,
+        new_state: dict[str, Any] | None,
+        supporting_chunk_ids: list[UUID],
+        confidence: float,
+        source_query: str | None = None,
+    ) -> None:
+        """Record a non-destructive graph delta via the version manager (Phase 08).
+
+        Delta recording is best-effort and optional: a store constructed without
+        an active version manager (or with versioning disabled) simply skips it so
+        that existing graph callers are unaffected. Errors are non-fatal.
+        """
+        if self.version_manager is None:
+            return
+        try:
+            delta = GraphDelta(
+                id=uuid4(),
+                delta_type=delta_type,
+                status=DeltaStatus.PROVISIONAL,
+                target_id=target_id,
+                target_type=target_type,
+                previous_state=previous_state,
+                new_state=new_state,
+                supporting_chunk_ids=supporting_chunk_ids,
+                source_query=source_query,
+                confidence=confidence,
+            )
+            self.version_manager.record_delta(delta)
+        except Exception as exc:  # noqa: BLE001 - versioning is non-critical
+            logger.warning("graph_delta_failed", error=str(exc), target_type=target_type, target_id=str(target_id))
+
     # -- Entity operations ---------------------------------------------------
 
     def upsert_entity(self, entity: Entity) -> Entity:
@@ -155,8 +200,20 @@ class EvidenceGraphStore:
                 existing.updated_at = datetime.now(UTC)
                 entity = existing
 
+        was_created = not self._node_exists("entity", entity.id)
+        previous_state = self._get_node_data("entity", entity.id)
         self._add_node("entity", entity.id, entity.model_dump(mode="json"))
-        self._entity_name_index[entity.canonical_name.lower()] = entity.id
+        if was_created:
+            self._entity_name_index[entity.canonical_name.lower()] = entity.id
+        self._record_delta(
+            delta_type=DeltaType.ENTITY_CREATED if was_created else DeltaType.ENTITY_UPDATED,
+            target_id=entity.id,
+            target_type="entity",
+            previous_state=previous_state,
+            new_state=entity.model_dump(mode="json"),
+            supporting_chunk_ids=entity.supporting_chunk_ids,
+            confidence=entity.confidence,
+        )
         return entity
 
     def get_entity(self, entity_id: UUID) -> Entity | None:
@@ -231,7 +288,24 @@ class EvidenceGraphStore:
             existing.updated_at = datetime.now(UTC)
             claim = existing
 
+        was_created = not self._node_exists("claim", claim.id)
+        previous_state = self._get_node_data("claim", claim.id)
         self._add_node("claim", claim.id, claim.model_dump(mode="json"))
+        if was_created:
+            delta_type = DeltaType.CLAIM_CREATED
+        elif claim.contradicting_chunk_ids:
+            delta_type = DeltaType.CLAIM_CONTRADICTED
+        else:
+            delta_type = DeltaType.CLAIM_UPDATED
+        self._record_delta(
+            delta_type=delta_type,
+            target_id=claim.id,
+            target_type="claim",
+            previous_state=previous_state,
+            new_state=claim.model_dump(mode="json"),
+            supporting_chunk_ids=claim.supporting_chunk_ids,
+            confidence=claim.confidence,
+        )
         return claim
 
     def get_claim(self, claim_id: UUID) -> Claim | None:
@@ -268,7 +342,18 @@ class EvidenceGraphStore:
             existing.updated_at = datetime.now(UTC)
             event = existing
 
+        was_created = not self._node_exists("event", event.id)
+        previous_state = self._get_node_data("event", event.id)
         self._add_node("event", event.id, event.model_dump(mode="json"))
+        self._record_delta(
+            delta_type=DeltaType.EVENT_CREATED if was_created else DeltaType.EVENT_UPDATED,
+            target_id=event.id,
+            target_type="event",
+            previous_state=previous_state,
+            new_state=event.model_dump(mode="json"),
+            supporting_chunk_ids=event.supporting_chunk_ids,
+            confidence=event.confidence,
+        )
         return event
 
     def get_event(self, event_id: UUID) -> Event | None:
@@ -299,6 +384,7 @@ class EvidenceGraphStore:
                 if edge_data.get("edge_type") == edge.edge_type.value:
                     # Merge with existing edge
                     existing_edge = GraphEdge(**json.loads(edge_data.get("data", "{}")))
+                    previous_state = existing_edge.model_dump(mode="json")
                     # Merge supporting chunks
                     for chunk_id in edge.supporting_chunk_ids:
                         if chunk_id not in existing_edge.supporting_chunk_ids:
@@ -308,6 +394,15 @@ class EvidenceGraphStore:
                     # Update edge data
                     self._graph[source_key][target_key][edge_key]["data"] = json.dumps(existing_edge.model_dump(mode="json"), default=str)
                     self._graph[source_key][target_key][edge_key]["updated_at"] = existing_edge.updated_at.isoformat()
+                    self._record_delta(
+                        delta_type=DeltaType.EDGE_UPDATED,
+                        target_id=edge.id,
+                        target_type="edge",
+                        previous_state=previous_state,
+                        new_state=existing_edge.model_dump(mode="json"),
+                        supporting_chunk_ids=existing_edge.supporting_chunk_ids,
+                        confidence=existing_edge.confidence,
+                    )
                     return existing_edge
 
         # Add new edge
@@ -318,6 +413,15 @@ class EvidenceGraphStore:
             data=json.dumps(edge.model_dump(mode="json"), default=str),
             created_at=edge.created_at.isoformat(),
             updated_at=edge.updated_at.isoformat(),
+        )
+        self._record_delta(
+            delta_type=DeltaType.EDGE_ADDED,
+            target_id=edge.id,
+            target_type="edge",
+            previous_state=None,
+            new_state=edge.model_dump(mode="json"),
+            supporting_chunk_ids=edge.supporting_chunk_ids,
+            confidence=edge.confidence,
         )
         return edge
 
@@ -630,8 +734,12 @@ _graph_store: EvidenceGraphStore | None = None
 
 
 def get_graph_store() -> EvidenceGraphStore:
-    """Get or create the singleton graph store."""
+    """Get or create the singleton graph store.
+
+    The production singleton is wired to the Phase 08 graph version manager
+    so that graph mutations are recorded as versioned, non-destructive deltas.
+    """
     global _graph_store
     if _graph_store is None:
-        _graph_store = EvidenceGraphStore()
+        _graph_store = EvidenceGraphStore(version_manager=get_version_manager())
     return _graph_store
