@@ -257,7 +257,7 @@ def test_t2_dependent_stages_stay_sequential():
 
     with tempfile.TemporaryDirectory(prefix="t2_") as td:
         r = _build_hybrid(td)
-        res = asyncio.run(_run_flow(r, OrderRouter(), "t2"))
+        asyncio.run(_run_flow(r, OrderRouter(), "t2"))
         _assert_invariants()
         assert order, "orchestration should issue at least one LLM call"
         # Analysis and planning are the deterministic entry stages and always
