@@ -104,10 +104,7 @@ def should_skip_verification(plan: Any | None, evidence: list[Any], settings: Se
     if grounding_score is not None and grounding_score < verify_threshold:
         return False  # no chunk grounds the answer well enough; verify
 
-    if _evidence_conflict(evidence, disagreement_threshold):
-        return False  # conflicting evidence; verify
-
-    return True
+    return not _evidence_conflict(evidence, disagreement_threshold)
 
 
 class AgentCoordinator(AgentCoordinatorInterface):

@@ -411,6 +411,20 @@ def make_stop_check_node(stopping_logic: Any | None) -> NodeFn:
 
 _CITATION_MARKER_RE = re.compile(r"\[(\d+)\]")
 
+# Oriental/full-width variants models sometimes emit, e.g. 【1】 / ０１.
+# Normalize to ASCII so the bracket-index matcher actually sees what the model
+# cited instead of silently missing it (HARDEN-07d.3).
+_FULLWIDTH_DIGITS = str.maketrans("０１２３４５６７８９", "0123456789")
+
+
+def _normalize_citation_markers(answer: str) -> str:
+    """Map full-width citation punctuation/digits to ASCII for marker extraction."""
+    if "【" in answer or "】" in answer:
+        answer = answer.replace("【", "[").replace("】", "]")
+    if any("０" <= c <= "９" for c in answer):
+        answer = answer.translate(_FULLWIDTH_DIGITS)
+    return answer
+
 
 def make_synthesize_node(router: LLMRouter, settings: Settings) -> NodeFn:
     async def synthesize_node(state: OrchestrationState) -> dict:
@@ -461,14 +475,16 @@ def make_synthesize_node(router: LLMRouter, settings: Settings) -> NodeFn:
 
 
 def extract_cited_indices(answer: str, evidence_count: int) -> list[int]:
-    """Parse bracket citation markers like `[2]` out of the synthesized answer.
+    """Parse bracket citation markers like `[2]` / `【2】` out of the answer.
 
-    Returns 1-based indices that are within range, in first-seen order,
-    deduplicated. Used to build the final citation list from only the
-    evidence the model actually referenced.
+    Full-width markers and digits are normalized first (HARDEN-07d.3). Returns
+    1-based indices that are within range, in first-seen order, deduplicated.
+    Invalid/out-of-range/malformed markers are dropped (never presented as
+    valid), which is what the graph's explicit top-evidence fallback reacts to.
     """
+    normalized = _normalize_citation_markers(answer)
     seen: list[int] = []
-    for match in _CITATION_MARKER_RE.finditer(answer):
+    for match in _CITATION_MARKER_RE.finditer(normalized):
         idx = int(match.group(1))
         if 1 <= idx <= evidence_count and idx not in seen:
             seen.append(idx)

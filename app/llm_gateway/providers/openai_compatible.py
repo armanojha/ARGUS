@@ -334,7 +334,19 @@ class OpenAICompatibleProvider:
                     await asyncio.sleep(wait)
                 continue
 
-            if (response.status_code == 429 or 500 <= response.status_code < 600) and attempt < self._max_retries:
+            if response.status_code == 429:
+                # Fail fast on rate-limit (HARDEN-07d.4): a 429 is recorded by
+                # the router's health tracker (RATE_LIMITED -> cooldown) and
+                # already hands the call to the next provider/model in the
+                # fallback chain. Retrying the *same* endpoint with backoff
+                # here is redundant (it just burns time against a provider that
+                # has told us to wait) before the multi-model router can act on
+                # the cooldown. Surface the normalized error immediately so the
+                # router excludes this endpoint and falls back. 5xx (server)
+                # errors are still retried below, per the Phase 07 policy.
+                raise self._normalize_error(response)
+
+            if (500 <= response.status_code < 600) and attempt < self._max_retries:
                 wait = min((2**attempt) + random.uniform(0, 0.5), deadline - time.monotonic())
                 logger.warning(
                     "llm_retry_http_error",

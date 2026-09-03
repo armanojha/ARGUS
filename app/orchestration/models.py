@@ -92,6 +92,27 @@ class EvidenceAssessment(BaseModel):
     )
 
 
+class Outcome(str, Enum):
+    """The truthful *outcome* of a run, distinct from the loop's ``stop_reason``.
+
+    ``stop_reason`` (``StopReason``) answers "why did the loop stop?" (control
+    flow). ``Outcome`` answers "what actually got delivered?" (result quality).
+    They can legitimately diverge — e.g. a hard-degraded run that never made a
+    single usable provider call can still stop with
+    ``NO_UNRESOLVED_CONTRADICTION``, and a healthy run can stop with
+    ``BUDGET_EXHAUSTED``. Callers branching on "did we succeed?" should use
+    ``outcome``, not ``stop_reason`` (HARDEN-07d.2).
+
+    Ranks: ANSWERED* > NOT_FOUND > NO_ANSWER.
+    """
+
+    ANSWERED = "answered"  # grounded, cited answer delivered
+    ANSWERED_FALLBACK = "answered_fallback"  # delivered via a fallback provider/plan
+    ANSWERED_DEGRADED = "answered_degraded"  # delivered but degraded (raw-evidence synthesis, etc.)
+    NOT_FOUND = "not_found"  # delivered a truthful "no evidence found" statement
+    NO_ANSWER = "no_answer"  # nothing usable delivered (e.g. total provider failure)
+
+
 class StopReason(str, Enum):
     """Why the orchestration loop stopped, for observability/acceptance checks."""
 
@@ -172,6 +193,14 @@ class OrchestrationResult(BaseModel):
     iterations_used: int
     sub_queries_issued: list[str]
     stop_reason: StopReason
+    outcome: Outcome = Field(
+        default=Outcome.ANSWERED,
+        description="Truthful result outcome, derived from what was actually "
+        "delivered (answer + grounding + fallback/degradation). Independent of "
+        "the control-flow ``stop_reason`` (HARDEN-07d.2). The default is "
+        "``answered`` only for direct/backwards-compatible construction; the "
+        "graph always derives the real value.",
+    )
     token_usage_estimate: int
     request_id: str | None = None
     # Phase 12.2 run-trace observability (additive; set by the API layer)

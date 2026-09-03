@@ -41,6 +41,7 @@ from app.orchestration.models import (
     OrchestrationCitation,
     OrchestrationResult,
     OrchestrationVerification,
+    Outcome,
     QueryAnalysis,
     ResearchPlan,
     StopReason,
@@ -296,6 +297,43 @@ def _initial_state(query: str, request_id: str | None, settings: Settings) -> Or
     )
 
 
+def _derive_outcome(final_state: OrchestrationState) -> Outcome:
+    """Derive the truthful run outcome from what was actually delivered.
+
+    Independent of ``stop_reason`` (which only tells us why the loop stopped):
+    the outcome reflects whether a usable, grounded answer was produced and
+    whether the run degraded or relied on a fallback. Classification:
+      * empty evidence + "no evidence" answer  -> NOT_FOUND (truthful no-answer)
+      * empty / failed answer (evidence present) -> NO_ANSWER
+      * any fallback/degradation warning        -> ANSWERED_FALLBACK / DEGRADED
+      * otherwise                                -> ANSWERED
+    """
+    answer = (final_state.get("answer") or "").strip()
+    evidence = final_state.get("evidence") or []
+    warnings = final_state.get("warnings") or []
+
+    # Truthful "no supporting evidence" statement (synthesize node, evidence empty).
+    if not evidence:
+        if not answer or answer.startswith("No supporting evidence was retrieved"):
+            return Outcome.NOT_FOUND
+        # Evidence gate normally blocks synthesis without evidence, but be safe.
+        return Outcome.NOT_FOUND
+
+    if not answer:
+        return Outcome.NO_ANSWER
+
+    if any(w.startswith("synthesis_fallback") or w == "synthesis_degraded_to_raw_evidence" for w in warnings):
+        return Outcome.ANSWERED_DEGRADED
+
+    if any(
+        w.startswith(("research_plan_fallback", "query_analysis_fallback", "assessment_fallback"))
+        for w in warnings
+    ):
+        return Outcome.ANSWERED_FALLBACK
+
+    return Outcome.ANSWERED
+
+
 def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
     plan = final_state["plan"]
     assert plan is not None
@@ -337,6 +375,7 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
         iterations_used=final_state["iteration"],
         sub_queries_issued=final_state["issued_subqueries"],
         stop_reason=StopReason(stop_reason_raw),
+        outcome=_derive_outcome(final_state),
         token_usage_estimate=final_state["tokens_used"],
         request_id=final_state["request_id"],
         warnings=final_state["warnings"],
