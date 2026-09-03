@@ -330,10 +330,6 @@ class TestMultiModelRouter:
             tier="fast",
         )
 
-        # Mock providers record the requested model in completion log.
-        groq: MockProvider = router._registry.get("groq")  # type: ignore[union-attr]
-        strong_models = [c["model"] for c in groq.call_log]
-
         # strong chain primary = groq/gpt-oss-120b; fast chain primary = groq/gpt-oss-20b.
         assert "gpt-oss-120b" in strong_resp.model
         assert "gpt-oss-20b" in fast_resp.model
@@ -355,7 +351,7 @@ class TestMultiModelRouter:
             )
             # Should fall back to groq or cerebras (zen excluded after failure)
             assert response.provider in ("groq", "cerebras")
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 - if all fail, that's expected too
             # If all fail, that's expected too
             pass
 
@@ -730,10 +726,6 @@ class TestBackwardCompatibility:
         import app.llm_gateway as gateway
         gateway._router = None
 
-        # Mock settings with multimodel disabled
-        from app.config import Settings
-        settings = Settings(multimodel_enabled=False)
-
         # We can't easily test without mocking create_provider,
         # but we verify the type check works
 
@@ -807,7 +799,7 @@ class TestCapabilities:
 
     def test_capabilities_have_phase07_fields(self):
         from app.llm_gateway.capabilities import CAPABILITY_REGISTRY
-        for name, caps in CAPABILITY_REGISTRY.items():
+        for caps in CAPABILITY_REGISTRY.values():
             assert hasattr(caps, "latency_p50_ms")
             assert hasattr(caps, "quality_score")
             assert hasattr(caps, "cost_per_1k_input_tokens")

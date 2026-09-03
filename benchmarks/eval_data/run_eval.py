@@ -102,7 +102,6 @@ def run_retrieval_analysis(plan: dict, corpus: dict, top_k=8):
     reranker = NoOpReranker()
     rows = []
     for it in plan["queries"]:
-        docs = it["supporting_docs"]
         gold = resolve_gold(plan, it, corpus)
         res = retriever.search(it["query"], top_k=top_k)
         res = reranker.rerank(it["query"], res, top_k=top_k)

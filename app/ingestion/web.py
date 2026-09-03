@@ -7,6 +7,8 @@ and retains URI/date provenance.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
+import socket
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -49,6 +51,45 @@ def _normalize_url(url: str) -> str:
     if normalized.startswith("http://"):
         normalized = "https://" + normalized[7:]
     return normalized.rstrip("/")
+
+
+def _guard_ssrf_target(url: str) -> None:
+    """Refuse to fetch URLs that resolve to SSRF-sensitive network ranges.
+
+    Blocks loopback, private/link-local/ULA addresses, and cloud-metadata
+    endpoints (e.g. 169.254.169.254) so a supplied URL cannot be used to poke
+    internal services or the local instance metadata. Uses a fresh resolution
+    at fetch time as a first line of defense against DNS-rebinding.
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname
+    if not host:
+        return
+    if host.lower() in ("localhost", "localhost.localdomain"):
+        raise ValueError(f"Refusing to fetch localhost URL: {url}")
+    _BLOCKED_NAMES = ("ip6-localhost", "ip6-loopback", "metadata.google.internal")
+    if host.lower() in _BLOCKED_NAMES:
+        raise ValueError(f"Refusing to fetch blocked host: {url}")
+    try:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    except (socket.gaierror, UnicodeError):
+        raise ValueError(f"Could not resolve host for URL: {url}")
+    for info in infos:
+        ip = info[4][0]
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            continue
+        if (
+            addr.is_loopback
+            or addr.is_private
+            or addr.is_link_local
+            or addr.is_reserved
+            or addr.is_multicast
+            or addr.is_unspecified
+            or (addr.is_private and addr.version == 6)
+        ):
+            raise ValueError(f"Refusing to fetch SSRF-sensitive address {ip} for URL: {url}")
 
 
 def _extract_metadata(soup: BeautifulSoup, url: str) -> dict[str, Any]:
@@ -185,6 +226,9 @@ def fetch_web_page(url: str, timeout: int = 30) -> WebPageResult:
     
     # Normalize URL
     canonical_url = _normalize_url(url)
+
+    # Reject SSRF-sensitive targets (loopback/private/metadata) before fetching.
+    _guard_ssrf_target(canonical_url)
     
     # Fetch page
     headers = {

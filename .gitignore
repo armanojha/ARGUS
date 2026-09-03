@@ -41,6 +41,7 @@ temp/
 
 # Data artifacts (generated)
 data/evidence.db
+data/memory/
 data/indexes/
 data/obsidian_index/
 data/telemetry/

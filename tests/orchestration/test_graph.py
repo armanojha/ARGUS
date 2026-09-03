@@ -288,7 +288,7 @@ class TestSimpleQueryFastPath:
             }
         )
         router = LLMRouter(provider)
-        result = await run_query(
+        _ = await run_query(
             "How does habitat change affect fox behavior?",
             router=router,
             retriever=retriever,

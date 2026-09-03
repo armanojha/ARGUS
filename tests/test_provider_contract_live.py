@@ -123,9 +123,6 @@ class TestProviderContract:
         else:
             raise AssertionError(f"provider {provider_name} not in config")
 
-        from app.config import Settings
-
-        settings = Settings(_env_file=None, llm_timeout=float(cfg.get("timeout", 30.0)))
         api_key = os.getenv(str(cfg.get("api_key_env") or f"{provider_name.upper()}_API_KEY"))
         factory = get_provider_factory(provider_name)
         assert factory is not None, f"no factory registered for {provider_name}"

@@ -151,7 +151,7 @@ class TestRouterHealthIntegration:
             )
             # Fallback succeeded; provider must be non-groq.
             assert response.provider != "groq"
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 - fallback exhausted is still a valid outcome
             # If every provider somehow failed, still assert health recorded groq.
             pass
 

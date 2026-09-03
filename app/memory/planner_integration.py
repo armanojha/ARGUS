@@ -235,7 +235,11 @@ async def create_memory_aware_planner(
     store = memory_store or get_memory_store()
     return MemoryAwarePlanner(
         memory_store=store,
-        max_memory_results=settings.memory_max_records_per_layer // 1000 + 3,  # Rough heuristic
+        # Number of memory records to inject into the planning prompt per
+        # category. This is a small prompt-budget cap, unrelated to the store's
+        # per-layer capacity (`memory_max_records_per_layer`), so we use a sane
+        # fixed value rather than deriving it from the store cap.
+        max_memory_results=5,
         min_confidence=settings.memory_confidence_threshold,
     )
 

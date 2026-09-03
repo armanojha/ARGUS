@@ -43,12 +43,8 @@ class BM25Retriever:
         If chunks not provided, fetches all chunks from store.
         """
         if chunks is None:
-            # Fetch all chunks with bm25_doc_id assigned
-            with self.store._conn() as conn:
-                rows = conn.execute(
-                    "SELECT * FROM chunks WHERE bm25_doc_id IS NOT NULL ORDER BY bm25_doc_id"
-                ).fetchall()
-            chunks = [self.store._row_to_chunk(row) for row in rows]
+            # Fetch all chunks with bm25_doc_id assigned via the public read API.
+            chunks = self.store.iter_chunks()
 
         if not chunks:
             logger.warning("bm25_build_empty", message="No chunks to index")

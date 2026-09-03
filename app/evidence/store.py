@@ -442,6 +442,18 @@ class EvidenceStore:
     def compute_checksum(content: bytes) -> str:
         return hashlib.sha256(content).hexdigest()
 
+    def iter_chunks(self) -> list[Chunk]:
+        """Return all chunks ordered by BM25 document id.
+
+        Public read API for indexing consumers (e.g. BM25) so they do not need
+        to reach into this store's connection internals.
+        """
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM chunks WHERE bm25_doc_id IS NOT NULL ORDER BY bm25_doc_id"
+            ).fetchall()
+        return [self._row_to_chunk(row) for row in rows]
+
 
 # Singleton instance
 _store: EvidenceStore | None = None

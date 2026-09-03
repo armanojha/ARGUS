@@ -174,12 +174,14 @@ def _extract_charts_from_pdf(pdf_path: Path) -> list[ExtractedChart]:
         aspect = img.width / img.height if img.height > 0 else 0
         if 0.5 < aspect < 3.0:  # Reasonable chart aspect ratio
             # Create chart object (data points would come from vision model)
+            detected_type = ChartType.OTHER
+            if img.image_bytes:
+                with PILImage.open(io.BytesIO(img.image_bytes)) as pil_img:
+                    detected_type = _detect_chart_type_from_image(pil_img)
             chart = ExtractedChart(
                 page_number=img.page_number,
                 chart_index=img.image_index,
-                chart_type=_detect_chart_type_from_image(
-                    PILImage.open(io.BytesIO(img.image_bytes))
-                ) if img.image_bytes else ChartType.OTHER,
+                chart_type=detected_type,
                 title=None,  # Would be extracted by vision model
                 x_axis_label=None,
                 y_axis_label=None,
