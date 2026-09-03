@@ -7,25 +7,18 @@ listing the derived-knowledge layers, clearly distinct from document evidence.
 
 from __future__ import annotations
 
-import uuid
-
-from app.evidence.models import Chunk, Document, Source, SourceType
 from app.orchestration.graph import _build_result
 from app.orchestration.models import (
-    QueryAnalysis,
     ResearchPlan,
     StopReason,
 )
 
 
 def _evidence_ref(store, document, chunk):
-    return store._evidence_ref(document, chunk)  # noqa: SLF001
+    return store._evidence_ref(document, chunk)
 
 
 def _make_state(memory_consulted=None):
-    source_id = uuid.uuid4()
-    doc_id = uuid.uuid4()
-    chunk_id = uuid.uuid4()
     state = {
         "request_id": "req-test",
         "query": "What did Acme acquire?",

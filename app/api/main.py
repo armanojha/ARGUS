@@ -35,6 +35,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     set_telemetry_persistence_dir(settings.data_dir / "telemetry")
     logger = get_logger("argus.startup")
     logger.info("app_startup", environment=settings.env, log_level=settings.log_level)
+    if settings.memory_enabled:
+        from app.memory import initialize_memory_system
+
+        await initialize_memory_system()
     yield
     logger.info("app_shutdown")
     # HARDEN-06.5.6: release providers/HTTP clients, quota state, and memory.

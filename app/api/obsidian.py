@@ -11,6 +11,7 @@ read/deterministic on the control plane (no LLM calls).
 from __future__ import annotations
 
 from datetime import UTC
+from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,6 +20,16 @@ from app.config import Settings, get_settings
 from app.memory import get_memory_factory_instance
 
 router = APIRouter(prefix="/api/v1", tags=["obsidian-brain"])
+
+
+def _is_configured(vault: Path) -> bool:
+    """A vault counts as configured only when a real path is set.
+
+    The default ``Path("")`` coerces to the process CWD (``.``), which must
+    NOT be treated as an intentionally-configured brain vault.
+    """
+    raw = str(vault).strip()
+    return bool(vault) and raw != "" and raw != "."
 
 
 class ObsidianBrainStatus(BaseModel):
@@ -53,8 +64,8 @@ def get_obsidian_brain_status(
 ) -> ObsidianBrainStatus:
     """Report the state of ARGUS's dedicated Obsidian brain vault."""
     vault = settings.argus_brain_vault_path
-    configured = bool(vault) and str(vault).strip() != ""
-    exists = bool(vault) and vault.exists() and vault.is_dir()
+    configured = _is_configured(vault)
+    exists = configured and vault.exists() and vault.is_dir()
 
     note_count = 0
     recent_notes: list[dict[str, object]] = []

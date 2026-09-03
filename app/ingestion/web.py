@@ -94,7 +94,7 @@ def _guard_ssrf_target(url: str) -> None:
 
 def _extract_metadata(soup: BeautifulSoup, url: str) -> dict[str, Any]:
     """Extract metadata from HTML meta tags."""
-    metadata = {}
+    metadata: dict[str, Any] = {}
     
     # Standard meta tags
     meta_tags = {
@@ -122,7 +122,7 @@ def _extract_metadata(soup: BeautifulSoup, url: str) -> dict[str, Any]:
     for script in json_ld_scripts:
         try:
             import json
-            data = json.loads(script.string)
+            data = json.loads(script.string or "")
             if isinstance(data, dict):
                 metadata.setdefault("json_ld", []).append(data)
             elif isinstance(data, list):
@@ -325,7 +325,7 @@ def web_page_to_multimodal(
 
 def web_page_to_text_segments(result: WebPageResult) -> list[TextSegment]:
     """Convert web page content to text segments for chunking pipeline."""
-    segments = []
+    segments: list[TextSegment] = []
     
     if not result.text_content.strip():
         return segments

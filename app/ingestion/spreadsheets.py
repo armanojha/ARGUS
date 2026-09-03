@@ -227,7 +227,7 @@ def spreadsheet_to_text_segments(result: SpreadsheetResult) -> list[TextSegment]
         lines = [f"Sheet: {sheet.name}"]
         
         # Group cells by row
-        rows_dict = {}
+        rows_dict: dict[int, dict[int, object]] = {}
         for cell in sheet.cells:
             if cell.row not in rows_dict:
                 rows_dict[cell.row] = {}

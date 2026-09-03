@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from app.evidence.models import SourceType
 from app.evidence.store import EvidenceStore
 from app.ingestion.knowledge_base import (
     discover_files,
@@ -20,7 +21,6 @@ from app.ingestion.knowledge_base import (
     kind_of,
     supported_extensions,
 )
-from app.evidence.models import SourceType
 
 
 @pytest.fixture

@@ -138,3 +138,20 @@ def test_orchestration_timeout_field_declared():
     """graph.py reads settings.orchestration_timeout; the field must exist."""
     assert Settings(_env_file=None).orchestration_timeout == 120
     assert Settings(_env_file=None, orchestration_timeout=900).orchestration_timeout == 900
+
+
+def test_argus_brain_vault_path_from_single_prefix_env(monkeypatch):
+    """The `argus_brain_vault_path` field must read `ARGUS_BRAIN_VAULT_PATH` (single
+    prefix), not the double-prefixed `ARGUS_ARGUS_BRAIN_VAULT_PATH` that the global
+    `ARGUS_` env_prefix would otherwise produce for an `argus_`-prefixed field name."""
+    monkeypatch.delenv("ARGUS_ARGUS_BRAIN_VAULT_PATH", raising=False)
+    monkeypatch.setenv("ARGUS_BRAIN_VAULT_PATH", r"E:\VAULT")
+    settings = Settings(_env_file=None)
+    assert settings.argus_brain_vault_path == Path(r"E:\VAULT")
+
+
+def test_argus_brain_vault_path_not_read_from_double_prefix(monkeypatch):
+    monkeypatch.delenv("ARGUS_BRAIN_VAULT_PATH", raising=False)
+    monkeypatch.setenv("ARGUS_ARGUS_BRAIN_VAULT_PATH", r"E:\WRONG")
+    settings = Settings(_env_file=None)
+    assert settings.argus_brain_vault_path != Path(r"E:\WRONG")

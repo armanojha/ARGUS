@@ -24,9 +24,9 @@ All three are presented through a single 4-section Streamlit control plane
 that talks only to the ARGUS API. The control plane is deterministic — no LLM
 calls are made for status/ingest/promote operations.
 
-**Validation: full suite `534 passed / 20 skipped`; `ruff app/` clean; no new
-mypy errors.** Git was left to the owner (per directive; no commits made in this
-task).
+**Validation: full suite `537 passed / 20 skipped`; `ruff app/` clean; mypy
+reduced `61 -> 39` (remaining are orchestration/gateway, out of scope per
+directive).** Git was left to the owner (per directive).
 
 ---
 
@@ -152,9 +152,12 @@ No duplicate ingestion or LLM calls on refresh — each action is explicit.
   machine *memory* layers selectively, but does **not** retrieve from the Obsidian
   vault as a retrieval source (per the agreed scoping: these layers stay distinct
   and are NOT default retrieval sources).
-- **mypy baseline is not clean** repo-wide (pre-existing errors in unrelated modules).
+- **mypy baseline is not clean** repo-wide — reduced from 61 to 39; the remaining
+  39 are concentrated in orchestration/gateway (`agents.py` 36 +
+  `coordinator.py`/`openai_compatible.py`/`obsidian research.py` 1 each), which
+  the owner directive leaves out of scope.
 - **Frame-state visibility** is a summary flag (`memory_consulted` layers), not per-memory-record detail in the chat answer; full provenance is inspectable in the ARGUS Brain section.
-- **Promotion requires a configured brain vault** (`ARGUS_BRAIN_VAULT_PATH`); until set, the Obsidian Brain section reports unconfigured and promote degrades gracefully.
+- **Promotion requires a configured brain vault** (`ARGUS_BRAIN_VAULT_PATH`); now correctly read (single prefix — see Addendum) and honored; until set, the Obsidian Brain section reports unconfigured and promote degrades gracefully.
 - **Git not committed** — owner handles Git per directive; working changes are complete and green in-tree.
 
 ---
@@ -165,12 +168,52 @@ No duplicate ingestion or LLM calls on refresh — each action is explicit.
 `app/api/brain.py`, `app/api/obsidian.py`, `app/integrations/obsidian/promotion.py`,
 `scripts/ingest_knowledge_base.py`, `tests/knowledge/*`.
 
-**Extended:** `app/config.py` (paths), `app/evidence/store.py` (count/list API),
-`app/api/main.py` (routers), `app/ui/api_client.py` + `app/ui/streamlit_app.py` (4 sections),
+**Extended:** `app/config.py` (paths + validation_alias), `app/evidence/store.py` (count/list API),
+`app/api/main.py` (routers + lifespan memory init),
+`app/ui/api_client.py` + `app/ui/streamlit_app.py` (4 sections + memory-consulted notice str fix),
+`app/api/obsidian.py` (`_is_configured` guard; Path import),
+`app/integrations/obsidian/promotion.py` (`MemoryStoreInterface` signature; `.`-guard),
 `app/orchestration/{state,models,graph}.py` (`memory_consulted`),
-`.env.example`, `pyproject.toml` (`ruff extend-immutable-calls`).
+mypy debt: `app/api/brain.py`, `app/ingestion/{tables,images,spreadsheets,web}.py`,
+`app/llm_gateway/quota.py` (type-only fixes),
+`.env.example`, `pyproject.toml` (`ruff extend-immutable-calls`),
+`tests/test_config.py` (env-alias tests).
 
 ## 8. Next
-- Set `ARGUS_BRAIN_VAULT_PATH` to a real Obsidian vault to activate the Obsidian Brain layer end-to-end.
-- Owner to commit/push.
-- Optional future work (requires owner decision): observe vault retrieval, per-record memory visibility in chat, OCR deployment.
+- Owner to commit/push (APIs and fixes are implemented, tested, and green in-tree).
+- Optional future work (requires owner decision): observe vault retrieval, per-record memory visibility in chat, further mypy reduction in orchestration/gateway.
+
+---
+
+## 9. Addendum — Follow-up Tasks (owner: "do the 1st last and 2nd")
+
+Three follow-up actions were requested and completed after the build:
+
+1. **Restart API server** — running and healthy at `127.0.0.1:8000`.
+2. **Set `ARGUS_BRAIN_VAULT_PATH` and verify promotion** — DONE and verified end-to-end
+   (see below for two wiring bugs this exposed and fixed).
+3. **Reduce pre-existing mypy debt** — `61 -> 39` errors.
+
+### Bugs found & fixed while enabling the Obsidian Brain layer
+- **Env name double-prefix.** With the global `ARGUS_` env_prefix, the field
+  `argus_brain_vault_path` auto-mapped to `ARGUS_ARGUS_BRAIN_VAULT_PATH`
+  (double prefix), so `ARGUS_BRAIN_VAULT_PATH` was silently ignored and the
+  field fell back to `Path("")` → coerced to the process CWD (`.`). Fixed by
+  adding an explicit `validation_alias` so `ARGUS_BRAIN_VAULT_PATH` /
+  `ARGUS_BRAIN_WRITE_BACK_ROOT` are read as documented. Also made the "unconfigured"
+  check reject the empty/CWD default so no vault is ever treated as the repo dir.
+  Covered by new tests in `tests/test_config.py`.
+- **Memory never initialized by the API server.** The FastAPI `lifespan` did not
+  call `initialize_memory_system()`, so `/api/v1/brain/status` always reported
+  `DefaultMemoryFactory` → disabled (and `/obsidian-brain/promote` had no store),
+  regardless of `ARGUS_MEMORY_ENABLED=true`. Fixed by initializing memory in the
+  lifespan when enabled.
+
+### Verified promotion flow
+Seeded a `PROMOTED`, `LONG_TERM_KNOWLEDGE`, provenance-bearing memory and a
+`PROVISIONAL` control; `promote_eligible_memories()` promoted only the eligible
+record and wrote
+`E:\ARGUS_BRAIN\90_ARGUS\Knowledge\Attention_mechanism_c39d15d6.md`
+(with `type: argus-knowledge`, subject/predicate/object, `source_query`, and
+`supporting_chunk_ids`). `GET /api/v1/obsidian-brain/status` reports
+`configured: true`, `note_count: 1`. Idempotency (no double note) holds.

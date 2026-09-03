@@ -153,10 +153,10 @@ def _extract_charts_from_pdf(pdf_path: Path) -> list[ExtractedChart]:
        The current skeleton uses size/position heuristics to identify images
        that may be charts.  ``chart_type`` is always ``ChartType.OTHER``,
        ``data_points`` is always empty, and ``model_description`` is always
-       ``None``.  This is intentional — vision-model integration is out of
-       scope for the initial Phase 11 deliverable.
+``None``.  This is intentional — vision-model integration is out of
+        scope for the initial Phase 11 deliverable.
     """
-    charts = []
+    charts: list[ExtractedChart] = []
 
     settings = get_settings()
     if not settings.multimodal_enabled or not settings.multimodal_chart_extraction_enabled:

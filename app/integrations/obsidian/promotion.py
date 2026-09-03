@@ -25,8 +25,12 @@ from pathlib import Path
 from app.config import get_settings
 from app.integrations.obsidian.writer import _escape_yaml, _safe_md_name
 from app.logging_config import get_logger
-from app.memory.interfaces import MemoryLayer, MemoryPromotionStatus, MemoryQuery
-from app.memory.store import MemoryStore
+from app.memory.interfaces import (
+    MemoryLayer,
+    MemoryPromotionStatus,
+    MemoryQuery,
+    MemoryStoreInterface,
+)
 
 logger = get_logger("argus.obsidian.promotion")
 
@@ -50,7 +54,7 @@ class PromotionResult:
 
 
 def promote_eligible_memories(
-    store: MemoryStore,
+    store: MemoryStoreInterface,
     vault_root: Path | None = None,
     *,
     rebuild_indexes: bool = False,
@@ -72,7 +76,7 @@ def promote_eligible_memories(
     vault_root = Path(vault_root)
     result = PromotionResult()
 
-    if not vault_root or str(vault_root).strip() == "":
+    if not vault_root or str(vault_root).strip() in ("", "."):
         logger.info("brain_promotion_skipped", reason="brain_vault_not_configured")
         return result
     if not vault_root.exists() or not vault_root.is_dir():

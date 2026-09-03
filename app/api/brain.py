@@ -109,20 +109,20 @@ def _list_recent(store: MemoryStoreInterface, limit: int = 20) -> list[dict[str,
     records = asyncio.run(store.retrieve(query))
     out: list[dict[str, object]] = []
     for rec in records:
+        layer_any = getattr(rec, "layer", None)
+        layer: object = layer_any.value if isinstance(layer_any, MemoryLayer) else str(layer_any or "")
+        created_at_any = getattr(rec, "created_at", None)
+        created_at = created_at_any.isoformat() if created_at_any else None
         out.append(
             {
                 "id": str(getattr(rec, "id", "")),
-                "layer": getattr(rec, "layer", None).value
-                if isinstance(getattr(rec, "layer", None), MemoryLayer)
-                else str(getattr(rec, "layer", "")),
+                "layer": layer,
                 "content": getattr(rec, "content", ""),
                 "confidence": float(getattr(rec, "confidence", 0.0)),
                 "promotion_status": str(getattr(rec, "promotion_status", "")),
                 "source_query": getattr(rec, "source_query", None),
                 "supporting_chunk_ids": list(getattr(rec, "supporting_chunk_ids", [])),
-                "created_at": getattr(rec, "created_at", None).isoformat()
-                if getattr(rec, "created_at", None)
-                else None,
+                "created_at": created_at,
             }
         )
     return out

@@ -227,7 +227,9 @@ class ProviderQuota:
         must hold the quota tracker's lock if sharing this provider across
         threads.
         """
-        def _int(value: str) -> int | None:
+        def _int(value: str | None) -> int | None:
+            if value is None:
+                return None
             try:
                 return int(float(value))
             except (TypeError, ValueError):

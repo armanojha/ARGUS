@@ -429,11 +429,12 @@ def _render_evidence_section(client: ARGUSAPIClient, base_url: str) -> None:
     with st.container(border=True):
         st.markdown(f"**Answer:**  \n{result.get('answer') or ''}")
 
-    if result.get("memory_consulted"):
+    memory_consulted = result.get("memory_consulted")
+    if memory_consulted:
         st.info(
             "This query also selectively consulted **ARGUS memory** (derived knowledge, "
             "distinct from your document evidence): "
-            + ", ".join(f"`{m}`" for m in result.get("memory_consulted"))
+            + ", ".join(f"`{m}`" for m in memory_consulted)
             + ". Memory is used for continuity only and never replaces document evidence."
         )
     else:

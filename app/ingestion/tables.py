@@ -35,7 +35,7 @@ class ExtractedTable:
 
 def _extract_table_cells(pdf_table: list[list[str]], page_num: int, table_idx: int) -> list[TableCell]:
     """Convert raw pdfplumber table to structured TableCell objects with row/col semantics."""
-    cells = []
+    cells: list[TableCell] = []
     
     if not pdf_table:
         return cells

@@ -138,14 +138,20 @@ class Settings(BaseSettings):
     # The ARGUS Obsidian "brain" vault: a dedicated, human-readable, structured
     # long-term knowledge layer maintained by ARGUS (distinct from the user's
     # document corpus and from ARGUS's machine memory).
+    #
+    # NOTE: these fields are `argus_`-prefixed, so with the global `ARGUS_`
+    # env_prefix their auto-env-names would be `ARGUS_ARGUS_*`. A explicit
+    # `validation_alias` maps them to the documented single-prefix vars.
     argus_brain_vault_path: Path = Field(
         default=Path(""),
+        validation_alias="ARGUS_BRAIN_VAULT_PATH",
         description="Root directory of ARGUS's dedicated Obsidian vault "
         "(the ARGUS brain). Empty until a brain vault is configured. "
         "Set via ARGUS_BRAIN_VAULT_PATH.",
     )
     argus_brain_write_back_root: str = Field(
         default="90_ARGUS",
+        validation_alias="ARGUS_BRAIN_WRITE_BACK_ROOT",
         description="Write-back root directory name within the ARGUS brain vault.",
     )
 
