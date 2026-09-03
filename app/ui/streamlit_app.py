@@ -1,18 +1,22 @@
-"""ARGUS Evidence Explorer (Phase 12.1) — Streamlit MVP UI.
+"""ARGUS Knowledge System UI (Streamlit) — the front door to all three layers.
 
-Renders a live research run transparently:
-  - research plan
-  - evidence (citations)
-  - conflicts (verifier contradictions)
-  - source trail
-  - verifier result
-  - loop count / stop reason
-  - confidence
+The user-facing control layer over ARGUS, with four conceptual areas:
 
-The UI is a presentation/control layer only: everything it shows comes
-from the existing ARGUS API, and every backend call (`/api/v1/query`,
-`/api/v1/verify`) runs the existing orchestration and verification
-services. React upgrade path noted but not required (V3 §18).
+  * **Chat / Research** — ask questions, see grounded cited answers + sources,
+    evidence, confidence, research process, and whether persistent memory was
+    consulted (distinct from user-document evidence).
+  * **Knowledge Base** — the user's document corpus (E:/KNOWLEDGE BASE): status,
+    document/source/chunk counts, recently ingested documents, upload files,
+    and a "resync" action. Uploads feed the SAME ingestion pipeline as the
+    filesystem corpus.
+  * **ARGUS Brain** — ARGUS's persistent machine memory: layer/promotion/
+    scope counts, confidence, and recent memory records (provenance-preserving).
+  * **Obsidian Brain** — ARGUS's dedicated Obsidian vault: path, note count,
+    recent notes, and a selective memory->vault promotion action.
+
+The UI is a pure presentation/control layer: every backend action runs the
+existing ARGUS services (`/api/v1/query`, `/api/v1/verify`, and the new
+knowledge-base / brain / obsidian endpoints). No business logic lives here.
 
 Run:
     uvicorn app.api.main:app --reload        # API (separate terminal)
@@ -21,17 +25,18 @@ Run:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
 
 from app.ui.api_client import ARGUSAPIClient, ARGUSAPIClientError
 
-st.set_page_config(page_title="ARGUS Evidence Explorer", page_icon=":material/science:", layout="wide")
+st.set_page_config(page_title="ARGUS", page_icon=":material/science:", layout="wide")
 
-# React upgrade path (V3 §18): a future React client can reuse the exact
-# same `/api/v1/query` + `/api/v1/verify` contract; nothing here is
-# Streamlit-specific except the rendering layer.
+# React upgrade path (V3 §18): a future React client can reuse the exact same
+# `/api/v1/query` + `/api/v1/verify` + knowledge-base/brain/obsidian contract;
+# nothing here is Streamlit-specific except the rendering layer.
 
 
 def _fail(text: str) -> None:
@@ -225,19 +230,181 @@ def _render_run_traces(client: ARGUSAPIClient, limit: int = 10) -> None:
             )
 
 
-def run() -> None:
-    """Evidence explorer main entry point."""
-    st.title("ARGUS Evidence Explorer")
-    st.caption("Phase 12.1 — research process transparency over the existing ARGUS system.")
+def _render_knowledge_base(client: ARGUSAPIClient) -> None:
+    """Knowledge Base: user document corpus status / upload / resync."""
+    _section("Knowledge Base")
+    try:
+        status = client.get_knowledge_base_status()
+    except ARGUSAPIClientError as exc:
+        _fail(f"Unable to reach the API: {exc}")
+        return
 
-    with st.sidebar:
-        st.header("Control")
-        base_url = st.text_input("API base URL", value="http://localhost:8000")
-        user_early_stop = st.checkbox("Early stop", help="Stop after current evidence (Phase 06 user_early_stop).")
-        run_verification = st.checkbox("Verify answer", value=True, help="Run the Phase 04 verifier over the answer.")
-        st.caption("Model selection stays explicit server-side via `configs/model_policy.yaml` — the UI never selects models.")
+    cols = st.columns(4)
+    cols[0].metric("Documents", status.get("document_count"))
+    cols[1].metric("Sources", status.get("source_count"))
+    cols[2].metric("Chunks", status.get("chunk_count"))
+    cols[3].metric("Indexed", "Yes" if status.get("indexed") else "No")
 
-    query_text = st.text_input("Research question", key="query", placeholder="e.g. Which evidence supports the claim that Acme acquired Beta?")
+    st.markdown(f"**Corpus path:** `{status.get('knowledge_base_path')}`")
+    st.caption("Supported types: " + (", ".join(status.get("supported_types") or [])))
+
+    recents = status.get("recently_ingested") or []
+    if recents:
+        with st.expander(f"Recently ingested ({len(recents)})"):
+            for r in recents:
+                st.markdown(f"- `{r.get('source_path')}` — v{r.get('version')} · {r.get('created_at')}")
+
+    with st.container(border=True):
+        st.markdown("**Upload / re-sync**")
+        up_c1, up_c2 = st.columns([2, 1])
+        uploaded = up_c1.file_uploader(
+            "Upload documents into the Knowledge Base",
+            accept_multiple_files=True,
+            key="kb_uploader",
+        )
+        up_c2.markdown("&nbsp;")
+        up_c2.markdown("&nbsp;")
+        upload_go = up_c2.button("Upload", key="kb_upload_go", type="primary")
+        ingest_go = st.button("Resync knowledge base (idempotent)", key="kb_ingest_go")
+
+    if upload_go and uploaded:
+        # Persist uploads to a temp dir, then send paths to the upload endpoint.
+        import tempfile
+
+        file_paths: list[str] = []
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for u in uploaded:
+                dest = Path(tmpdir) / Path(u.name).name
+                dest.write_bytes(u.getvalue())
+                file_paths.append(str(dest))
+            with st.spinner("Uploading and ingesting…"):
+                try:
+                    result = client.upload_files(file_paths)
+                except ARGUSAPIClientError as exc:
+                    _fail(f"Upload failed: {exc}")
+                    result = None
+        if result:
+            ups = result.get("uploaded") or []
+            rejs = result.get("rejected") or []
+            st.success(f"Uploaded {len(ups)} document(s), rejected {len(rejs)}.")
+            for r in rejs:
+                st.warning(f"`{r.get('filename')}`: {r.get('reason')}")
+            st.caption(f"Index refreshed: {result.get('indexed')} (chunks: {result.get('indexed_chunks')})")
+
+    if ingest_go:
+        with st.spinner("Re-syncing the corpus (no LLM calls)…"):
+            try:
+                result = client.ingest_knowledge_base()
+            except ARGUSAPIClientError as exc:
+                _fail(f"Resync failed: {exc}")
+                result = None
+        if result:
+            st.success(
+                f"Ingested {result.get('ingested')}, unchanged {result.get('unchanged')}, "
+                f"errors {result.get('errors')} in {result.get('duration_s', 0):.1f}s."
+            )
+            for pth in result.get("error_paths") or []:
+                st.warning(f"Error processing `{pth}`")
+
+
+def _render_brain(client: ARGUSAPIClient) -> None:
+    """ARGUS Brain: persistent machine memory status + recent records."""
+    _section("ARGUS Brain")
+    try:
+        status = client.get_brain_status()
+    except ARGUSAPIClientError as exc:
+        _fail(f"Unable to reach the API: {exc}")
+        return
+
+    if not status.get("enabled"):
+        st.info("ARGUS memory is disabled (`ARGUS_MEMORY_ENABLED=false`). No machine memory is being recorded.")
+        return
+
+    cols = st.columns(4)
+    cols[0].metric("Memory records", status.get("total_records"))
+    cols[1].metric("Avg confidence", f"{status.get('avg_confidence', 0.0):.2f}")
+    cols[2].metric("DB size", f"{status.get('db_size_bytes', 0) / 1024:.1f} KiB")
+    cols[3].metric("Promoted", sum((status.get("promotion_counts") or {}).values()))
+
+    with st.expander("By layer"):
+        for layer, count in (status.get("layer_counts") or {}).items():
+            st.markdown(f"- **{layer}**: {count}")
+    with st.expander("By promotion status"):
+        for ps, count in (status.get("promotion_counts") or {}).items():
+            st.markdown(f"- **{ps}**: {count}")
+
+    recents = status.get("recent_records") or []
+    if recents:
+        _section("Recent memory")
+        for rec in recents:
+            layer = rec.get("layer")
+            with st.expander(f"[{layer}] {str(rec.get('content'))[:120]} — conf {rec.get('confidence', 0):.2f}"):
+                st.markdown(str(rec.get("content")))
+                st.caption(
+                    f"id={rec.get('id')} · promotion={rec.get('promotion_status')} · "
+                    f"created_at={rec.get('created_at')}"
+                )
+            if rec.get("source_query") or rec.get("supporting_chunk_ids"):
+                st.caption(
+                    f"source_query: {rec.get('source_query')}  |  supporting chunks: "
+                    + (", ".join(map(str, rec.get("supporting_chunk_ids") or [])))
+                )
+
+
+def _render_obsidian_brain(client: ARGUSAPIClient) -> None:
+    """Obsidian Brain: dedicated vault status + selective memory promotion."""
+    _section("Obsidian Brain")
+    try:
+        status = client.get_obsidian_brain_status()
+    except ARGUSAPIClientError as exc:
+        _fail(f"Unable to reach the API: {exc}")
+        return
+
+    st.markdown(f"**Vault path:** `{status.get('vault_path') or '—'}`")
+    cols = st.columns(3)
+    cols[0].metric("Configured", "Yes" if status.get("configured") else "No")
+    cols[1].metric("Vault exists", "Yes" if status.get("exists") else "No")
+    cols[2].metric("Notes", status.get("note_count"))
+
+    if not status.get("configured") or not status.get("exists"):
+        st.info(
+            "The ARGUS Obsidian brain vault is not configured or does not exist. "
+            "Set `ARGUS_BRAIN_VAULT_PATH` to a real Obsidian vault directory to enable this layer."
+        )
+        return
+
+    st.markdown(f"**Write-back root:** `{status.get('write_back_root')}`")
+
+    notes = status.get("recent_notes") or []
+    if notes:
+        with st.expander(f"Recent notes ({len(notes)})"):
+            for n in notes:
+                st.markdown(f"- `{n.get('path')}` · {n.get('modified_iso')}")
+
+    if st.button("Promote eligible memories into the vault (selective, provenance-preserving)", key="obsidian_promote_go"):
+        with st.spinner("Sweeping eligible PROMOTED long-term memories…"):
+            try:
+                result = client.promote_knowledge()
+            except ARGUSAPIClientError as exc:
+                _fail(f"Promotion failed: {exc}")
+                result = None
+        if result:
+            st.success(
+                f"Created {result.get('notes_created')}, skipped {result.get('notes_skipped')}, "
+                f"failed {result.get('notes_failed')}."
+            )
+            for pth in result.get("created_paths") or []:
+                st.markdown(f"- `{pth}`")
+            if result.get("failed"):
+                st.warning("; ".join(result.get("failed") or []))
+
+
+def _render_evidence_section(client: ARGUSAPIClient, base_url: str) -> None:
+    """Chat / Research: ask a question, see the grounded cited answer."""
+    st.caption("Ask ARGUS anything. Answers are grounded in the Knowledge Base with citations.")
+    query_text = st.text_input(
+        "Research question", key="query", placeholder="e.g. Which evidence supports the claim that Acme acquired Beta?"
+    )
     go = st.button("Run research", type="primary")
 
     if not go:
@@ -249,39 +416,77 @@ def run() -> None:
         _fail("Please enter a question.")
         return
 
-    client = ARGUSAPIClient(base_url=base_url)
-
     with st.spinner("Running the research loop…"):
         try:
-            result = client.query(query_text.strip(), user_early_stop=user_early_stop)
+            result = client.query(query_text.strip(), user_early_stop=False)
         except ARGUSAPIClientError as exc:
             _fail(f"API call failed — is the API running? {exc}")
             return
 
     _render_loop_stats(result)
     _render_telemetry(result.get("telemetry"))
+
+    with st.container(border=True):
+        st.markdown(f"**Answer:**  \n{result.get('answer') or ''}")
+
+    if result.get("memory_consulted"):
+        st.info(
+            "This query also selectively consulted **ARGUS memory** (derived knowledge, "
+            "distinct from your document evidence): "
+            + ", ".join(f"`{m}`" for m in result.get("memory_consulted"))
+            + ". Memory is used for continuity only and never replaces document evidence."
+        )
+    else:
+        st.caption("This query did not consult ARGUS memory — it was answered from document evidence only.")
+
     _render_plan(result.get("plan") or {})
     _render_evidence(result.get("citations") or [])
     _render_source_trail(result.get("citations") or [])
 
-    if run_verification:
-        citations = result.get("citations") or []
-        claim_text = result.get("answer") or result.get("query") or ""
-        with st.spinner("Verifying the answer against evidence…"):
-            try:
-                verification = client.verify(
-                    claim_text,
-                    [str(c.get("chunk_id")) for c in citations],
-                    entity_names=(result.get("plan") or {}).get("entities") or [],
-                    temporal_context=(result.get("plan") or {}).get("time_window"),
-                )
-            except ARGUSAPIClientError as exc:
-                _fail(f"Verification failed: {exc}")
-                verification = None
-        if verification is not None:
-            _render_verification(verification)
+    citations = result.get("citations") or []
+    claim_text = result.get("answer") or result.get("query") or ""
+    with st.spinner("Verifying the answer against evidence…"):
+        try:
+            verification = client.verify(
+                claim_text,
+                [str(c.get("chunk_id")) for c in citations],
+                entity_names=(result.get("plan") or {}).get("entities") or [],
+                temporal_context=(result.get("plan") or {}).get("time_window"),
+            )
+        except ARGUSAPIClientError as exc:
+            _fail(f"Verification failed: {exc}")
+            verification = None
+    if verification is not None:
+        _render_verification(verification)
 
     _render_run_traces(client)
+
+
+def run() -> None:
+    """ARGUS knowledge system: four-layer UI main entry point."""
+    st.title("ARGUS")
+    st.caption("User Knowledge Base · ARGUS Brain · ARGUS Obsidian Brain — one front door.")
+
+    with st.sidebar:
+        st.header("Control")
+        base_url = st.text_input("API base URL", value="http://localhost:8000")
+        st.caption("Model selection stays explicit server-side via `configs/model_policy.yaml` — the UI never selects models.")
+        section = st.radio(
+            "Layer",
+            ["Chat / Research", "Knowledge Base", "ARGUS Brain", "Obsidian Brain"],
+            key="layer_radio",
+        )
+
+    client = ARGUSAPIClient(base_url=base_url)
+
+    if section == "Knowledge Base":
+        _render_knowledge_base(client)
+    elif section == "ARGUS Brain":
+        _render_brain(client)
+    elif section == "Obsidian Brain":
+        _render_obsidian_brain(client)
+    else:
+        _render_evidence_section(client, base_url)
 
 
 run()

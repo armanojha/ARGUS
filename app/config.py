@@ -127,6 +127,28 @@ class Settings(BaseSettings):
         description="Number of results to return after reranking.",
     )
 
+    # --- User Knowledge Base (persistent document corpus) ---
+    # The user's document corpus. Users drop PDFs/TXT/Markdown/spreadsheets
+    # here and ARGUS ingests them recursively into the EvidenceStore.
+    knowledge_base_path: Path = Field(
+        default=Path("E:/KNOWLEDGE BASE"),
+        description="Root directory of the user's persistent document corpus. "
+        "Set via ARGUS_KNOWLEDGE_BASE_PATH.",
+    )
+    # The ARGUS Obsidian "brain" vault: a dedicated, human-readable, structured
+    # long-term knowledge layer maintained by ARGUS (distinct from the user's
+    # document corpus and from ARGUS's machine memory).
+    argus_brain_vault_path: Path = Field(
+        default=Path(""),
+        description="Root directory of ARGUS's dedicated Obsidian vault "
+        "(the ARGUS brain). Empty until a brain vault is configured. "
+        "Set via ARGUS_BRAIN_VAULT_PATH.",
+    )
+    argus_brain_write_back_root: str = Field(
+        default="90_ARGUS",
+        description="Write-back root directory name within the ARGUS brain vault.",
+    )
+
     # --- Agentic Orchestration (Phase 02) ---
     orchestration_max_iterations: int = Field(
         default=3,

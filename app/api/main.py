@@ -13,9 +13,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.brain import router as brain_router
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
+from app.api.knowledge_base import router as knowledge_base_router
 from app.api.middleware import RequestIDMiddleware
+from app.api.obsidian import router as obsidian_router
 from app.api.orchestration import router as orchestration_router
 from app.api.retrieval import router as retrieval_router
 from app.api.telemetry import router as telemetry_router
@@ -52,6 +55,9 @@ def create_app() -> FastAPI:
     app.include_router(orchestration_router)
     app.include_router(verification_router)
     app.include_router(telemetry_router)
+    app.include_router(knowledge_base_router)
+    app.include_router(brain_router)
+    app.include_router(obsidian_router)
 
     return app
 

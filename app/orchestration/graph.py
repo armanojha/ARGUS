@@ -128,7 +128,17 @@ async def _memory_enhance_node(state: OrchestrationState, memory_store: Any) -> 
         enhanced_plan = await planner.enhance_plan_with_memory(plan, query, memory_store)
         if enhanced_plan is not plan:
             logger.info("plan_enhanced_with_memory", request_id=state["request_id"])
-            return {"plan": enhanced_plan}
+            # Surface that persistent memory (derived knowledge, distinct from
+            # user-document evidence) was consulted for this query.
+            return {
+                "plan": enhanced_plan,
+                "memory_consulted": [
+                    "long_term_knowledge",
+                    "research_history",
+                    "source_memory",
+                    "user_memory",
+                ],
+            }
     except Exception as exc:  # noqa: BLE001 - memory enhancement is non-critical
         logger.warning("memory_enhance_failed", error=str(exc), request_id=state["request_id"])
 
@@ -387,6 +397,8 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
         agent_round=final_state.get("agent_round"),
         agent_messages=final_state.get("agent_messages") or [],
         disagreement_detected=final_state.get("disagreement_detected"),
+        # Phase 08 / knowledge-system traceability (additive)
+        memory_consulted=final_state.get("memory_consulted") or [],
     )
 
 

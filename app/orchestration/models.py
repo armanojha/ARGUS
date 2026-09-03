@@ -234,6 +234,13 @@ class OrchestrationResult(BaseModel):
     disagreement_detected: bool | None = Field(
         default=None, description="Whether material disagreement was detected during debate."
     )
+    # Phase 08 / knowledge-system traceability (additive; empty when memory off/not consulted)
+    memory_consulted: list[str] = Field(
+        default_factory=list,
+        description="Memory layers (derived knowledge) consulted for this query, "
+        "distinct from user-document evidence. Empty when no persistent memory "
+        "influenced the plan.",
+    )
     # Phase 07b selective verification traceability (additive; None when skipped/off)
     verification: OrchestrationVerification | None = Field(
         default=None,

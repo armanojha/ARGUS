@@ -357,6 +357,56 @@ class EvidenceStore:
             ).fetchall()
         return [UUID(row["id"]) for row in rows]
 
+    # -- Knowledge-base status (user-facing control layer) ----------------
+
+    def count_documents(self) -> int:
+        """Return the total number of ingested documents (all versions)."""
+        with self._conn() as conn:
+            row = conn.execute("SELECT COUNT(*) FROM documents").fetchone()
+        return int(row[0]) if row else 0
+
+    def count_sources(self) -> int:
+        """Return the total number of distinct sources in the corpus."""
+        with self._conn() as conn:
+            row = conn.execute("SELECT COUNT(*) FROM sources").fetchone()
+        return int(row[0]) if row else 0
+
+    def count_chunks(self) -> int:
+        """Return the total number of stored chunks."""
+        with self._conn() as conn:
+            row = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()
+        return int(row[0]) if row else 0
+
+    def list_sources(self, limit: int = 100,
+                     offset: int = 0) -> list[Source]:
+        """Return sources ordered newest-first for status/dashboard display.
+
+        Args:
+            limit: Maximum number of sources to return.
+            offset: Pagination offset.
+        """
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM sources ORDER BY created_at DESC, id LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+        return [self._row_to_source(row) for row in rows]
+
+    def list_documents(self, limit: int = 100,
+                       offset: int = 0) -> list[Document]:
+        """Return documents ordered newest-first for status/dashboard display.
+
+        Args:
+            limit: Maximum number of documents to return.
+            offset: Pagination offset.
+        """
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM documents ORDER BY created_at DESC, id LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+        return [self._row_to_document(row) for row in rows]
+
     # -- Citation / EvidenceRef -------------------------------------------
 
     def get_evidence_refs(self, chunk_ids: list[UUID], scores: list[float]) -> list[EvidenceRef]:

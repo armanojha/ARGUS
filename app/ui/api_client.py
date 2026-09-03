@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -82,6 +83,72 @@ class ARGUSAPIClient:
     def health(self) -> dict[str, Any]:
         """Return the API health payload (`GET /health`)."""
         response = self._session.get(f"{self.base_url}/health", timeout=10.0)
+        self._raise_for_status(response)
+        return response.json()
+
+    def get_knowledge_base_status(self) -> dict[str, Any]:
+        """Return the Knowledge Base status (`GET /api/v1/knowledge-base/status`)."""
+        response = self._session.get(
+            f"{self.base_url}/api/v1/knowledge-base/status", timeout=15.0
+        )
+        self._raise_for_status(response)
+        return response.json()
+
+    def ingest_knowledge_base(self, *, rebuild_indexes: bool = True) -> dict[str, Any]:
+        """Trigger a Knowledge Base re-sync (`POST /api/v1/knowledge-base/ingest`)."""
+        response = self._session.post(
+            f"{self.base_url}/api/v1/knowledge-base/ingest",
+            json={"rebuild_indexes": rebuild_indexes},
+            timeout=self.timeout,
+        )
+        self._raise_for_status(response)
+        return response.json()
+
+    def upload_files(self, file_paths: list[str]) -> dict[str, Any]:
+        """Upload files into the Knowledge Base (`POST /api/v1/knowledge-base/upload`).
+
+        ``file_paths`` are local paths to upload. Files are fed through the same
+        ingestion pipeline as directory placement, joining the same corpus.
+        """
+        uploads = [
+            ("files", (Path(p).name, open(p, "rb"))) for p in file_paths  # noqa: SIM115
+        ]
+        try:
+            response = self._session.post(
+                f"{self.base_url}/api/v1/knowledge-base/upload",
+                files=uploads,
+                timeout=self.timeout,
+            )
+            self._raise_for_status(response)
+            return response.json()
+        finally:
+            for _, (_, file_handle) in uploads:
+                file_handle.close()
+
+    def get_brain_status(self) -> dict[str, Any]:
+        """Return the ARGUS Brain (memory) status (`GET /api/v1/brain/status`)."""
+        response = self._session.get(
+            f"{self.base_url}/api/v1/brain/status", timeout=15.0
+        )
+        self._raise_for_status(response)
+        return response.json()
+
+    def get_obsidian_brain_status(self) -> dict[str, Any]:
+        """Return the Obsidian Brain status (`GET /api/v1/obsidian-brain/status`)."""
+        response = self._session.get(
+            f"{self.base_url}/api/v1/obsidian-brain/status", timeout=15.0
+        )
+        self._raise_for_status(response)
+        return response.json()
+
+    def promote_knowledge(self, *, limit: int = 50) -> dict[str, Any]:
+        """Trigger selective memory->Obsidian brain promotion
+        (`POST /api/v1/obsidian-brain/promote`)."""
+        response = self._session.post(
+            f"{self.base_url}/api/v1/obsidian-brain/promote",
+            params={"limit": limit},
+            timeout=self.timeout,
+        )
         self._raise_for_status(response)
         return response.json()
 

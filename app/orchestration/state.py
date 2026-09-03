@@ -66,3 +66,8 @@ class OrchestrationState(TypedDict):
     # Phase 06.5.3 fast-path marker: set when a simple query skips the
     # analyze/plan/assess nodes and runs a single retrieve -> synthesize pass.
     fast_path: NotRequired[bool]
+
+    # Phase 08/Knowledge-system: set when the memory-enhance node actually
+    # consulted persistent memory (derived knowledge, distinct from document
+    # evidence). Additive visibility for the user-facing control layer.
+    memory_consulted: NotRequired[list[str]]
