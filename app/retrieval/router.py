@@ -159,15 +159,35 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
         top_k = top_k or self.settings.retrieval_top_k
         mix = self.get_retrieval_mix(pattern)
 
+        # Phase 07f: dispatch the independent retrieval methods concurrently.
+        # Each method (BM25 / VECTOR / HYBRID / GRAPH / TEMPORAL / METADATA_FILTER)
+        # is an isolated read over the (read-only) indexes producing its own
+        # EvidenceRef list — there is no data dependency between methods, so they
+        # can overlap. The synchronous searches (local BM25 index + local/remote
+        # embeddings) are CPU/I-O bound and GIL-releasing (numpy/torch inference),
+        # so `asyncio.to_thread` genuinely overlaps them. Determinism is preserved:
+        # results are collected per-method in the original mix order, and the
+        # downstream `_fuse` dedups by chunk_id and sorts by weighted score — its
+        # output is identical regardless of completion order. A bounded semaphore
+        # caps fan-out so a pathological method list can never spawn unbounded tasks.
+        import asyncio
+
         per_method: list[tuple[RetrievalMethod, list[EvidenceRef]]] = []
-        for method in mix.methods:
-            try:
-                refs = self._dispatch(method, mix, query, retriever, upper_k=mix.max_results_per_method)
-            except Exception as exc:  # noqa: BLE001 - a single method must not fail the whole search
-                logger.warning("policy_method_failed", method=method.value, error=str(exc))
-                refs = []
-            if refs:
-                per_method.append((method, refs))
+        sem = asyncio.Semaphore(min(4, max(1, len(mix.methods))))
+
+        async def _run_method(method: RetrievalMethod) -> tuple[RetrievalMethod, list[EvidenceRef]]:
+            async with sem:
+                try:
+                    refs = await asyncio.to_thread(
+                        self._dispatch, method, mix, query, retriever, mix.max_results_per_method
+                    )
+                except Exception as exc:  # noqa: BLE001 - a single method must not fail the whole search
+                    logger.warning("policy_method_failed", method=method.value, error=str(exc))
+                    refs = []
+            return method, refs
+
+        collected = await asyncio.gather(*(_run_method(m) for m in mix.methods))
+        per_method = [(m, refs) for m, refs in collected if refs]
 
         if not per_method:
             # Deterministic fallback to a plain hybrid pass (never empty-handed).

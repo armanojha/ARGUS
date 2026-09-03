@@ -228,11 +228,13 @@ def make_retrieve_node(
                 )
                 if not results:
                     # Deterministic fallback: plain hybrid pass. Never fabricate.
-                    results = retriever.search(subquery, top_k=settings.orchestration_retrieval_top_k)
+                    results = await retriever.search_async(subquery, top_k=settings.orchestration_retrieval_top_k)
                     if results:
                         results = reranker.rerank(subquery, results, top_k=settings.orchestration_retrieval_top_k)
             else:
-                results = retriever.search(subquery, top_k=settings.orchestration_retrieval_top_k)
+                # Phase 07f: the async hybrid overlaps the independent BM25 and
+                # vector passes (deterministic fusion, unaffected by ordering).
+                results = await retriever.search_async(subquery, top_k=settings.orchestration_retrieval_top_k)
                 if results:
                     results = reranker.rerank(subquery, results, top_k=settings.orchestration_retrieval_top_k)
         except Exception as exc:

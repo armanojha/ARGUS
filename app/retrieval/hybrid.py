@@ -5,6 +5,9 @@ Combines BM25 lexical retrieval with FAISS dense vector retrieval.
 
 from __future__ import annotations
 
+import asyncio
+from typing import Any
+
 from app.config import get_settings
 from app.evidence.models import EvidenceRef
 from app.evidence.store import EvidenceStore, get_evidence_store
@@ -121,11 +124,91 @@ class HybridRetriever:
             vector_scores = {cid: score for cid, score in vector_results}
             logger.debug("hybrid_search_vector", query=query, vector_results=len(vector_results))
 
+        return self._fuse(self.store, query, top_k, bm25_weight, vector_weight,
+                          bm25_scores, vector_scores)
+
+    async def search_async(
+        self,
+        query: str,
+        top_k: int | None = None,
+        bm25_weight: float = 0.5,
+        vector_weight: float = 0.5,
+        mechanisms: set[str] | None = None,
+    ) -> list[EvidenceRef]:
+        """Async hybrid search that overlaps the BM25 and vector passes.
+
+        Phase 07f safe-parallelism variant of :meth:`search`. The two passes
+        are independent read-only channels with no data dependency, and each is
+        returned as `EvidenceRef` lists that are fused deterministically
+        downstream, so the fused output is identical regardless of completion
+        order (dedup by chunk_id + weighted score sort). The synchronous passes
+        (local BM25 index + embedding/FAISS, which are GIL-releasing numpy/torch
+        work) are offloaded to a bounded thread pool via ``asyncio.to_thread`` so
+        they genuinely overlap instead of serializing on the event loop.
+        """
+        top_k = top_k or self.settings.retrieval_top_k
+
+        total_weight = bm25_weight + vector_weight
+        if abs(total_weight - 1.0) > 1e-6:
+            if total_weight == 0:
+                bm25_weight, vector_weight = 0.5, 0.5
+            else:
+                bm25_weight /= total_weight
+                vector_weight /= total_weight
+
+        want_bm25 = mechanisms is None or "bm25" in mechanisms
+        want_vector = mechanisms is None or "vector" in mechanisms
+
+        def _bm25_pass() -> dict[Any, float]:
+            res = self.bm25.search(query, top_k=top_k * 2)
+            scores = {cid: score for cid, score in res}
+            logger.debug("hybrid_search_bm25", query=query, bm25_results=len(res))
+            return scores
+
+        def _vector_pass() -> dict[Any, float]:
+            emb = self.embedder.embed_texts([query])[0]
+            res = self.vector.search(emb, top_k=top_k * 2)
+            scores = {cid: score for cid, score in res}
+            logger.debug("hybrid_search_vector", query=query, vector_results=len(res))
+            return scores
+
+        tasks = []
+        if want_bm25:
+            tasks.append(asyncio.to_thread(_bm25_pass))
+        if want_vector:
+            tasks.append(asyncio.to_thread(_vector_pass))
+        results = await asyncio.gather(*tasks) if tasks else []
+
+        bm25_scores, vector_scores = {}, {}
+        idx = 0
+        if want_bm25:
+            bm25_scores = results[idx]; idx += 1
+        if want_vector:
+            vector_scores = results[idx]
+
+        return self._fuse(self.store, query, top_k, bm25_weight, vector_weight,
+                          bm25_scores, vector_scores)
+
+    @staticmethod
+    def _fuse(
+        store: EvidenceStore,
+        query: str,
+        top_k: int,
+        bm25_weight: float,
+        vector_weight: float,
+        bm25_scores: dict[Any, float],
+        vector_scores: dict[Any, float],
+    ) -> list[EvidenceRef]:
+        """Deterministically fuse independent BM25/vector score maps.
+
+        Shared by the sync and async search variants (Phase 07f). Output is
+        independent of which pass completed first: dedup by chunk_id keeping the
+        highest fused score, then a stable sort by fused score.
+        """
         if not bm25_scores and not vector_scores:
             logger.info("hybrid_search_empty", query=query[:50])
             return []
 
-        # Fuse scores (reciprocal rank fusion or weighted sum)
         all_chunk_ids = set(bm25_scores.keys()) | set(vector_scores.keys())
         logger.debug("hybrid_search_fusion", all_chunk_ids=len(all_chunk_ids))
 
@@ -134,28 +217,23 @@ class HybridRetriever:
             bm25_score = bm25_scores.get(chunk_id, 0.0)
             vector_score = vector_scores.get(chunk_id, 0.0)
 
-            # Normalize scores to [0, 1] range (rough approximation)
-            # BM25 scores can be unbounded, vector scores are cosine similarity [0, 1]
             max_bm25 = max(bm25_scores.values()) if bm25_scores else 1.0
             norm_bm25 = bm25_score / max_bm25 if max_bm25 > 0 else 0.0
-            norm_vector = vector_score  # already [0, 1]
+            norm_vector = vector_score
 
             fused_score = bm25_weight * norm_bm25 + vector_weight * norm_vector
             fused_results.append((chunk_id, fused_score, bm25_score, vector_score))
 
-        # Sort by fused score
         fused_results.sort(key=lambda x: x[1], reverse=True)
         top_results = fused_results[:top_k]
 
         logger.debug("hybrid_search_fused", top_results=len(top_results))
 
-        # Build EvidenceRefs
         chunk_ids = [cid for cid, _, _, _ in top_results]
         fused_scores = [score for _, score, _, _ in top_results]
 
-        evidence_refs = self.store.get_evidence_refs(chunk_ids, fused_scores)
+        evidence_refs = store.get_evidence_refs(chunk_ids, fused_scores)
 
-        # Add component scores to metadata
         for i, ref in enumerate(evidence_refs):
             _, _, bm25_s, vec_s = top_results[i]
             ref.metadata["bm25_score"] = bm25_s
