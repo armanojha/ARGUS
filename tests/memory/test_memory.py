@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.graph.store import EvidenceGraphStore
 from app.memory import (
     DeltaStatus,
     DeltaType,
@@ -16,7 +17,6 @@ from app.memory import (
     MemoryAwarePlanner,
     MemoryFactory,
     MemoryLayer,
-    MemoryPromotionStatus,
     MemoryQuery,
     MemoryRecord,
     MemoryScope,
@@ -28,7 +28,7 @@ from app.memory.factory import (
     initialize_memory_system,
     shutdown_memory_system,
 )
-from app.memory.interfaces import DefaultMemoryFactory
+from app.memory.interfaces import DefaultMemoryFactory, MemoryPromotionStatus
 
 
 class TestSQLiteMemoryStore:
@@ -671,3 +671,99 @@ class TestNullMemoryStore:
 
         stats = await store.get_stats()
         assert stats["enabled"] is False
+
+
+class TestGraphStoreVersionedDeltas:
+    """Tests for Phase 08 versioned, non-destructive graph deltas (Gap A)."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database for testing."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = Path(f.name)
+        yield db_path
+        if db_path.exists():
+            try:
+                db_path.unlink()
+            except PermissionError:
+                pass
+
+    @pytest.fixture
+    def version_manager(self, temp_db):
+        """Create a version manager with temp database."""
+        return GraphVersionManager(db_path=temp_db, confidence_threshold=0.7)
+
+    @pytest.fixture
+    def graph_store(self, temp_db, version_manager):
+        """Create an EvidenceGraphStore wired to the version manager."""
+        from app.evidence.store import EvidenceStore
+
+        evidence_store = EvidenceStore(db_path=temp_db)
+        store = EvidenceGraphStore(
+            graph_path=temp_db.parent / ("graph_" + temp_db.name + ".pkl"),
+            evidence_store=evidence_store,
+            version_manager=version_manager,
+        )
+        yield store
+
+    def test_entity_delta_recorded(self, graph_store, version_manager):
+        """Upserting an entity records an ENTITY_CREATED delta."""
+        from app.graph.models import Entity, EntityType
+
+        entity = Entity(canonical_name="Acme", entity_type=EntityType.ORGANIZATION, confidence=0.9)
+        graph_store.upsert_entity(entity)
+        deltas = version_manager.get_deltas_for_target(entity.id, "entity")
+        assert len(deltas) == 1
+        assert deltas[0].delta_type == DeltaType.ENTITY_CREATED
+
+    def test_claim_delta_recorded_with_contradiction(self, graph_store, version_manager):
+        """A claim with contradicting chunks records a CONTRADICTED delta on update."""
+        from app.graph.models import Claim
+
+        claim = Claim(id=uuid4(), text="Claim one", predicate="is", object_value="X")
+        graph_store.upsert_claim(claim)
+        claim2 = Claim(
+            id=claim.id,
+            text="Claim one revised",
+            predicate="is",
+            object_value="Y",
+            contradicting_chunk_ids=[uuid4(), uuid4()],
+        )
+        graph_store.upsert_claim(claim2)
+        deltas = version_manager.get_deltas_for_target(claim.id, "claim")
+        assert len(deltas) == 2
+        assert deltas[0].delta_type == DeltaType.CLAIM_CREATED
+        assert deltas[1].delta_type == DeltaType.CLAIM_CONTRADICTED
+
+    def test_edge_delta_recorded(self, graph_store, version_manager):
+        """Adding an edge records an EDGE_ADDED delta."""
+        from app.graph.models import EdgeType, GraphEdge
+
+        edge = GraphEdge(
+            edge_type=EdgeType.RELATES_TO,
+            source_node_id=uuid4(),
+            source_node_type="entity",
+            target_node_id=uuid4(),
+            target_node_type="entity",
+            supporting_chunk_ids=[uuid4()],
+            confidence=0.8,
+        )
+        graph_store.add_edge(edge)
+        deltas = version_manager.get_deltas_for_target(edge.id, "edge")
+        assert len(deltas) == 1
+        assert deltas[0].delta_type == DeltaType.EDGE_ADDED
+
+    def test_explicit_store_without_version_manager_records_no_deltas(self, temp_db):
+        """An EvidenceGraphStore without a version manager does not emit deltas."""
+        from app.evidence.store import EvidenceStore
+        from app.graph.models import Entity, EntityType
+
+        evidence_store = EvidenceStore(db_path=temp_db)
+        store = EvidenceGraphStore(
+            graph_path=temp_db.parent / ("nover_" + temp_db.name + ".pkl"),
+            evidence_store=evidence_store,
+        )
+        assert store.version_manager is None
+        entity = Entity(canonical_name="Acme", entity_type=EntityType.ORGANIZATION)
+        store.upsert_entity(entity)
+        assert store.version_manager is None

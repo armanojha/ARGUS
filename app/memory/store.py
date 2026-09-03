@@ -285,8 +285,8 @@ class MemoryStore(MemoryStoreInterface):
     def _resolve_fresh_evidence(self, conn: sqlite3.Connection, record: MemoryRecord) -> None:
         """Apply fresh-evidence-wins semantics.
 
-        If a new record contradicts or updates an existing record on the same
-        ``(subject, predicate, object, layer)`` key with a different content, the
+        If a new record contradicts or updates an existing record about the same
+        ``(subject, predicate, layer)`` key with a different content/object, the
         older record is superseded (archived) rather than hard-deleted, preserving
         history while making the newer evidence authoritative.
         """
@@ -299,10 +299,11 @@ class MemoryStore(MemoryStoreInterface):
             """
             SELECT * FROM memory_records
             WHERE layer = ? AND subject = ? AND predicate = ?
-              AND id != ? AND content != ?
-              AND (object IS ? OR object = ?)
-              AND promotion_status IN (?, ?)
-            ORDER BY created_at ASC
+              AND id != ?
+              AND (content != ? OR (object IS NOT ? AND object <> ?))
+              AND superseded_by_id IS NULL
+              AND promotion_status IN (?, ?, ?)
+            ORDER BY created_at ASC, id ASC
             LIMIT 1
             """,
             (
@@ -315,6 +316,7 @@ class MemoryStore(MemoryStoreInterface):
                 record.object,
                 MemoryPromotionStatus.PROVISIONAL.value,
                 MemoryPromotionStatus.PROMOTED.value,
+                MemoryPromotionStatus.ARCHIVED.value,
             ),
         ).fetchone()
 
@@ -323,22 +325,21 @@ class MemoryStore(MemoryStoreInterface):
 
         older_id = older["id"]
         older_conf: float = older["confidence"]
-        older_created = datetime.fromisoformat(older["created_at"])
-        record_created = record.created_at
 
-        # Fresh-evidence-wins: prefer a strictly newer record; ties favour the
-        # higher-confidence record, and equal-confidence falls back to newer.
-        newer = record_created > older_created
-        if not newer and record_created == older_created:
-            newer = record.confidence >= older_conf
-        elif not newer and record.confidence > older_conf:
-            newer = True
-        if not newer:
+        # Fresh-evidence-wins: supersede an existing record about the same
+        # fact only when the new evidence is at least as confident as the old
+        # (recency breaks ties). A clearly weaker new claim must not erode a
+        # well-supported existing memory.
+        if record.confidence < older_conf:
             return
 
         conn.execute(
             "UPDATE memory_records SET superseded_by_id = ?, promotion_status = ? WHERE id = ?",
             (str(record.id), MemoryPromotionStatus.ARCHIVED.value, older_id),
+        )
+        conn.execute(
+            "UPDATE memory_records SET supersedes_id = ? WHERE id = ?",
+            (older_id, str(record.id)),
         )
         logger.info(
             "memory_fresh_evidence_superseded",

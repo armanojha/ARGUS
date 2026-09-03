@@ -16,6 +16,7 @@ from app.memory.interfaces import (
     MemoryFactoryInterface,
     # Enums
     MemoryLayer,
+    MemoryPromotionStatus,
     MemoryQuery,
     # Models
     MemoryRecord,
@@ -58,6 +59,7 @@ __all__ = [
     "MemoryFactory",
     "MemoryFactoryInterface",
     "MemoryLayer",
+    "MemoryPromotionStatus",
     "MemoryQuery",
     "MemoryRecord",
     "MemoryScope",
