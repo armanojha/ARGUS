@@ -1,0 +1,68 @@
+[
+  {
+    "scenario": "1_primary_down_fallback",
+    "status": "PASS",
+    "detail": {
+      "served": true,
+      "provider": "gemini",
+      "groq_avoided_next": true,
+      "groq_status": "unavailable"
+    }
+  },
+  {
+    "scenario": "2_rate_limit_cooldown",
+    "status": "PASS",
+    "detail": {
+      "served": true,
+      "first_provider": "gemini",
+      "groq_health": "healthy",
+      "groq_repeated": false,
+      "second_provider": "gemini"
+    }
+  },
+  {
+    "scenario": "3_model_intra_provider_fallback",
+    "status": "PASS",
+    "detail": {
+      "provider": "gemini",
+      "model": "gemini-3.5-flash-lite",
+      "provider_not_blocked": false,
+      "model_blocked": true
+    }
+  },
+  {
+    "scenario": "4_quota_skip",
+    "status": "PASS",
+    "detail": {
+      "provider_served": "gemini",
+      "groq_attempted": false,
+      "quota_configured": true
+    }
+  },
+  {
+    "scenario": "5_malformed_graceful",
+    "status": "PASS",
+    "detail": {
+      "served": true,
+      "provider": "groq",
+      "content_ok": true
+    }
+  },
+  {
+    "scenario": "6_no_repeat_dead_provider",
+    "status": "PASS",
+    "detail": {
+      "groq_attempts_over_3_calls": 0,
+      "note": "0 == groq never re-tried (cooldown respected)"
+    }
+  },
+  {
+    "scenario": "7_verifier_failure_failsafe",
+    "status": "PASS",
+    "detail": {
+      "verifier_served": true,
+      "verifier_provider": "gemini",
+      "groq_blocked": false
+    }
+  }
+]

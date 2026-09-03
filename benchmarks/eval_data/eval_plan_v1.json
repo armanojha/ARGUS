@@ -1,0 +1,769 @@
+{
+  "eval_id": "PHASE07C_V1",
+  "corpus_version": "corpus_v1",
+  "corpus_dir": "corpus_v1",
+  "documents": {
+    "doc-a": "doc-a-acme-corp.md",
+    "doc-b": "doc-b-atlas-database.md",
+    "doc-c": "doc-c-supply-chain.md",
+    "doc-d": "doc-d-regional-report.md",
+    "doc-e": "doc-e-legacy-revenue-2023.md",
+    "doc-f": "doc-f-current-revenue-2025.md",
+    "doc-g": "doc-g-frontier-fusion.md",
+    "doc-h": "doc-h-metrics-q3.md",
+    "doc-i": "doc-i-product-roadmap.md",
+    "doc-j": "doc-j-polaris-probe.md",
+    "doc-k": "doc-k-manufacturing-overview.md",
+    "doc-l": "doc-l-data-center.md"
+  },
+  "query_classes": {
+    "A": {
+      "name": "simple_lookup",
+      "desc": "Simple factual lookup, single doc, expected FAST tier"
+    },
+    "B": {
+      "name": "normal_qa",
+      "desc": "Normal question-answering, balanced complexity"
+    },
+    "C": {
+      "name": "technical_explanation",
+      "desc": "Technical detail, terminology disambiguation"
+    },
+    "D": {
+      "name": "multi_doc_synthesis",
+      "desc": "Requires combining facts across multiple documents"
+    },
+    "E": {
+      "name": "multi_hop",
+      "desc": "Requires chained reasoning across dependencies"
+    },
+    "F": {
+      "name": "conflict",
+      "desc": "Documents contradict each other on a number"
+    },
+    "G": {
+      "name": "absent_info",
+      "desc": "Information genuinely absent from the corpus"
+    },
+    "H": {
+      "name": "numerical",
+      "desc": "Precise numeric facts and arithmetic aggregation"
+    },
+    "I": {
+      "name": "complex_research",
+      "desc": "Strong-tier research question, multi-part synthesis"
+    },
+    "J": {
+      "name": "adversarial",
+      "desc": "Trick questions, confusable terms, off-topic traps"
+    }
+  },
+  "queries": [
+    {
+      "id": "A1",
+      "class": "simple_lookup",
+      "query": "Where is Acme Corporation headquartered?",
+      "expected_tier": "FAST",
+      "supporting_docs": [
+        "doc-a"
+      ],
+      "gold_facts": [
+        "New York City"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": "fast path"
+    },
+    {
+      "id": "A2",
+      "class": "simple_lookup",
+      "query": "Who is the CEO of Acme Corporation?",
+      "expected_tier": "FAST",
+      "supporting_docs": [
+        "doc-a"
+      ],
+      "gold_facts": [
+        "Diana Reyes"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": "fast path"
+    },
+    {
+      "id": "A3",
+      "class": "simple_lookup",
+      "query": "What year was Acme Corporation founded?",
+      "expected_tier": "FAST",
+      "supporting_docs": [
+        "doc-a"
+      ],
+      "gold_facts": [
+        "1987"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": "fast path"
+    },
+    {
+      "id": "A4",
+      "class": "simple_lookup",
+      "query": "What is the default storage engine of Atlas?",
+      "expected_tier": "FAST",
+      "supporting_docs": [
+        "doc-b"
+      ],
+      "gold_facts": [
+        "columnar"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": "fast path"
+    },
+    {
+      "id": "A5",
+      "class": "simple_lookup",
+      "query": "At what depth is the Polaris probe deployed?",
+      "expected_tier": "FAST",
+      "supporting_docs": [
+        "doc-j"
+      ],
+      "gold_facts": [
+        "1,400",
+        "meters"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": "fast path"
+    },
+    {
+      "id": "A6",
+      "class": "simple_lookup",
+      "query": "What is the serial number of the Polaris probe?",
+      "expected_tier": "FAST",
+      "supporting_docs": [
+        "doc-j"
+      ],
+      "gold_facts": [
+        "PLR-70211"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": "fast path"
+    },
+    {
+      "id": "B1",
+      "class": "normal_qa",
+      "query": "How many employees did Acme report for 2025?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-a",
+        "doc-f"
+      ],
+      "gold_facts": [
+        "12,400"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "B2",
+      "class": "normal_qa",
+      "query": "Which Acme plant had the highest utilization in 2025?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-d",
+        "doc-f"
+      ],
+      "gold_facts": [
+        "Ohio"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "B3",
+      "class": "normal_qa",
+      "query": "What consistency model does Atlas use by default?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-b"
+      ],
+      "gold_facts": [
+        "strong consistency"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "B4",
+      "class": "normal_qa",
+      "query": "Who founded Acme Corporation?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-a"
+      ],
+      "gold_facts": [
+        "Martin Whitfield"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "C1",
+      "class": "technical_explanation",
+      "query": "What is the difference between Atlas Delta Sync and Atlas Incremental Sync?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-b"
+      ],
+      "gold_facts": [
+        "Delta Sync",
+        "range partitions",
+        "Incremental Sync",
+        "append-only"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "C2",
+      "class": "technical_explanation",
+      "query": "What is the correct Atlas CLI command to rebuild an index?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-b"
+      ],
+      "gold_facts": [
+        "atlas index rebuild"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "C3",
+      "class": "technical_explanation",
+      "query": "Does Atlas use two-phase locking?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-b"
+      ],
+      "gold_facts": [
+        "no",
+        "optimistic concurrency"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "D1",
+      "class": "multi_doc_synthesis",
+      "query": "Which plants feed or are fed by the Memphis distribution center, and what moved through it in 2025?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-c",
+        "doc-d"
+      ],
+      "gold_facts": [
+        "Ohio",
+        "Memphis",
+        "2.2",
+        "million"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "D2",
+      "class": "multi_doc_synthesis",
+      "query": "Combine the Q3 unit output of the Ohio and Mexico plants to get the total.",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-h"
+      ],
+      "gold_facts": [
+        "710,000"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "D3",
+      "class": "multi_doc_synthesis",
+      "query": "Sum the Q3 unit outputs of the New York, Ohio, and Mexico plants.",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-h"
+      ],
+      "gold_facts": [
+        "1,020,000"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "E1",
+      "class": "multi_hop",
+      "query": "If PetroKem Co. is disrupted, which distribution center is first affected?",
+      "expected_tier": "STRONG",
+      "supporting_docs": [
+        "doc-c"
+      ],
+      "gold_facts": [
+        "Memphis"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "E2",
+      "class": "multi_hop",
+      "query": "Which plant is downstream of Ohio and depends indirectly on PetroKem?",
+      "expected_tier": "STRONG",
+      "supporting_docs": [
+        "doc-c"
+      ],
+      "gold_facts": [
+        "Monterrey",
+        "Mexico"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "E3",
+      "class": "multi_hop",
+      "query": "The inspection robot integrates with which distribution center, and that integration depends on which Atlas feature?",
+      "expected_tier": "STRONG",
+      "supporting_docs": [
+        "doc-i",
+        "doc-b"
+      ],
+      "gold_facts": [
+        "Memphis",
+        "Delta Sync"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "F1",
+      "class": "conflict",
+      "query": "What was Acme's annual revenue?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-e",
+        "doc-f"
+      ],
+      "gold_facts": [
+        "4.7",
+        "billion"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": true,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "F2",
+      "class": "conflict",
+      "query": "How many employees does Acme have?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-e",
+        "doc-f"
+      ],
+      "gold_facts": [
+        "12,400"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": true,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "F3",
+      "class": "conflict",
+      "query": "What was the Ohio plant utilization?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-e",
+        "doc-f"
+      ],
+      "gold_facts": [
+        "91%"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": true,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "G1",
+      "class": "absent_info",
+      "query": "What is the capital cost of the room-temperature fusion reactor?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-g"
+      ],
+      "gold_facts": [
+        "not",
+        "available",
+        "no data"
+      ],
+      "live": true,
+      "absent": true,
+      "conflict": false,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "G2",
+      "class": "absent_info",
+      "query": "What were the results of the Holton lattice cold-fusion experiments?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-g"
+      ],
+      "gold_facts": [
+        "not",
+        "available",
+        "no data"
+      ],
+      "live": true,
+      "absent": true,
+      "conflict": false,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "G3",
+      "class": "absent_info",
+      "query": "Which quarter of 2020 did Acme report its best sales?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [],
+      "gold_facts": [
+        "not",
+        "available",
+        "no data"
+      ],
+      "live": true,
+      "absent": true,
+      "conflict": false,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "G4",
+      "class": "absent_info",
+      "query": "What is the watt power output of the 2031 fusion run?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-g"
+      ],
+      "gold_facts": [
+        "not",
+        "available",
+        "no data"
+      ],
+      "live": true,
+      "absent": true,
+      "conflict": false,
+      "verification_expect": "verify",
+      "note": ""
+    },
+    {
+      "id": "H1",
+      "class": "numerical",
+      "query": "What is the on-time delivery rate for Q3 2025?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-h"
+      ],
+      "gold_facts": [
+        "96.4%"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "H2",
+      "class": "numerical",
+      "query": "What was total Q3 output across all plants?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-h"
+      ],
+      "gold_facts": [
+        "1,020,000"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "H3",
+      "class": "numerical",
+      "query": "What fraction of reported incidents in Q3 was connector seal leakage?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-h"
+      ],
+      "gold_facts": [
+        "41%"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "I1",
+      "class": "complex_research",
+      "query": "Assess the argument that Acme is diversifying into robotics and evaluate what it depends on.",
+      "expected_tier": "STRONG",
+      "supporting_docs": [
+        "doc-i",
+        "doc-b"
+      ],
+      "gold_facts": [
+        "robot",
+        "Delta Sync",
+        "Atlas",
+        "warehouse",
+        "Memphis"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "I2",
+      "class": "complex_research",
+      "query": "Synthesize how Acme's supply network, distribution, and manufacturing regions fit together.",
+      "expected_tier": "STRONG",
+      "supporting_docs": [
+        "doc-c",
+        "doc-d",
+        "doc-k"
+      ],
+      "gold_facts": [
+        "Ohio",
+        "Memphis",
+        "PetroKem",
+        "Monterrey",
+        "eastern"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "I3",
+      "class": "complex_research",
+      "query": "Compare the 2023 and 2025 performance of Acme's industrial sealant line and explain the change.",
+      "expected_tier": "STRONG",
+      "supporting_docs": [
+        "doc-e",
+        "doc-f"
+      ],
+      "gold_facts": [
+        "23%",
+        "9%",
+        "growth"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "J1",
+      "class": "adversarial",
+      "query": "What is the code for the network switch layer?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-l"
+      ],
+      "gold_facts": [
+        "L3-Edge"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "J2",
+      "class": "adversarial",
+      "query": "What is the code of the power distribution unit?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-l"
+      ],
+      "gold_facts": [
+        "PDU-9"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "J3",
+      "class": "adversarial",
+      "query": "Which temperature sensor is wired to rack 9?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-l"
+      ],
+      "gold_facts": [
+        "none",
+        "rack 9"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "J4",
+      "class": "adversarial",
+      "query": "What did Acme announce in its consumer electronics strategy for 2026?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-i"
+      ],
+      "gold_facts": [
+        "no",
+        "consumer",
+        "electronics"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "J5",
+      "class": "adversarial",
+      "query": "Which cold-fusion group published the Q of 1.4 in 2031?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-g"
+      ],
+      "gold_facts": [
+        "not",
+        "cold",
+        "magnetized"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    },
+    {
+      "id": "J6",
+      "class": "adversarial",
+      "query": "What is the total watt output of the 2031 Helion-DARPA reactor?",
+      "expected_tier": "BALANCED",
+      "supporting_docs": [
+        "doc-g"
+      ],
+      "gold_facts": [
+        "not",
+        "available"
+      ],
+      "live": true,
+      "absent": false,
+      "conflict": false,
+      "verification_expect": "skip",
+      "note": ""
+    }
+  ],
+  "stats": {
+    "total_queries": 38,
+    "by_class": {
+      "simple_lookup": 6,
+      "normal_qa": 4,
+      "technical_explanation": 3,
+      "multi_doc_synthesis": 3,
+      "multi_hop": 3,
+      "conflict": 3,
+      "absent_info": 4,
+      "numerical": 3,
+      "complex_research": 3,
+      "adversarial": 6
+    },
+    "live_count": 38
+  }
+}
