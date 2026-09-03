@@ -1,0 +1,31 @@
+{
+  "re1": {
+    "burst_q0_succeeded": false,
+    "burst_q0_error": "RATE_LIMIT_ERROR",
+    "burst_q1_succeeded_after_recovery": true,
+    "burst_q1_provider": "groq",
+    "primary_restored_without_restart": true,
+    "groq_calls": 2,
+    "gemini_calls": 1,
+    "cerebras_calls": 1,
+    "zen_calls": 1,
+    "no_available_model_q0": true
+  },
+  "re2": {
+    "grid_succeeded": 0,
+    "no_available_model": 3,
+    "max_calls_per_provider": 1,
+    "all_failed_truthful": true
+  },
+  "re3": {
+    "succeeded": 3,
+    "primary_served": true,
+    "calls_per_query": 3
+  },
+  "re4": {
+    "probe_succeeded": true,
+    "probe_provider": "groq",
+    "probe_fallback_reason": "in_session_recovery_probe",
+    "groq_health_after_probe": "healthy"
+  }
+}

@@ -459,13 +459,17 @@ def make_synthesize_node(router: LLMRouter, settings: Settings) -> NodeFn:
             answer = ""
 
         if not answer.strip():
-            # Degrade to a deterministic, still evidence-grounded summary
-            # rather than returning nothing.
+            # Degrade to a clean, still-evidence-grounded statement (Phase 07e):
+            # prefer a truthful "could not synthesize" + the grounded evidence
+            # with citations, NOT a naked raw-evidence dump (07c §15.1). The
+            # citation markers [[i]] still map to the evidence list below, and
+            # _derive_outcome labels this ANSWERED_DEGRADED.
             top = evidence[: min(3, len(evidence))]
             bullets = "\n".join(f"- {r.text.strip()[:300]} [{i}]" for i, r in enumerate(top, 1))
             answer = (
-                "Synthesis was unavailable; returning the top retrieved evidence instead:\n"
-                f"{bullets}"
+                "Synthesis is temporarily unavailable, so I could not produce a "
+                "polished answer. Here is the grounded evidence I retrieved "
+                f"(correctness not fully synthesized):\n{bullets}"
             )
             warnings.append("synthesis_degraded_to_raw_evidence")
 
