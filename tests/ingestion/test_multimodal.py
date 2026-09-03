@@ -43,6 +43,42 @@ def _create_text_pdf() -> bytes:
     return buffer.getvalue()
 
 
+def _create_rendered_word_pdf() -> bytes:
+    """Create a PDF whose only content is a rasterized word (no text layer).
+
+    The word is drawn as shapes onto an image, then embedded as an image so the
+    PDF has no extractable text layer — only OCR can recover it.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = Image.new("RGB", (612, 200), "white")
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("arial.ttf", 64)
+    except OSError:
+        font = ImageFont.load_default()
+    draw.text((60, 60), "ARGUSOCR", fill="black", font=font)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    png = buf.getvalue()
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_image(pymupdf.Rect(50, 300, 562, 500), stream=png)
+    out = io.BytesIO()
+    doc.save(out)
+    return out.getvalue()
+
+
+@pytest.fixture
+def rendered_word_pdf_path():
+    """Create a temp PDF with only a rasterized word (OCR-only content)."""
+    temp_path = Path(tempfile.mktemp(suffix=".pdf"))
+    temp_path.write_bytes(_create_rendered_word_pdf())
+    yield temp_path
+    temp_path.unlink(missing_ok=True)
+
+
 def _create_scanned_pdf() -> bytes:
     """Create a PDF without extractable text (simulated scanned PDF)."""
     doc = pymupdf.open()
@@ -112,6 +148,24 @@ class TestOCRFallback:
         # Without tesseract, it falls back to text layer (empty)
         assert results[0].ocr_used is False
         assert results[0].text.strip() == ""
+
+    def test_ocr_extracts_rasterized_content(self, rendered_word_pdf_path):
+        """When tesseract is installed, OCR recovers text from an image-only PDF.
+
+        The fixture has no text layer — only a rasterized word. With the OCR
+        engine present this must be recovered; otherwise the test is skipped
+        so CI without tesseract does not fail.
+        """
+        import shutil
+
+        if shutil.which("tesseract") is None:
+            pytest.skip("tesseract OCR engine not installed")
+
+        results = list(extract_pdf_with_ocr_fallback(rendered_word_pdf_path, min_chars_per_page=50))
+        assert len(results) == 1
+        assert results[0].ocr_used is True
+        assert results[0].confidence is not None
+        assert "ARGUSOCR" in results[0].text
 
     def test_ocr_result_structure(self):
         """Test OCRResult structure."""
