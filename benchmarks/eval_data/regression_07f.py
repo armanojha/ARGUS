@@ -206,11 +206,6 @@ async def main() -> None:
     print(f"saved: {out_dir / 'regression_07f.json'}")
 
 
-def tempfile_path() -> str:
-    import tempfile
-    return tempfile.mkdtemp()
-
-
 def _summarize(report: dict) -> None:
     re1 = report["RE1"]
     print(f"RE1 retrieval determinism: fused-identity mismatches={len(re1['fused_identity_mismatches'])} "

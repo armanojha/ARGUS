@@ -1,0 +1,59 @@
+{
+  "RE1": {
+    "fused_identity_mismatches": [],
+    "retrieval_serial_stats": {
+      "mean_ms": 113.4,
+      "p50_ms": 114.2,
+      "p95_ms": 120.9,
+      "p99_ms": 121.3,
+      "max_ms": 121.3
+    },
+    "retrieval_async_stats": {
+      "mean_ms": 114.4,
+      "p50_ms": 113.9,
+      "p95_ms": 122.3,
+      "p99_ms": 123.0,
+      "max_ms": 123.0
+    },
+    "recall8_mean": 0.987,
+    "recall8_min": 0.5
+  },
+  "LA": [
+    {
+      "run": 1,
+      "latency": {
+        "mean_ms": 7154.5,
+        "p50_ms": 8217,
+        "p95_ms": 8255,
+        "p99_ms": 8260,
+        "max_ms": 8260
+      },
+      "outcome_distribution": {
+        "answered": 38
+      },
+      "calls_per_query_mean": 4.289,
+      "grounded_rate": 1.0,
+      "max_calls_single_query": 5,
+      "zero_citation_queries": 0,
+      "warnings": []
+    },
+    {
+      "run": 2,
+      "latency": {
+        "mean_ms": 7153.4,
+        "p50_ms": 8222,
+        "p95_ms": 8246,
+        "p99_ms": 8258,
+        "max_ms": 8258
+      },
+      "outcome_distribution": {
+        "answered": 38
+      },
+      "calls_per_query_mean": 4.289,
+      "grounded_rate": 1.0,
+      "max_calls_single_query": 5,
+      "zero_citation_queries": 0,
+      "warnings": []
+    }
+  ]
+}
