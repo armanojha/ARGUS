@@ -75,6 +75,16 @@ class TestOcrCache:
         assert cache.clear() == 2
         assert cache.get("a") is None
 
+    def test_prune_bounds_growth(self, tmp_path: Path):
+        cache = _OcrCache(tmp_path)
+        cache.MAX_ENTRIES = 4
+        for i in range(8):
+            cache.set(f"key-{i}", {"text": str(i)})
+        kept = {p.name for p in tmp_path.glob("*.json")}
+        assert len(kept) == 4
+        assert "key-0.json" not in kept and "key-1.json" not in kept
+        assert "key-7.json" in kept
+
 
 # ---------------------------------------------------------------------------
 # Blank-page detection

@@ -251,14 +251,14 @@ def _deps() -> dict:
 
 def _main() -> int:
     _init_streams()  # silence Paddle's stdout noise; protocol goes to stderr
-    for _ in range(4):
+    for attempt in range(4):
         try:
             _get_ocr("en")  # warm the models once so the first request is fast
             break
-        except Exception:  # noqa: BLE001 - retry on slow first model download
+        except Exception as e:  # noqa: BLE001 - retry on slow first model download
             # Model download/init can be slow on first run; retry briefly.
-            _PROTO.write("[warn] paddle warmup retry\n")
-            _PROTO.flush()
+            _emit({"event": "warn", "message": "paddle warmup retry",
+                   "error": f"{type(e).__name__}: {e}", "attempt": attempt + 1})
     _emit({"event": "ready", "version": "paddleocr", "deps": _deps()})
 
     for line in sys.stdin:
@@ -274,13 +274,17 @@ def _main() -> int:
         image_path = req.get("path")
         lang = req.get("lang") or "en"
         tier = req.get("tier") or "fast"
+        cleanup = None
 
         if req.get("data_b64"):
             try:
                 raw = base64.b64decode(req["data_b64"])
-                tmp = Path(image_path) if image_path else Path(".") / "_ocr_req.png"
-                tmp.write_bytes(raw)
-                image_path = str(tmp)
+                if not image_path:
+                    import tempfile
+                    fd, image_path = tempfile.mkstemp(suffix=".png")
+                    os.close(fd)
+                    cleanup = image_path
+                Path(image_path).write_bytes(raw)
             except Exception as e:  # noqa: BLE001
                 _emit({"ok": False, "error": f"decode: {e}"})
                 continue
@@ -295,6 +299,12 @@ def _main() -> int:
         except Exception as e:  # noqa: BLE001
             _emit({"ok": False, "error": f"{type(e).__name__}: {e}",
                    "text": "", "confidence": None, "lines": []})
+        finally:
+            if cleanup:
+                try:
+                    Path(cleanup).unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     return 0
 

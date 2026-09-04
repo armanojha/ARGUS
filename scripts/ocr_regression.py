@@ -170,12 +170,10 @@ def build_corpus(work: Path) -> list[CorpusDoc]:
 def _sample_resources(samples: list[dict]) -> None:
     try:
         import psutil
-        proc = psutil.Process()
-        with proc.oneshot():
-            samples.append({
-                "cpu_pct": proc.cpu_percent(interval=None),
-                "rss_mb": round(proc.memory_info().rss / 1048576, 1),
-            })
+        samples.append({
+            "cpu_pct": psutil.cpu_percent(interval=None),  # host-wide, not the driver
+            "rss_mb": round(psutil.Process().memory_info().rss / 1048576, 1),
+        })
     except Exception:  # noqa: BLE001, S110 - resource sampling is best-effort
         pass
 
@@ -239,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
         results = []
         try:
             import psutil
-            psutil.Process().cpu_percent(interval=None)  # seed the CPU delta
+            psutil.cpu_percent(interval=None)  # seed the host CPU delta
         except Exception:  # noqa: BLE001, S110
             pass
         for doc in corpus:
@@ -263,8 +261,8 @@ def main(argv: list[str] | None = None) -> int:
             ) if any(r["avg_confidence"] for r in results) else None,
         },
         "avg_resources": {
-            "cpu_pct": round(sum(s["cpu_pct"] for s in samples) / len(samples), 1) if samples else None,
-            "rss_mb": round(sum(s["rss_mb"] for s in samples) / len(samples), 1) if samples else None,
+            "host_cpu_pct": round(sum(s["cpu_pct"] for s in samples) / len(samples), 1) if samples else None,
+            "driver_rss_mb": round(sum(s["rss_mb"] for s in samples) / len(samples), 1) if samples else None,
         },
         "results": results,
     }
@@ -276,8 +274,8 @@ def main(argv: list[str] | None = None) -> int:
     print("\n===== SUMMARY =====")
     print(f"stack: {stack or '(unknown)'}")
     print(f"dpi  : {args.dpi}   total: {report['summary']['total_ms']} ms / {report['summary']['ocr_pages']} OCR pages")
-    if report["avg_resources"]["cpu_pct"] is not None:
-        print(f"cpu% : avg {report['avg_resources']['cpu_pct']}   rss {report['avg_resources']['rss_mb']} MB")
+    if report["avg_resources"]["host_cpu_pct"] is not None:
+        print(f"host cpu% : avg {report['avg_resources']['host_cpu_pct']}   driver rss {report['avg_resources']['driver_rss_mb']} MB")
     hdr = f"{'doc':<14}{'kind':<10}{'ms':>8}{'chars':>7}{'conf':>8}  engine"
     print(hdr)
     print("-" * len(hdr))

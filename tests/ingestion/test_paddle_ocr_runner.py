@@ -179,6 +179,7 @@ class TestPaddleOCRRunnerProtocol:
             runner._queue = MagicMock()
             with pytest.raises(RuntimeError, match="did not report ready"):
                 runner._start()
+        assert runner._proc is None  # failed spawn must not leak a worker
 
     def test_runner_exchange_returns_text_confidence(self, _clean_runner_singleton):
         runner = PaddleOCRRunner()
@@ -284,3 +285,20 @@ class TestPaddlePdfFallback:
         assert len(results) == 1
         assert results[0].ocr_used is False
         assert runner.run_ocr.call_count == 0
+
+    def test_render_failure_keyerror_falls_back_to_text_layer(
+        self, scanned_pdf_path, _clean_runner_singleton,
+    ):
+        """A render failure (e.g. PIL KeyError('JPEG')) must not crash."""
+
+        def _boom(page, dpi=300):
+            raise KeyError("JPEG")
+
+        with (
+            patch("app.ingestion.ocr._resolve_ocr_engine", return_value="paddle"),
+            patch("app.ingestion.ocr._pdf_page_to_image", side_effect=_boom),
+        ):
+            results = list(extract_pdf_with_ocr_fallback(scanned_pdf_path, min_chars_per_page=10))
+        assert len(results) == 1
+        assert results[0].ocr_used is False
+        assert results[0].text == ""

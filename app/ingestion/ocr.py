@@ -131,10 +131,16 @@ class _OcrCache:
 
     def _prune(self) -> None:
         """Bound cache growth: drop the oldest entries beyond the cap."""
-        entries = sorted(self._dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
+        entries = []
+        for p in self._dir.glob("*.json"):
+            try:
+                entries.append((p.stat().st_mtime, p))
+            except OSError:
+                continue
+        entries.sort()
         if len(entries) <= self.MAX_ENTRIES:
             return
-        for p in entries[:-self.MAX_ENTRIES]:
+        for _, p in entries[:-self.MAX_ENTRIES]:
             try:
                 p.unlink()
             except OSError:
@@ -340,10 +346,7 @@ class PaddleOCRRunner:
         self._drain_thread = threading.Thread(target=self._drain, daemon=True)
         self._drain_thread.start()
         # Wait for the worker's readiness handshake.
-        try:
-            ready = self._read_json_line(timeout=180.0)
-        except Exception:
-            ready = None
+        ready = self._read_json_line(timeout=180.0)
         if not ready or ready.get("event") != "ready":
             self._kill_proc()
             self._proc = None
@@ -447,15 +450,18 @@ class PaddleOCRRunner:
 
 
 _runner_singleton: PaddleOCRRunner | None = None
+_runner_singleton_lock = threading.Lock()
 
 
 def _get_runner() -> PaddleOCRRunner | None:
     global _runner_singleton
-    if _paddle_available():
-        if _runner_singleton is None:
-            _runner_singleton = PaddleOCRRunner()
-        return _runner_singleton
-    return None
+    if not _paddle_available():
+        return None
+    if _runner_singleton is None:
+        with _runner_singleton_lock:
+            if _runner_singleton is None:
+                _runner_singleton = PaddleOCRRunner()
+    return _runner_singleton
 
 
 def extract_pdf_text_layer(pdf_path: Path) -> list[str]:
