@@ -445,6 +445,38 @@ class Settings(BaseSettings):
         default=120.0,
         description="Per-page timeout (seconds) for a PaddleOCR runner request.",
     )
+    ocr_text_detection_model: str = Field(
+        default="",
+        description="PaddleOCR text detection model. Empty (default) lets the runner apply the fast PP-OCRv5 mobile tier; set 'PP-OCRv6_medium_det' or 'PP-OCRv5_server_det' for maximum accuracy (~15x slower on CPU), or any other model name.",
+    )
+    ocr_text_recognition_model: str = Field(
+        default="",
+        description="PaddleOCR text recognition model. Empty (default) auto-resolves per language (runner uses fast 'en_PP-OCRv5_mobile_rec' for English). Explicit names override auto-resolution for any language.",
+    )
+    ocr_doc_orientation_classify: bool = Field(
+        default=True,
+        description="Correct page orientation (0/90/180/270) before OCR. Adds model load time; disable for straight scans.",
+    )
+    ocr_doc_unwarping: bool = Field(
+        default=True,
+        description="Deskew/unwarp distorted scans before OCR. Heaviest preprocessing model (~10 s extra load); disable for clean scans.",
+    )
+    ocr_textline_orientation: bool = Field(
+        default=True,
+        description="Normalize line-level orientation before recognition.",
+    )
+    ocr_device: str = Field(
+        default="cpu",
+        description="PaddleOCR device. Only 'cpu' is supported: PaddlePaddle 3.x has no Windows GPU wheels, so GPU would silently fall back to CPU anyway.",
+    )
+    ocr_rec_score_thresh: float = Field(
+        default=0.4,
+        description="Minimum recognition confidence for a text line to be kept.",
+    )
+    ocr_det_limit_side_len: int = Field(
+        default=0,
+        description="Cap for the detection model's longest input side in pixels (0 = framework default). Lower values speed up detection on large 300-DPI page renders.",
+    )
 
     @property
     def providers_config_path(self) -> Path:

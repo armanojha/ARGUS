@@ -54,7 +54,15 @@ graph = [
 ]
 
 # Multimodal ingestion (Phase 11): web, spreadsheets, OCR fallback.
-# NOTE: OCR also requires the Tesseract system binary (see configs/providers.yaml).
+# NOTE: legacy OCR requires the Tesseract system binary (configs/providers.yaml).
+#
+# The default OCR engine is PaddleOCR, which runs in an *isolated* Python 3.11+
+# venv because PaddlePaddle (PaddleOCR's backend) has no wheels for the app's
+# Python 3.14 interpreter. Build that env with:
+#     py -3.11 -m venv .venv-ocr
+#     .venv-ocr/Scripts/python -m pip install "paddlepaddle==3.2.2" "paddleocr>=3,<4"
+# and set `ocr_engine=auto|paddle|tesseract` (see app/config.py OCR settings).
+# PaddleOCR itself is NOT declared here because it is incompatible with 3.14.
 multimodal = [
     "requests>=2.31",
     "beautifulsoup4>=4.12",

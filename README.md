@@ -10,7 +10,7 @@ Obsidian-integrated personal knowledge layer with guaranteed provenance.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-537%20passed-brightgreen.svg)](#testing--quality)
+[![Tests](https://img.shields.io/badge/tests-559%20passed-brightgreen.svg)](#testing--quality)
 
 ## Why ARGUS?
 
@@ -139,7 +139,7 @@ RUN_LIVE_LLM_TESTS=1 python -m pytest tests/test_provider_contract_live.py -v
 
 | Check | Status |
 |-------|--------|
-| `pytest tests/ -v` | 537 passed, 20 skipped |
+| `pytest tests/ -v` | 559 passed, 20 skipped |
 | `ruff check app/` | Clean |
 | `mypy app/` | Passing |
 

@@ -19,6 +19,7 @@ OCR is applied only to pages without a usable text layer (per Phase 11.1).
 from __future__ import annotations
 
 import json
+import os
 import queue
 import shutil
 import subprocess
@@ -124,8 +125,8 @@ class PaddleOCRRunner:
 
     def __init__(self) -> None:
         self._proc: subprocess.Popen | None = None
-        self._queue: "queue.Queue[dict | None]" | None = None
-        self._drain_thread: "threading.Thread | None" = None
+        self._queue: queue.Queue[dict | None] | None = None
+        self._drain_thread: threading.Thread | None = None
 
     @property
     def available(self) -> bool:
@@ -136,6 +137,18 @@ class PaddleOCRRunner:
         script = _resolve_runner_script()
         if python is None or script is None:
             raise FileNotFoundError("PaddleOCR runner interpreter/script not found")
+        settings = get_settings()
+        env = dict(os.environ)
+        env.update({
+            "OCR_DET_MODEL": getattr(settings, "ocr_text_detection_model", "") or "",
+            "OCR_REC_MODEL": getattr(settings, "ocr_text_recognition_model", "") or "",
+            "OCR_DOC_ORIENT": "1" if getattr(settings, "ocr_doc_orientation_classify", True) else "0",
+            "OCR_DOC_UNWARP": "1" if getattr(settings, "ocr_doc_unwarping", True) else "0",
+            "OCR_TEXTLINE_ORIENT": "1" if getattr(settings, "ocr_textline_orientation", True) else "0",
+            "OCR_DEVICE": getattr(settings, "ocr_device", "cpu") or "cpu",
+            "OCR_REC_SCORE_THRESH": str(getattr(settings, "ocr_rec_score_thresh", 0.4)),
+            "OCR_DET_LIMIT_SIDE_LEN": str(int(getattr(settings, "ocr_det_limit_side_len", 0) or 0)),
+        })
         self._proc = subprocess.Popen(
             [str(python), "-u", str(script)],
             stdin=subprocess.PIPE,
@@ -146,6 +159,7 @@ class PaddleOCRRunner:
             errors="replace",
             bufsize=1,
             cwd=str(REPO_ROOT),
+            env=env,
         )
         # Drain the worker's stderr continuously so Paddle's diagnostic noise
         # can never fill the pipe and deadlock the exchange (the worker also
@@ -197,13 +211,11 @@ class PaddleOCRRunner:
         # NOTE: on Windows a NamedTemporaryFile keeps the handle open/locked,
         # so the worker subprocess could not write to it. Use mkstemp (handle
         # released immediately) and clean up explicitly.
-        import os
-
         fd, tf_name = tempfile.mkstemp(suffix=".png", prefix="argus_ocr_")
         os.close(fd)
         try:
             image.save(tf_name, format="PNG")
-        except Exception:  # noqa: BLE001
+        except Exception:
             os.unlink(tf_name)
             raise
         try:
@@ -240,12 +252,16 @@ class PaddleOCRRunner:
             try:
                 if self._proc.stdin:
                     self._proc.stdin.close()
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as e:  # noqa: BLE001
+                logger.debug("paddle_ocr_close_stdin_error", error=str(e))
             try:
                 self._proc.wait(timeout=5)
-            except Exception:  # noqa: BLE001
-                self._proc.kill()
+            except Exception as e:  # noqa: BLE001
+                logger.warning("paddle_ocr_kill_timeout", error=str(e))
+                try:
+                    self._proc.kill()
+                except Exception:  # noqa: BLE001
+                    logger.debug("paddle_ocr_kill_failed")
         self._proc = None
 
 
