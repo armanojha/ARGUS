@@ -77,6 +77,7 @@
     color: var(--text-dim); font-size: 13px; cursor: pointer;
     transition: background .15s, color .15s;
   }
+  a.nav-item { text-decoration: none; }
   .nav-item:hover { background: var(--panel-2); color: var(--text); }
   .nav-item.active { background: rgba(110,168,254,.12); color: var(--accent); }
   .nav-item .ic { width: 16px; text-align: center; opacity: .85; }
@@ -252,6 +253,43 @@
   }
 
   .badge-note { font-size:11px; color:var(--text-faint); line-height:1.4; margin-top:8px; }
+
+  /* ------- Document viewer modal ------- */
+  #docviewer {
+    position: fixed; inset: 0; z-index: 70;
+    background: rgba(4,6,10,.62); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .22s ease;
+  }
+  #docviewer.open { opacity: 1; pointer-events: auto; }
+  #docviewer-panel {
+    width: min(880px, calc(100vw - 48px)); max-height: min(82vh, 760px);
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden;
+    transform: translateY(12px) scale(.985); transition: transform .24s cubic-bezier(.2,.8,.2,1);
+  }
+  #docviewer.open #docviewer-panel { transform: translateY(0) scale(1); }
+  .dv-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 16px 18px 12px; border-bottom: 1px solid var(--border-soft);
+  }
+  .dv-etype { font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px; font-weight: 700; color: var(--accent-2); }
+  .dv-title { font-size: 16px; font-weight: 700; margin-top: 4px; word-break: break-word; }
+  .dv-close { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text-dim); cursor: pointer; font-size: 14px; flex: 0 0 30px; }
+  .dv-close:hover { color: var(--text); border-color: var(--accent); }
+  .dv-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 18px; border-bottom: 1px solid var(--border-soft); }
+  .dv-action {
+    padding: 4px 11px; border-radius: 14px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text-dim); font-size: 11.5px; cursor: pointer; transition: all .15s;
+  }
+  .dv-action:hover { color: var(--accent-2); border-color: var(--accent); }
+  .dv-action.copy { color: var(--good); }
+  .dv-body { flex: 1; overflow-y: auto; padding: 18px; line-height: 1.7; font-size: 13.5px; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+  .dv-body::-webkit-scrollbar { width: 8px; }
+  .dv-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .dv-empty { color: var(--text-faint); font-size: 13px; }
+  .dv-loading { display: flex; gap: 8px; align-items: center; color: var(--text-dim); font-size: 13px; }
+  .dv-loading .spinner { width: 16px; height: 16px; border-width: 2px; }
 </style>
 </head>
 <body>
@@ -267,13 +305,13 @@
     </div>
     <nav>
       <div class="nav-group">Explore</div>
-      <div class="nav-item"><span class="ic">⌁</span> Research</div>
-      <div class="nav-item"><span class="ic">▤</span> Knowledge Base</div>
-      <div class="nav-item brain"><span class="ic">◉</span> ARGUS Brain</div>
-      <div class="nav-item"><span class="ic">▤</span> Documents</div>
-      <div class="nav-item"><span class="ic">✓</span> Evidence</div>
+      <a class="nav-item" data-nav="app" href="http://127.0.0.1:8501"><span class="ic">⌁</span> Research</a>
+      <a class="nav-item" data-nav="app" href="http://127.0.0.1:8501"><span class="ic">▤</span> Knowledge Base</a>
+      <a class="nav-item brain" data-nav="self" href="/brain"><span class="ic">◉</span> ARGUS Brain</a>
+      <a class="nav-item" data-nav="app" href="http://127.0.0.1:8501"><span class="ic">▤</span> Documents</a>
+      <a class="nav-item" data-nav="self" href="/brain"><span class="ic">✓</span> Evidence</a>
       <div class="nav-group">System</div>
-      <div class="nav-item"><span class="ic">⚙</span> Settings</div>
+      <a class="nav-item" data-nav="app" href="http://127.0.0.1:8501"><span class="ic">⚙</span> Settings</a>
     </nav>
     <div class="sidebar-footer">
       <div class="stats-mini" id="side-stats">Loading…</div>
@@ -327,6 +365,22 @@
 </div>
 
 <div id="loading"><div class="spinner"></div><div class="l-text">Waking up the Brain…</div></div>
+
+<div id="docviewer">
+  <div id="docviewer-panel">
+    <div class="dv-head">
+      <div>
+        <div class="dv-etype" id="dv-etype">Document</div>
+        <div class="dv-title" id="dv-title">Document</div>
+      </div>
+      <button class="dv-close" id="dv-close" title="Close (Esc)">✕</button>
+    </div>
+    <div class="dv-actions" id="dv-actions"></div>
+    <div class="dv-body" id="dv-body"></div>
+  </div>
+</div>
+
+
 
 <script>
 "use strict";
@@ -529,15 +583,27 @@ function draw() {
   ctx.translate(view.x, view.y);
   ctx.scale(view.k, view.k);
 
+  // frustum culling bounds (world space) so off-screen nodes/labels are skipped
+  const w0 = screenToWorld({ x: -64, y: -64 });
+  const w1 = screenToWorld({ x: width + 64, y: height + 64 });
+  const minX = Math.min(w0.x, w1.x), maxX = Math.max(w0.x, w1.x);
+  const minY = Math.min(w0.y, w1.y), maxY = Math.max(w0.y, w1.y);
+
   // draw edges
   const dimmed = selectedNode || focusedNode;
   for (const e of edges) {
     if (isFilteredOut(e.source) || isFilteredOut(e.target)) continue;
+    const sx = e.source.x, sy = e.source.y, tx = e.target.x, ty = e.target.y;
+    // skip edges fully outside the viewport
+    if (sx < minX && tx < minX) continue;
+    if (sx > maxX && tx > maxX) continue;
+    if (sy < minY && ty < minY) continue;
+    if (sy > maxY && ty > maxY) continue;
     const linked = dimmed && (e.source === selectedNode || e.target === selectedNode ||
                               e.source === focusedNode || e.target === focusedNode);
     ctx.beginPath();
-    ctx.moveTo(e.source.x, e.source.y);
-    ctx.lineTo(e.target.x, e.target.y);
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(tx, ty);
     const active = !dimmed || linked;
     const isSupport = e.type === "supports";
     ctx.strokeStyle = active
@@ -547,9 +613,9 @@ function draw() {
     ctx.stroke();
 
     if (e.directed && view.k > 0.55) {
-      const mx = (e.source.x + e.target.x) / 2;
-      const my = (e.source.y + e.target.y) / 2;
-      const ang = Math.atan2(e.target.y - e.source.y, e.target.x - e.source.x) + Math.PI;
+      const mx = (sx + tx) / 2;
+      const my = (sy + ty) / 2;
+      const ang = Math.atan2(ty - sy, tx - sx) + Math.PI;
       const size = 3.2;
       ctx.beginPath();
       ctx.moveTo(mx + Math.cos(ang - 0.7) * size, my + Math.sin(ang - 0.7) * size);
@@ -564,6 +630,7 @@ function draw() {
   // draw nodes
   for (const n of nodes) {
     if (isFilteredOut(n)) continue;
+    if (n.x < minX || n.x > maxX || n.y < minY || n.y > maxY) continue;
     const dimmed2 = dimmed && n !== selectedNode && n !== focusedNode && !(selectedNode && selectedNode.neighbors.includes(n.id)) && !(focusedNode && focusedNode.neighbors.includes(n.id));
     const r = nodeRadius(n);
     drawNode(n, r, dimmed2);
@@ -571,26 +638,37 @@ function draw() {
   ctx.restore();
 }
 
+const localFont = (() => {
+  const body = document.body;
+  const val = (body && getComputedStyle(body).getPropertyValue("--font")) || "Inter, sans-serif";
+  return val.trim() || "Inter, sans-serif";
+})();
+
 function drawNode(n, r, dimmed) {
   const isSel = selectedNode === n;
-  const isFoc = focusedNode === n;
   const isHov = hoverNode === n;
 
-  let fill = nodeColor(n);
+  const fill = nodeColor(n);
   ctx.save();
+  ctx.beginPath();
+  ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+  ctx.fillStyle = fill;
+  ctx.globalAlpha = (dimmed ? 0.22 : 1) * (isSel || isHov ? 1 : 0.92);
+  ctx.fill();
 
-  // selection glow
-  if (isSel) {
-    ctx.shadowColor = fill;
-    ctx.shadowBlur = 18;
-  } else if (isFoc) {
-    ctx.shadowColor = fill;
-    ctx.shadowBlur = 12;
+  // gradient highlight (ellipse blob) — skip when heavily dimmed to save GPU
+  if (!dimmed) {
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+    const grad = ctx.createRadialGradient(n.x - r * 0.35, n.y - r * 0.35, r * 0.1, n.x, n.y, r);
+    grad.addColorStop(0, "rgba(255,255,255,.35)");
+    grad.addColorStop(0.6, "rgba(255,255,255,0)");
+    ctx.fillStyle = grad;
+    ctx.globalAlpha = (isSel || isHov ? 1 : 0.9);
+    ctx.fill();
   }
 
-  globalAlpha(ctx, dimmed ? 0.18 : 1);
-
-  // ring (stroke) for emphasis
+  // selection/focus ring + glow
   if (isSel) {
     ctx.beginPath();
     ctx.arc(n.x, n.y, r + 4, 0, Math.PI * 2);
@@ -598,46 +676,31 @@ function drawNode(n, r, dimmed) {
     ctx.globalAlpha = 0.55;
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.globalAlpha = dimmed ? 0.18 : 1;
   }
 
-  ctx.beginPath();
-  ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-  ctx.fillStyle = fill;
-  ctx.globalAlpha = (dimmed ? 0.22 : 1) * (isSel || isHov ? 1 : 0.92);
-  ctx.fill();
-
-  // gradient highlight
-  ctx.beginPath();
-  ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-  const grad = ctx.createRadialGradient(n.x - r*0.35, n.y - r*0.35, r*0.1, n.x, n.y, r);
-  grad.addColorStop(0, "rgba(255,255,255,.35)");
-  grad.addColorStop(0.6, "rgba(255,255,255,0)");
-  ctx.fillStyle = grad;
-  ctx.globalAlpha = (dimmed ? 0.2 : 1) * 0.9;
-  ctx.fill();
-
-  ctx.globalAlpha = 1;
   ctx.restore();
 
-  // label
+  // label (world-space -> cull by viewport handled in caller)
   if (view.k > 0.5 && !dimmed && (r >= 7 || isSel || isHov)) {
     const fs = Math.max(10, Math.min(12, 9 + view.k * 2));
-    ctx.font = (isSel || isHov ? "600 " : "400 ") + fs + "px " + getComputedStyle(document.body).getPropertyValue("--font");
+    ctx.font = (isSel || isHov ? "600 " : "400 ") + fs + "px " + localFont;
     ctx.fillStyle = isSel ? "#ffffff" : "#cfd8e6";
     ctx.textAlign = "center";
     ctx.fillText(truncate(n.label, 26), n.x, n.y + r + fs + 4);
   }
 }
-
-function globalAlpha(ctx, a) { ctx.globalAlpha = a; }
 function truncate(s, max) { return s && s.length > max ? s.slice(0, max - 1) + "…" : s; }
 
 /* ---------------- View / zoom / pan ---------------- */
+let drawRaf = 0;
+function requestDraw() {
+  if (!drawRaf) drawRaf = requestAnimationFrame(() => { drawRaf = 0; draw(); });
+}
+
 function fitView() {
-  if (!nodes.length) { view = { x: 0, y: 0, k: 1 }; draw(); return; }
+  if (!nodes.length) { view = { x: 0, y: 0, k: 1 }; requestDraw(); return; }
   const visible = nodes.filter(n => !isFilteredOut(n));
-  if (!visible.length) { view = { x: 0, y: 0, k: 1 }; draw(); return; }
+  if (!visible.length) { view = { x: 0, y: 0, k: 1 }; requestDraw(); return; }
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   visible.forEach(n => {
     minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x);
@@ -650,7 +713,7 @@ function fitView() {
   const kk = Math.max(k, 0.15);
   const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
   view = { x: width / 2 - cx * kk, y: height / 2 - cy * kk, k: kk };
-  draw();
+  requestDraw();
 }
 
 function zoomBy(factor, cx, cy) {
@@ -661,10 +724,36 @@ function zoomBy(factor, cx, cy) {
   view.k = k1;
   view.x = px - w.x * k1;
   view.y = py - w.y * k1;
-  draw();
+  requestDraw();
 }
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+/* Smoothly animate the viewport to center on a node (used by search focus). */
+let animRaf = 0;
+function animateTo(node, targetK) {
+  if (animRaf) cancelAnimationFrame(animRaf);
+  targetK = clamp(targetK == null ? 1.6 : targetK, 0.15, 6);
+  const start = { x: view.x, y: view.y, k: view.k };
+  const target = {
+    x: width / 2 - node.x * targetK,
+    y: height / 2 - node.y * targetK,
+    k: targetK,
+  };
+  const t0 = performance.now();
+  const dur = 260;
+  function step(now) {
+    let t = Math.min(1, (now - t0) / dur);
+    const e = 1 - Math.pow(1 - t, 3); // easeOutCubic
+    view.x = start.x + (target.x - start.x) * e;
+    view.y = start.y + (target.y - start.y) * e;
+    view.k = start.k + (target.k - start.k) * e;
+    draw();
+    if (t < 1) animRaf = requestAnimationFrame(step);
+    else animRaf = 0;
+  }
+  animRaf = requestAnimationFrame(step);
+}
 
 /* ---------------- Interaction ---------------- */
 let dragState = null;
@@ -715,7 +804,7 @@ canvas.addEventListener("pointermove", (ev) => {
   if (panState) {
     view.x = panState.vx + (p.x - panState.startX);
     view.y = panState.vy + (p.y - panState.startY);
-    draw();
+    requestDraw();
     hoverNode = null;
     return;
   }
@@ -725,7 +814,7 @@ canvas.addEventListener("pointermove", (ev) => {
     hoverNode = hit;
     updateTooltip();
     canvas.style.cursor = hit ? "pointer" : "grab";
-    draw();
+    requestDraw();
   } else if (!hit && tooltipShown) {
     hideTooltip();
   }
@@ -733,6 +822,7 @@ canvas.addEventListener("pointermove", (ev) => {
 
 canvas.addEventListener("pointerup", (ev) => {
   const p = { x: ev.offsetX, y: ev.offsetY };
+  let emptyClick = false;
   if (dragState) {
     if (!dragState.moved) {
       selectNode(dragState.node);
@@ -742,8 +832,12 @@ canvas.addEventListener("pointerup", (ev) => {
       sim.alpha(0.3).restart();
     }
     dragState = null;
+  } else if (panState) {
+    // A pan that barely moved is an empty-space click -> dismiss selection.
+    if (Math.hypot(p.x - panState.startX, p.y - panState.startY) < 4) emptyClick = true;
   }
   panState = null;
+  if (emptyClick && selectedNode) clearSelection();
   canvas.style.cursor = hoverNode ? "pointer" : "grab";
 });
 
@@ -783,14 +877,14 @@ function selectNode(node) {
   selectedNode = node;
   focusedNode = node;
   openDetails(node);
-  draw();
+  requestDraw();
 }
 
 function clearSelection() {
   selectedNode = null;
   focusedNode = null;
   closeDetails();
-  draw();
+  requestDraw();
 }
 
 /* ---------------- Details panel ---------------- */
@@ -918,22 +1012,18 @@ function renderSearchResults(q) {
 }
 
 function focusNode(node) {
-  clearSelection();
+  selectedNode = null;
   focusedNode = node;
-  // center on node
-  view.x = width/2 - node.x * view.k;
-  view.y = height/2 - node.y * view.k;
   closeSearch();
   searchBox.value = "";
   searchClear.style.display = "none";
   showToast("Focused: " + short(node.label));
-  draw();
-  // open details after slight delay to let user see it
-  setTimeout(() => openDetails(node), 60);
+  animateTo(node, 1.5);
+  setTimeout(() => openDetails(node), 120);
 }
 
 function closeSearch() { searchResults.style.display = "none"; }
-searchClear.addEventListener("click", () => { searchBox.value=""; searchClear.style.display="none"; closeSearch(); draw(); });
+searchClear.addEventListener("click", () => { searchBox.value=""; searchClear.style.display="none"; closeSearch(); requestDraw(); });
 searchBox.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { searchBox.blur(); closeSearch(); }
   if (e.key === "Enter" && searchNodes.length) focusNode(searchNodes[0]);
@@ -945,20 +1035,22 @@ function renderFilters() {
   const container = document.getElementById("filters");
   const counts = {};
   nodes.forEach(n => { counts[n.type] = (counts[n.type]||0)+1; });
-  const all = `<button class="chip ${activeFilters.size === NODE_TYPES.length ? "active" : ""}" data-f="all">All</button>`;
-  const chips = NODE_TYPES.filter(t => counts[t]).map(t =>
+  const presentTypes = NODE_TYPES.filter(t => counts[t]);
+  const allActive = presentTypes.length ? activeFilters.size === presentTypes.length : activeFilters.size === 0;
+  const all = `<button class="chip ${allActive ? "active" : ""}" data-f="all">All</button>`;
+  const chips = presentTypes.map(t =>
     `<button class="chip ${activeFilters.has(t) ? "active" : ""}" data-f="${t}">${TYPE_LABELS[t]}<span class="count">${counts[t]}</span></button>`
   ).join("");
   container.innerHTML = all + chips;
   container.querySelectorAll("[data-f]").forEach(el => el.addEventListener("click", () => {
     const f = el.dataset.f;
     if (f === "all") {
-      activeFilters = new Set(NODE_TYPES.filter(t => counts[t]));
+      activeFilters = new Set(presentTypes);
     } else {
       if (activeFilters.has(f)) activeFilters.delete(f); else activeFilters.add(f);
     }
     renderFilters();
-    draw();
+    requestDraw();
     updateSideStats();
   }));
 }
@@ -1016,21 +1108,150 @@ document.getElementById("empty-build").addEventListener("click", async () => {
   }
 });
 
-/* ---------------- Document open ---------------- */
-async function openDocument(node) {
-  showToast("Opening " + short(node.label));
+/* ---------------- Document open & viewer ---------------- */
+const docviewer = document.getElementById("docviewer");
+const dvBody = document.getElementById("dv-body");
+const dvTitle = document.getElementById("dv-title");
+const dvEtype = document.getElementById("dv-etype");
+const dvActions = document.getElementById("dv-actions");
+
+let dvOpen = false;
+let dvContent = "";
+
+function openViewer() {
+  const body = document.body;
+  // save scroll/scrollbar state to prevent layout shift
+  if (body.style.overflow !== "hidden") body.dataset.prevOverflow = body.style.overflow;
+  body.style.overflow = "hidden";
+  docviewer.classList.add("open");
+  dvOpen = true;
 }
+function closeViewer() {
+  if (!dvOpen) return;
+  const body = document.body;
+  const prev = body.dataset.prevOverflow;
+  body.style.overflow = prev === undefined ? "" : prev;
+  docviewer.classList.remove("open");
+  dvOpen = false;
+}
+
+async function openDocument(node) {
+  const target = node.id || node;
+  let metaHtml = "";
+  const meta = node.metadata || {};
+  if (meta.section_path) metaHtml += `<span class="dv-action">${escapeHtml(meta.section_path)}</span>`;
+  if (meta.page_start != null) metaHtml += `<span class="dv-action">Page ${parseInt(meta.page_start, 10) + 1}</span>`;
+  if (meta.source_path && node.type !== "source") metaHtml += `<span class="dv-action">${escapeHtml(short(meta.source_path, 42))}</span>`;
+  dvActions.innerHTML = `<button class="dv-action copy" id="dv-copy">Copy</button>` + metaHtml;
+
+  dvTitle.textContent = node.type === "chunk"
+    ? (meta.section_path || node.label || "Chunk")
+    : (node.label || "Document");
+  dvEtype.textContent = (TYPE_LABELS[node.type] || node.type).toUpperCase() + " DOCUMENT";
+
+  dvBody.innerHTML = `<div class="dv-loading"><div class="spinner"></div> Loading document…</div>`;
+  openViewer();
+
+  try {
+    const res = await fetch(API_BASE + "/brain/document?node_id=" + encodeURIComponent(target));
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    dvContent = data.content || "";
+    dvContent = dvContent.length ? dvContent : "(empty document)";
+    dvTitle.textContent = data.title || dvTitle.textContent;
+    dvBody.textContent = dvContent;
+
+    if (node.type !== "document" && node.type !== "source" && data.node_type === "document") {
+      dvEtype.textContent = "DOCUMENT";
+    }
+    wireDvActions();
+  } catch (e) {
+    dvContent = "";
+    dvBody.innerHTML = `<div class="dv-empty">Could not load document: ${escapeHtml(e.message)}</div>`;
+    dvTitle.textContent = short(node.label || "Document", 48);
+  }
+}
+
+function wireDvActions() {
+  const copy = document.getElementById("dv-copy");
+  if (copy) {
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(dvContent || "");
+        showToast("Copied to clipboard");
+      } catch {
+        showToast("Copy not available");
+      }
+    });
+  }
+}
+
+document.getElementById("dv-close").addEventListener("click", closeViewer);
+docviewer.addEventListener("click", (ev) => { if (ev.target === docviewer) closeViewer(); });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && dvOpen) closeViewer(); });
 
 /* ---------------- Controls ---------------- */
 document.getElementById("zoom-in").addEventListener("click", () => zoomBy(1.3));
 document.getElementById("zoom-out").addEventListener("click", () => zoomBy(1/1.3));
 document.getElementById("zoom-fit").addEventListener("click", fitView);
-document.getElementById("zoom-reset").addEventListener("click", () => { view = { x: (width-(0)), y: (height), k: 0.7 }; draw(); });
+document.getElementById("zoom-reset").addEventListener("click", () => { view = { x: width / 2, y: height / 2, k: 1 }; draw(); });
 document.getElementById("sidebar-toggle").addEventListener("click", () => { document.getElementById("sidebar").classList.toggle("collapsed"); });
 
-canvas.parentElement.addEventListener("click", (ev) => {
-  if (ev.target === canvas || ev.target.classList.contains("canvas-wrap") || ev.target.id === "graph") return;
-  if (ev.target.id === "empty" || ev.target.closest("#empty")) return;
+/* ---------------- Keyboard navigation ---------------- */
+const TAB_ORDER = [
+  "search", "zoom-in", "zoom-out", "zoom-fit", "zoom-reset", "sidebar-toggle",
+].map(id => document.getElementById(id)).filter(Boolean).concat([searchBox]);
+
+document.addEventListener("keydown", (ev) => {
+  if (dvOpen) return; // viewer handles its own keys
+  const typing = ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA");
+  const dirs = { "ArrowUp": [0, -1], "ArrowDown": [0, 1], "ArrowLeft": [-1, 0], "ArrowRight": [1, 0] };
+
+  if (ev.key === "Escape") {
+    if (typing) { if (searchBox === document.activeElement) { searchBox.blur(); closeSearch(); } }
+    else if (selectedNode || focusedNode) clearSelection();
+    return;
+  }
+  if (typing) return;
+
+  if (dirs[ev.key]) {
+    // Move focus to the nearest neighbor in that direction (or nearest node).
+    ev.preventDefault();
+    const seed = focusedNode || selectedNode;
+    if (seed && seed.neighbors.length) {
+      const candidates = seed.neighbors.map(id => nodeById.get(id)).filter(Boolean);
+      let best = null, bestScore = Infinity;
+      const [dx, dy] = dirs[ev.key];
+      for (const c of candidates) {
+        const relx = c.x - seed.x, rely = c.y - seed.y;
+        // Require the neighbor to lie roughly in the pressed direction and be closest.
+        const proj = relx * dx + rely * dy;
+        if (proj > 0) {
+          const dist = Math.hypot(relx, rely) + (proj < 1e-6 ? 1e3 : 0);
+          if (dist < bestScore) { bestScore = dist; best = c; }
+        }
+      }
+      if (best) { focusedNode = best; animateTo(best, view.k); openDetails(best); return; }
+    }
+    // Fallback: nearest node in direction across the whole graph.
+    let best = null, bestScore = Infinity;
+    const [dx, dy] = dirs[ev.key];
+    const cxw = (width / 2 - view.x) / view.k, cyw = (height / 2 - view.y) / view.k;
+    for (const n of nodes) {
+      if (isFilteredOut(n)) continue;
+      const relx = n.x - cxw, rely = n.y - cyw;
+      const proj = relx * dx + rely * dy;
+      if (proj > 0) {
+        const dist = Math.hypot(relx, rely);
+        if (dist < bestScore) { bestScore = dist; best = n; }
+      }
+    }
+    if (best) { focusedNode = best; animateTo(best, view.k); openDetails(best); }
+  }
+
+  if (ev.key === "+" || ev.key === "=") zoomBy(1.3);
+  if (ev.key === "-" || ev.key === "_") zoomBy(1 / 1.3);
+  if (ev.key === "0") fitView();
 });
 
 /* ---------------- Toast ---------------- */

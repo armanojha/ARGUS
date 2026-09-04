@@ -11,6 +11,15 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 license-files = ["LICENSE"]
 
+[project.urls]
+Homepage = "https://github.com/armanojha/ARGUS"
+Repository = "https://github.com/armanojha/ARGUS"
+Issues = "https://github.com/armanojha/ARGUS/issues"
+Changelog = "https://github.com/armanojha/ARGUS/blob/main/CHANGELOG.md"
+
+[project.authors]
+name = "Arman Ojha"
+
 # Intentionally empty: install via the optional-dependency groups below
 # (e.g. `pip install -e ".[core,dev-test]"`), so each phase only pulls in
 # what it needs.

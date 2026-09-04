@@ -10,7 +10,7 @@ Obsidian-integrated personal knowledge layer with guaranteed provenance.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-436%20passed-brightgreen.svg)](#testing--quality)
+[![Tests](https://img.shields.io/badge/tests-537%20passed-brightgreen.svg)](#testing--quality)
 
 ## Why ARGUS?
 
@@ -26,32 +26,24 @@ Basic RAG systems retrieve documents and generate answers. ARGUS goes further:
 
 ## Architecture
 
-```
-User Query
-    │
-    ▼
-┌─────────────────────────────────────────────────────────┐
-│  Orchestration Loop (Phase 02)                          │
-│  Query Analysis → Planning → Retrieval → Synthesis      │
-└──────────┬──────────────────────────────┬───────────────┘
-           │                              │
-    ┌──────▼──────┐              ┌────────▼────────┐
-    │  Retrieval   │              │  LLM Gateway    │
-    │  Hybrid RAG  │              │  Multi-Model    │
-    │  BM25+FAISS  │              │  Router         │
-    └──────┬──────┘              └────────┬────────┘
-           │                              │
-    ┌──────▼──────┐              ┌────────▼────────┐
-    │  Evidence    │              │  Verification   │
-    │  Store +     │◄─────────────│  Engine         │
-    │  Graph       │              │  Confidence     │
-    └──────┬──────┘              └─────────────────┘
-           │
-    ┌──────▼──────┐
-    │  Obsidian    │
-    │  Integration │
-    │  (7-class)   │
-    └─────────────┘
+```mermaid
+flowchart TD
+    Q[User Query] --> O[Orchestration Loop]
+    O --> A[Query Analysis]
+    A --> P[Research Planning]
+    P --> R[Hybrid Retrieval<br/>BM25 + FAISS]
+    R --> E[Evidence Store<br/>+ Graph]
+    E --> V[Verification Engine<br/>Confidence Scoring]
+    V --> S[Synthesis]
+    S --> O
+    O --> LLM[LLM Gateway<br/>Multi-Model Router]
+    LLM --> G[Groq]
+    LLM --> GE[Gemini]
+    LLM --> C[Cerebras]
+    LLM --> Z[Zen]
+    E --> M[Memory Store<br/>5 Layers]
+    M --> P
+    E --> OB[Obsidian Integration<br/>7-Class Taxonomy]
 ```
 
 ## Supported Providers & Models
@@ -147,7 +139,7 @@ RUN_LIVE_LLM_TESTS=1 python -m pytest tests/test_provider_contract_live.py -v
 
 | Check | Status |
 |-------|--------|
-| `pytest tests/ -v` | 436 passed, 20 skipped |
+| `pytest tests/ -v` | 537 passed, 20 skipped |
 | `ruff check app/` | Clean |
 | `mypy app/` | Passing |
 
