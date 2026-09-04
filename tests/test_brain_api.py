@@ -127,3 +127,32 @@ def test_document_unknown_node_returns_404(client):
 def test_document_missing_param_returns_422(client):
     res = client.get("/api/v1/brain/document")
     assert res.status_code == 422
+
+
+def test_node_label_claims_are_short():
+    from app.api.brain import _node_label
+
+    label = _node_label("claim", {"text": "The core idea is to turn city buses into mobile, AI-powered urban sensing units."})
+    assert len(label) <= 48
+    assert label.endswith("…")
+    assert label == "The core idea is to turn city…"
+
+
+def test_node_label_chunk_readable_snippet_and_runtogether():
+    from app.api.brain import _node_label
+
+    readable = _node_label("chunk", {"text": "Buses are turned into sensing units.", "ordinal": 3})
+    assert readable == "#4 · Buses are turned into sensing…"
+
+    run_together = _node_label("chunk", {"text": "Runtogethertextwithoutspaces", "ordinal": 0})
+    assert run_together == "#1"
+
+
+def test_short_label_ellipsis_only_when_truncated():
+    from app.api.brain import _short_label
+
+    assert _short_label("Edge AI") == "Edge AI"
+    assert not _short_label("Edge AI").endswith("…")
+    assert _short_label("") is None
+    assert _short_label(None) is None
+

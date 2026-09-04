@@ -81,19 +81,53 @@ class BrainGraphData(BaseModel):
     source: str = "evidence-graph"
 
 
+def _short_label(text: str | None, max_words: int = 7, max_chars: int = 48) -> str | None:
+    """Produce a short, dense node label from a longer sentence (claims/chunks).
+
+    Takes the leading words (capped by ``max_words``/``max_chars``), capitalizes
+    the first letter, and appends an ellipsis when the source is longer.
+    Returns None when there is nothing usable.
+    """
+    if not text:
+        return None
+    source = " ".join(str(text).split())
+    words = source.split()
+    if not words:
+        return None
+    piece = ""
+    for w in words:
+        if piece and len(piece) + 1 + len(w) > max_chars:
+            break
+        piece = w if not piece else piece + " " + w
+        if len(piece.split()) >= max_words:
+            break
+    if not piece:
+        piece = words[0]
+    if piece[-1] in ".,:;":
+        piece = piece[:-1]
+    truncated = len(piece) < len(source)
+    candidate = piece + ("…" if truncated else "")
+    return candidate[0].upper() + candidate[1:] if candidate else candidate
+
+
 def _node_label(node_type: str, data: dict[str, Any]) -> str:
     """Produce a human-readable label for a graph node."""
     if node_type == "entity":
         return str(data.get("canonical_name") or "Unnamed entity")
     if node_type == "claim":
-        return str(data.get("text") or "Untitled claim")
+        short = _short_label(data.get("text"))
+        return str(short or "Untitled claim")
     if node_type == "event":
         return str(data.get("name") or "Untitled event")
     if node_type == "chunk":
-        path = data.get("source_path") or "document"
         ordinal = data.get("ordinal")
-        suffix = f" #{int(ordinal) + 1}" if isinstance(ordinal, (int, float)) else ""
-        return f"{_basename(str(path))}{suffix}"
+        num = f"#{int(ordinal) + 1}" if isinstance(ordinal, (int, float)) else "#?"
+        snippet = _short_label(data.get("text"), max_words=5, max_chars=34)
+        # Only decorate with a snippet when it is actually readable; run-together
+        # OCR text yields no spaces and would produce a messy label.
+        if snippet and " " in snippet:
+            return f"{num} · {snippet}"
+        return num
     if node_type in ("document", "source"):
         path = data.get("path")
         return _basename(str(path)) if path else str(data.get("id") or node_type)

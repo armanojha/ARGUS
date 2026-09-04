@@ -290,7 +290,88 @@
   .dv-empty { color: var(--text-faint); font-size: 13px; }
   .dv-loading { display: flex; gap: 8px; align-items: center; color: var(--text-dim); font-size: 13px; }
   .dv-loading .spinner { width: 16px; height: 16px; border-width: 2px; }
+
+  /* ------- View routing ------- */
+  .view { display: none; flex: 1; min-height: 0; position: relative; }
+  .view.active { display: flex; flex-direction: column; }
+  #main[data-view]:not([data-view="brain"]) #searchwrap[data-brain-only] { display: none; }
+
+  .view-scroll {
+    flex: 1; overflow-y: auto; padding: 26px 30px 40px; max-width: 960px; width: 100%; margin: 0 auto;
+  }
+  .view-scroll::-webkit-scrollbar { width: 8px; }
+  .view-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .view-intro h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .view-intro p { color: var(--text-dim); font-size: 13px; line-height: 1.6; margin-bottom: 22px; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px; margin-bottom: 18px; box-shadow: var(--shadow);
+  }
+  .panel-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-faint); font-weight: 700; margin-bottom: 12px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .stat-card .s-val { font-size: 24px; font-weight: 800; color: var(--accent-2); }
+  .stat-card .s-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-faint); margin-top: 4px; font-weight: 600; }
+  .loading-row { display: flex; gap: 10px; align-items: center; color: var(--text-dim); padding: 18px 0; }
+  .loading-row .spinner { width: 18px; height: 18px; border-width: 2px; }
+  .btn {
+    padding: 8px 16px; border-radius: 9px; border: 1px solid rgba(110,168,254,.4);
+    background: rgba(110,168,254,.14); color: var(--accent-2); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+  }
+  .btn:hover { background: rgba(110,168,254,.24); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .upload-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .upload-row input[type=file] { color: var(--text-dim); font-size: 12px; }
+  .kv-line { display: flex; justify-content: space-between; gap: 14px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border-soft); }
+  .kv-line:last-child { border-bottom: none; }
+  .kv-line .k { color: var(--text-faint); flex: 0 0 40%; }
+  .kv-line .v { color: var(--text); text-align: right; word-break: break-word; }
+
+  .doc-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 13px 15px; background: var(--panel); border: 1px solid var(--border); border-radius: 11px; margin-bottom: 9px; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .doc-item:hover { border-color: var(--accent); background: var(--panel-2); }
+  .doc-item .d-name { font-weight: 600; font-size: 13.5px; }
+  .doc-item .d-meta { font-size: 11.5px; color: var(--text-faint); margin-top: 3px; }
+  .doc-item .d-open { font-size: 12px; color: var(--accent-2); flex: 0 0 auto; }
+
+  /* ------- Research chat ------- */
+  #view-research { background: transparent; }
+  .chat-scroll { flex: 1; overflow-y: auto; padding: 26px 30px; max-width: 860px; width: 100%; margin: 0 auto; }
+  .chat-scroll::-webkit-scrollbar { width: 8px; }
+  .chat-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .chat-inputbar {
+    display: flex; gap: 10px; align-items: flex-end; padding: 14px 18px;
+    background: rgba(13,17,23,.6); backdrop-filter: blur(10px); border-top: 1px solid var(--border-soft);
+  }
+  #research-input {
+    flex: 1; resize: none; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-size: 13.5px; padding: 11px 14px; outline: none; font-family: var(--font); max-height: 150px; line-height: 1.5;
+  }
+  #research-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(110,168,254,.15); }
+  .chat-send { width: 42px; height: 42px; border-radius: 11px; border: none; background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: #02121c; font-size: 16px; cursor: pointer; flex: 0 0 42px; transition: opacity .15s; }
+  .chat-send:hover { opacity: .9; }
+  .chat-send:disabled { opacity: .4; cursor: not-allowed; }
+  .chat-msg { display: flex; margin-bottom: 18px; }
+  .chat-msg .av { width: 30px; height: 30px; border-radius: 9px; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; font-size: 14px; margin-right: 12px; }
+  .chat-msg.user .av { background: rgba(56,189,248,.2); color: var(--accent-2); }
+  .chat-msg.brain .av { background: rgba(52,211,153,.16); color: var(--good); }
+  .chat-bubble { flex: 1; min-width: 0; }
+  .chat-msg.user .chat-bubble { text-align: right; }
+  .chat-bubble .who { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-faint); font-weight: 700; margin-bottom: 5px; }
+  .chat-msg.user .chat-bubble .who { color: var(--accent-2); }
+  .chat-msg.user .bubble-box { display: inline-block; text-align: left; background: var(--panel-2); border: 1px solid var(--border); padding: 11px 14px; border-radius: 14px 14px 4px 14px; font-size: 13.5px; line-height: 1.55; }
+  .chat-msg.brain .bubble-box { background: var(--panel); border: 1px solid var(--border); padding: 13px 16px; border-radius: 14px 14px 14px 4px; font-size: 13.5px; line-height: 1.65; color: var(--text); }
+  .chat-a { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+  .chat-a .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .cit-chip { padding: 4px 10px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--border-soft); font-size: 11px; color: var(--text-dim); cursor: pointer; }
+  .cit-chip:hover { color: var(--accent-2); border-color: var(--accent); }
+  .chat-status { display: flex; gap: 10px; align-items: center; color: var(--text-dim); font-size: 13px; padding: 10px 0; }
+  .chat-status .spinner { width: 16px; height: 16px; border-width: 2px; }
 </style>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='42' fill='%236ea8fe' opacity='.25'/%3E%3Ccircle cx='50' cy='50' r='22' fill='%236ea8fe'/%3E%3C/svg%3E">
 </head>
 <body>
 <div id="app">
@@ -305,13 +386,13 @@
     </div>
     <nav>
       <div class="nav-group">Explore</div>
-      <a class="nav-item" data-nav="app" href="http://127.0.0.1:8501"><span class="ic">⌁</span> Research</a>
-      <a class="nav-item" data-nav="app" href="http://127.0.0.1:8501"><span class="ic">▤</span> Knowledge Base</a>
-      <a class="nav-item brain" data-nav="self" href="/brain"><span class="ic">◉</span> ARGUS Brain</a>
-      <a class="nav-item" data-nav="app" href="http://127.0.0.1:8501"><span class="ic">▤</span> Documents</a>
-      <a class="nav-item" data-nav="self" href="/brain"><span class="ic">✓</span> Evidence</a>
+      <a class="nav-item" data-view="research" href="#research"><span class="ic">⌁</span> Research</a>
+      <a class="nav-item" data-view="knowledge" href="#knowledge"><span class="ic">▤</span> Knowledge Base</a>
+      <a class="nav-item brain" data-view="brain" href="#brain"><span class="ic">◉</span> ARGUS Brain</a>
+      <a class="nav-item" data-view="documents" href="#documents"><span class="ic">▤</span> Documents</a>
+      <a class="nav-item" data-view="evidence" href="#evidence"><span class="ic">✓</span> Evidence</a>
       <div class="nav-group">System</div>
-      <a class="nav-item" data-nav="app" href="http://127.0.0.1:8501"><span class="ic">⚙</span> Settings</a>
+      <a class="nav-item" data-view="settings" href="#settings"><span class="ic">⚙</span> Settings</a>
     </nav>
     <div class="sidebar-footer">
       <div class="stats-mini" id="side-stats">Loading…</div>
@@ -323,8 +404,8 @@
     <div class="bg-grid"></div>
     <div id="topbar">
       <button id="sidebar-toggle" title="Toggle sidebar">☰</button>
-      <div id="page-title">ARGUS Brain<small>Explore connected knowledge</small></div>
-      <div id="searchwrap">
+      <div id="page-title">ARGUS Brain<small id="page-sub">Explore connected knowledge</small></div>
+      <div id="searchwrap" data-brain-only>
         <span id="search-icon">⌕</span>
         <input id="search" type="text" placeholder="Search concepts, claims, entities, documents…" autocomplete="off" />
         <button id="search-clear" title="Clear">✕</button>
@@ -332,35 +413,121 @@
       </div>
     </div>
 
-    <div id="filters"></div>
+    <!-- BRAIN: knowledge graph -->
+    <section id="view-brain" class="view active" data-view="brain">
+      <div id="filters"></div>
+      <div class="canvas-wrap">
+        <canvas id="graph"></canvas>
+        <div id="empty">
+          <div class="e-icon">◉</div>
+          <div class="e-title">The Brain is empty</div>
+          <div class="e-sub">No knowledge graph nodes yet. Build the Brain by running evidence extraction over your knowledge base.</div>
+          <button id="empty-build" class="d-btn" style="max-width:240px;">Build from Knowledge Base</button>
+          <div class="badge-note">This runs LLM extraction over your ingested documents and takes a few seconds.</div>
+        </div>
+        <div id="legend">
+          <div class="legend-title">Graph</div>
+          <div id="legend-rows"></div>
+        </div>
+        <div id="controls">
+          <button class="ctl-btn" id="zoom-in" title="Zoom in">+</button>
+          <button class="ctl-btn" id="zoom-out" title="Zoom out">−</button>
+          <button class="ctl-btn" id="zoom-fit" title="Fit to screen">⛶</button>
+          <button class="ctl-btn" id="zoom-reset" title="Reset view">⌂</button>
+        </div>
+        <div id="tooltip"></div>
+        <div id="details">
+          <button class="d-close" title="Close">✕</button>
+          <div class="d-head" id="d-head"></div>
+          <div class="d-body" id="d-body"></div>
+        </div>
+        <div id="toast"></div>
+      </div>
+    </section>
 
-    <div class="canvas-wrap">
-      <canvas id="graph"></canvas>
-      <div id="empty">
-        <div class="e-icon">◉</div>
-        <div class="e-title">The Brain is empty</div>
-        <div class="e-sub">No knowledge graph nodes yet. Build the Brain by running evidence extraction over your knowledge base.</div>
-        <button id="empty-build" class="d-btn" style="max-width:240px;">Build from Knowledge Base</button>
-        <div class="badge-note">This runs LLM extraction over your ingested documents and takes a few seconds.</div>
+    <!-- RESEARCH -->
+    <section id="view-research" class="view" data-view="research">
+      <div class="chat-scroll" id="chat-scroll"></div>
+      <div class="chat-inputbar">
+        <textarea id="research-input" rows="1" placeholder="Ask ARGUS a research question…  (Enter to send, Shift+Enter for newline)"></textarea>
+        <button class="chat-send" id="research-send" title="Send">➤</button>
       </div>
-      <div id="legend">
-        <div class="legend-title">Graph</div>
-        <div id="legend-rows"></div>
+    </section>
+
+    <!-- KNOWLEDGE BASE -->
+    <section id="view-knowledge" class="view" data-view="knowledge">
+      <div class="view-scroll">
+        <div class="view-intro">
+          <h2>Knowledge Base</h2>
+          <p>Manage the document corpus ARGUS ingests and answers from. Upload files or trigger a re-ingest of the configured folder.</p>
+        </div>
+        <div class="stat-grid" id="kb-stats"></div>
+        <div class="panel">
+          <div class="panel-title">Upload documents</div>
+          <div class="upload-row">
+            <input type="file" id="kb-file" multiple />
+            <button class="btn" id="kb-upload">Upload</button>
+          </div>
+          <div class="panel-title" style="margin-top:16px">Folder ingest</div>
+          <div class="upload-row">
+            <button class="btn" id="kb-ingest">Re-ingest knowledge folder</button>
+          </div>
+          <div class="badge-note" id="kb-msg"></div>
+        </div>
       </div>
-      <div id="controls">
-        <button class="ctl-btn" id="zoom-in" title="Zoom in">+</button>
-        <button class="ctl-btn" id="zoom-out" title="Zoom out">−</button>
-        <button class="ctl-btn" id="zoom-fit" title="Fit to screen">⛶</button>
-        <button class="ctl-btn" id="zoom-reset" title="Reset view">⌂</button>
+    </section>
+
+    <!-- DOCUMENTS -->
+    <section id="view-documents" class="view" data-view="documents">
+      <div class="view-scroll">
+        <div class="view-intro">
+          <h2>Documents</h2>
+          <p>Documents and sources referenced by the knowledge graph. Click one to view its text.</p>
+        </div>
+        <div id="doc-list"><div class="loading-row"><div class="spinner"></div></div></div>
       </div>
-      <div id="tooltip"></div>
-      <div id="details">
-        <button class="d-close" title="Close">✕</button>
-        <div class="d-head" id="d-head"></div>
-        <div class="d-body" id="d-body"></div>
+    </section>
+
+    <!-- EVIDENCE -->
+    <section id="view-evidence" class="view" data-view="evidence">
+      <div class="view-scroll">
+        <div class="view-intro">
+          <h2>Evidence Graph</h2>
+          <p>Summary of the extracted knowledge graph powering the Brain.</p>
+        </div>
+        <div class="stat-grid" id="evidence-stats"></div>
+        <div class="panel">
+          <div class="panel-title">Recent node types</div>
+          <div id="evidence-breakdown" class="badge-note"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">ARGUS Brain memory</div>
+          <div id="brain-memory-status" class="badge-note">Loading…</div>
+        </div>
       </div>
-      <div id="toast"></div>
-    </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view" data-view="settings">
+      <div class="view-scroll">
+        <div class="view-intro">
+          <h2>Settings</h2>
+          <p>System status and configuration overview for ARGUS.</p>
+        </div>
+        <div class="panel">
+          <div class="panel-title">System health</div>
+          <div id="settings-health" class="badge-note">Loading…</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">ARGUS Brain memory</div>
+          <div id="settings-brain" class="badge-note">Loading…</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Knowledge Base</div>
+          <div id="settings-kb" class="badge-note">Loading…</div>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -503,17 +670,27 @@ function buildGraph() {
 
 function setupSimulation() {
   if (sim) sim.stop();
+  nodes.forEach((n) => {
+    // Random initial offset + velocity so the graph doesn't settle into a
+    // rigid, symmetric grid before the user ever sees it move.
+    const a = Math.random() * Math.PI * 2;
+    const r = 20 + Math.random() * 60;
+    if (n.fx == null) { n.x = (n.x || 0) + Math.cos(a) * r; n.y = (n.y || 0) + Math.sin(a) * r; }
+    n.vx = (n.vx || 0) + (Math.random() - 0.5) * 2;
+    n.vy = (n.vy || 0) + (Math.random() - 0.5) * 2;
+  });
   sim = d3.forceSimulation(nodes)
+    .velocityDecay(0.34)
     .force("link", d3.forceLink(edges).id(d => d.id).distance(linkDist).strength(linkStrength))
-    .force("charge", d3.forceManyBody().strength(-320).distanceMax(900))
+    .force("charge", d3.forceManyBody().strength(-260).distanceMax(720))
     .force("center", d3.forceCenter(0, 0))
-    .force("collide", d3.forceCollide().radius(d => nodeRadius(d) + 12).strength(0.8))
-    .force("cluster", clusterForce().strength(0.28))
-    .alpha(0.6)
-    .alphaDecay(0.028)
+    .force("collide", d3.forceCollide().radius(d => nodeRadius(d) + 14).strength(0.9))
+    .force("cluster", clusterForce().strength(0.26))
+    .alpha(0.85)
+    .alphaDecay(0.012)
     .on("tick", () => draw());
-  // warm up with hidden ticks for a stable start
-  for (let i = 0; i < 40; i++) sim.tick();
+  // Brief warm-up for a stable start, without pre-freezing the layout.
+  for (let i = 0; i < 14; i++) sim.tick();
 }
 
 function clusterForce() {
@@ -541,7 +718,7 @@ function clusterForce() {
 }
 
 function linkDist(d) { return 46 + Math.min(Math.sqrt(d.source.degree + d.target.degree) * 7, 80); }
-function linkStrength() { return 0.5; }
+function linkStrength(d) { const deg = Math.min(d.source.degree, d.target.degree) || 1; return 0.6 / deg; }
 function nodeRadius(d) { return typeRadius(d.type, d.degree); }
 function typeRadius(type, degree) {
   const base = {
@@ -829,7 +1006,7 @@ canvas.addEventListener("pointerup", (ev) => {
     } else {
       dragState.node.fx = null;
       dragState.node.fy = null;
-      sim.alpha(0.3).restart();
+      sim.alphaTarget(0.35).restart();
     }
     dragState = null;
   } else if (panState) {
@@ -1273,6 +1450,325 @@ function hexA(hex, a) {
   const m = hex.replace("#","");
   const r=parseInt(m.slice(0,2),16), g=parseInt(m.slice(2,4),16), b=parseInt(m.slice(4,6),16);
   return `rgba(${r},${g},${b},${a})`;
+}
+
+/* ============================================================
+   View routing (in-page views: research / knowledge / brain /
+   documents / evidence / settings). All views call the real
+   ARGUS API endpoints through API_BASE.
+   ============================================================ */
+const VIEWS = {
+  brain:     { title: "ARGUS Brain",    sub: "Explore connected knowledge" },
+  research:  { title: "Research",       sub: "Ask ARGUS a research question" },
+  knowledge: { title: "Knowledge Base", sub: "Manage the document corpus" },
+  documents: { title: "Documents",      sub: "Browse graph documents & sources" },
+  evidence:  { title: "Evidence",       sub: "Knowledge graph summary" },
+  settings:  { title: "Settings",       sub: "System status & configuration" },
+};
+let currentView = "brain";
+const loaded = {};
+
+const pageTitle = document.getElementById("page-title");
+const pageSub = document.getElementById("page-sub");
+
+function switchView(id) {
+  if (!VIEWS[id]) id = "brain";
+  currentView = id;
+  document.querySelectorAll("#main .view").forEach(s => s.classList.toggle("active", s.dataset.view === id));
+  document.querySelectorAll("#sidebar .nav-item[data-view]").forEach(a => {
+    a.classList.toggle("active", a.dataset.view === id);
+    if (a.dataset.view === id) a.classList.add("nav-item", "brain");
+    else a.classList.remove("brain");
+  });
+  document.getElementById("main").setAttribute("data-view", id);
+  pageTitle.textContent = VIEWS[id].title;
+  pageSub.textContent = VIEWS[id].sub;
+
+  if (id === "brain") {
+    // Canvas may not have valid dimensions while hidden; remeasure and fit.
+    requestAnimationFrame(() => { resize(); requestDraw(); });
+  }
+  if (loaded[id] == null && loaders[id]) loaded[id] = loaders[id]();
+}
+
+const loaders = {
+  research()  { renderResearchLanding(); },
+  knowledge() { renderKnowledge(); },
+  documents() { renderDocuments(); },
+  evidence()  { renderEvidence(); },
+  settings()  { renderSettings(); },
+};
+
+document.querySelectorAll("#sidebar .nav-item[data-view]").forEach(a => {
+  a.addEventListener("click", (ev) => {
+    const v = a.dataset.view;
+    if (v === "brain") history.replaceState(null, "", "#brain");
+    else history.pushState(null, "", "#" + v);
+    switchView(v);
+  });
+});
+window.addEventListener("popstate", () => {
+  const h = (location.hash || "#brain").replace("#", "");
+  switchView(VIEWS[h] ? h : "brain");
+});
+// Initial view from hash (defaults to brain)
+(function initView() {
+  const h = (location.hash || "#brain").replace("#", "");
+  switchView(VIEWS[h] ? h : "brain");
+})();
+
+/* ---------------- Research (chat) ---------------- */
+const researchInput = document.getElementById("research-input");
+const researchSend = document.getElementById("research-send");
+const chatScroll = document.getElementById("chat-scroll");
+let researchBusy = false;
+
+function addChat(status, who, html, cls) {
+  const el = document.createElement("div");
+  el.className = "chat-msg " + (who === "user" ? "user" : "brain");
+  el.innerHTML = `<div class="av">${who === "user" ? "⌁" : "◉"}</div><div class="chat-bubble"><div class="who">${who === "user" ? "You" : "ARGUS Brain"}</div><div class="bubble-box ${cls || ""}">${html}</div></div>`;
+  chatScroll.appendChild(el);
+  chatScroll.scrollTop = chatScroll.scrollHeight;
+  return el;
+}
+function addStatus(msg) {
+  const el = document.createElement("div");
+  el.className = "chat-status";
+  el.innerHTML = `<div class="spinner"></div><div>${escapeHtml(msg)}</div>`;
+  chatScroll.appendChild(el);
+  chatScroll.scrollTop = chatScroll.scrollHeight;
+  return el;
+}
+
+function renderResearchLanding() {
+  if (chatScroll.children.length) return;
+  chatScroll.innerHTML = `
+    <div class="view-intro" style="max-width:720px;margin:6px auto 26px;text-align:center">
+      <h2 style="color:var(--accent-2)">Ask ARGUS anything</h2>
+      <p>Plan-driven, citation-grounded research answers from your knowledge base. Ask a question and the Brain will plan, retrieve, synthesize and verify.</p>
+    </div>`;
+}
+
+function fmtAnswer(res) {
+  const answer = escapeHtml(res.answer || "*(no answer)*");
+  const outcome = res.outcome || "answered";
+
+  let citHtml = "";
+  if (res.citations && res.citations.length) {
+    const chips = res.citations.slice(0, 16).map((c, i) =>
+      `<span class="cit-chip" data-src="${escapeAttr(c.source_path || "")}" data-text="${escapeAttr((c.text || "").slice(0, 240))}">${i + 1}</span>`
+    ).join("");
+    citHtml = `<div class="chat-a"><div class="panel-title" style="margin:0">Citations (${res.citations.length})</div><div class="chip-row">${chips}</div></div>`;
+  }
+
+  let meta = `<div class="badge-note" style="margin-top:10px">outcome: ${escapeHtml(outcome)} · plan: ${escapeHtml(res.question_pattern || "—")} · iterations: ${escapeHtml(String(res.iterations_used != null ? res.iterations_used : "—"))} · sub-queries: ${escapeHtml(String(res.sub_queries_issued != null ? res.sub_queries_issued : "—"))}</div>`;
+  if (res.verification && res.verification.triggered) {
+    meta += `<div class="badge-note" style="color:${res.verification.status === "supported" ? "var(--good)" : "var(--warn)"}">verification: ${escapeHtml(res.verification.status || "")}${res.verification.confidence != null ? " · " + Math.round(res.verification.confidence * 100) + "%" : ""}</div>`;
+  }
+  return answer + citHtml + meta;
+}
+
+async function sendResearch() {
+  const q = researchInput.value.trim();
+  if (!q || researchBusy) return;
+  researchBusy = true;
+  researchSend.disabled = true;
+  addChat(q, "user", escapeHtml(q));
+  researchInput.value = "";
+  autosizeResearch();
+  const statusEl = addStatus("Planning and researching…");
+  try {
+    const res = await fetch(API_BASE + "/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q }),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    statusEl.remove();
+    const bubble = addChat(q, "brain", fmtAnswer(data));
+    // wire citation chips -> open source viewer via brain/document?source
+    bubble.querySelectorAll(".cit-chip[data-src]").forEach(chip => {
+      chip.addEventListener("click", () => {
+        showToast("Source: " + short(chip.dataset.src, 60));
+      });
+    });
+  } catch (e) {
+    statusEl.remove();
+    addChat(q, "brain", `<span style="color:var(--danger)">Research failed: ${escapeHtml(e.message)}</span>`);
+  } finally {
+    researchBusy = false;
+    researchSend.disabled = false;
+    researchInput.focus();
+  }
+}
+
+function autosizeResearch() {
+  researchInput.style.height = "auto";
+  researchInput.style.height = Math.min(150, researchInput.scrollHeight) + "px";
+}
+researchSend.addEventListener("click", sendResearch);
+researchInput.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); sendResearch(); }
+});
+researchInput.addEventListener("input", autosizeResearch);
+
+/* ---------------- Knowledge Base ---------------- */
+function kvLine(k, v) {
+  return `<div class="kv-line"><span class="k">${k}</span><span class="v">${v == null ? "—" : escapeHtml(String(v))}</span></div>`;
+}
+async function renderKnowledge() {
+  const statsEl = document.getElementById("kb-stats");
+  const msgEl = document.getElementById("kb-msg");
+  statsEl.innerHTML = `<div class="loading-row"><div class="spinner"></div> Loading status…</div>`;
+  try {
+    const res = await fetch(API_BASE + "/knowledge-base/status");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const d = await res.json();
+    statsEl.innerHTML = `
+      <div class="stat-card"><div class="s-val">${escapeHtml(String(d.source_count != null ? d.source_count : "—"))}</div><div class="s-label">Sources</div></div>
+      <div class="stat-card"><div class="s-val">${escapeHtml(String(d.document_count != null ? d.document_count : "—"))}</div><div class="s-label">Documents</div></div>
+      <div class="stat-card"><div class="s-val">${escapeHtml(String(d.chunk_count != null ? d.chunk_count : "—"))}</div><div class="s-label">Chunks</div></div>`;
+    msgEl.textContent = "";
+  } catch (e) {
+    statsEl.innerHTML = `<div class="badge-note" style="color:var(--danger)">Could not load status: ${escapeHtml(e.message)}</div>`;
+  }
+
+  const uploadBtn = document.getElementById("kb-upload");
+  const fileInput = document.getElementById("kb-file");
+  uploadBtn.addEventListener("click", async () => {
+    if (!fileInput.files.length) { showToast("Choose a file first"); return; }
+    uploadBtn.disabled = true;
+    msgEl.textContent = "Uploading…";
+    const fd = new FormData();
+    for (const f of fileInput.files) fd.append("files", f);
+    try {
+      const res = await fetch(API_BASE + "/knowledge-base/upload", { method: "POST", body: fd });
+      const d = await res.json();
+      msgEl.textContent = d.message || "Uploaded.";
+      renderKnowledge();
+    } catch (e) {
+      msgEl.textContent = "Upload failed: " + e.message;
+    } finally {
+      uploadBtn.disabled = false;
+    }
+  });
+
+  const ingestBtn = document.getElementById("kb-ingest");
+  ingestBtn.addEventListener("click", async () => {
+    ingestBtn.disabled = true;
+    msgEl.textContent = "Re-ingesting knowledge folder… (this may take a moment)";
+    try {
+      const res = await fetch(API_BASE + "/knowledge-base/ingest", { method: "POST" });
+      const d = await res.json();
+      msgEl.textContent = d.message || "Ingest complete.";
+      renderKnowledge();
+    } catch (e) {
+      msgEl.textContent = "Ingest failed: " + e.message;
+    } finally {
+      ingestBtn.disabled = false;
+    }
+  });
+}
+
+/* ---------------- Documents ---------------- */
+async function renderDocuments() {
+  const listEl = document.getElementById("doc-list");
+  listEl.innerHTML = `<div class="loading-row"><div class="spinner"></div> Loading documents…</div>`;
+  try {
+    const res = await fetch(API_BASE + "/brain/graph");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const d = await res.json();
+    const docNodes = d.nodes.filter(n => n.node_type === "document" || n.node_type === "source");
+    const chunkNodes = d.nodes.filter(n => n.node_type === "chunk" && n.metadata && n.metadata.source_path);
+    const items = [];
+    const seen = new Set();
+    docNodes.forEach(n => { items.push({ label: n.label, sub: n.node_type + " node", id: n.id, type: n.node_type }); });
+    chunkNodes.forEach(n => {
+      const path = n.metadata.source_path || "";
+      if (seen.has(path)) return;
+      seen.add(path);
+      items.push({ label: short(path, 54), sub: "source · " + chunkNodes.filter(c => (c.metadata && c.metadata.source_path) === path).length + " chunk(s)", id: n.id, type: "chunk" });
+    });
+    if (!items.length) { listEl.innerHTML = `<div class="badge-note">No documents found in the graph. Ingest content or build the graph first.</div>`; return; }
+    listEl.innerHTML = items.map(it =>
+      `<div class="doc-item" data-id="${escapeAttr(it.id)}" data-type="${escapeAttr(it.type)}">
+        <div>
+          <div class="d-name">${escapeHtml(it.label)}</div>
+          <div class="d-meta">${escapeHtml(it.sub)}</div>
+        </div>
+        <div class="d-open">Open →</div>
+      </div>`
+    ).join("");
+    listEl.querySelectorAll(".doc-item").forEach(el => el.addEventListener("click", () => {
+      openDocument({ id: el.dataset.id, type: el.dataset.type, label: el.querySelector(".d-name").textContent, metadata: {} });
+    }));
+  } catch (e) {
+    listEl.innerHTML = `<div class="badge-note" style="color:var(--danger)">Failed to load documents: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+/* ---------------- Evidence ---------------- */
+async function renderEvidence() {
+  const statsEl = document.getElementById("evidence-stats");
+  const breakdown = document.getElementById("evidence-breakdown");
+  const mem = document.getElementById("brain-memory-status");
+  statsEl.innerHTML = `<div class="loading-row"><div class="spinner"></div> Loading…</div>`;
+  try {
+    const res = await fetch(API_BASE + "/brain/graph");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const d = await res.json();
+    const counts = {};
+    d.nodes.forEach(n => { counts[n.node_type] = (counts[n.node_type] || 0) + 1; });
+    statsEl.innerHTML = `
+      <div class="stat-card"><div class="s-val">${d.nodes.length}</div><div class="s-label">Nodes</div></div>
+      <div class="stat-card"><div class="s-val">${d.edges.length}</div><div class="s-label">Edges</div></div>
+      <div class="stat-card"><div class="s-val">${counts.entity || 0}</div><div class="s-label">Entities</div></div>
+      <div class="stat-card"><div class="s-val">${counts.claim || 0}</div><div class="s-label">Claims</div></div>
+      <div class="stat-card"><div class="s-val">${counts.event || 0}</div><div class="s-label">Events</div></div>
+      <div class="stat-card"><div class="s-val">${counts.chunk || 0}</div><div class="s-label">Chunks</div></div>`;
+    breakdown.innerHTML = Object.entries(d.nodes.reduce((acc, n) => { acc[n.node_type] = (acc[n.node_type] || 0) + 1; return acc; }, {}))
+      .map(([k, v]) => `${escapeHtml(k)}: ${v}`).join(" · ") || "—";
+  } catch (e) {
+    statsEl.innerHTML = `<div class="badge-note" style="color:var(--danger)">Failed: ${escapeHtml(e.message)}</div>`;
+  }
+  try {
+    const r = await fetch(API_BASE + "/brain/status");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const b = await r.json();
+    mem.innerHTML =
+      kvLine("Enabled", b.enabled ? "yes" : "no") +
+      kvLine("Records", b.total_records) +
+      kvLine("Confidence", b.avg_confidence != null ? (b.avg_confidence * 100).toFixed(1) + "%" : "—");
+  } catch (e) {
+    mem.innerHTML = `<span style="color:var(--warn)">Memory status unavailable</span>`;
+  }
+}
+
+/* ---------------- Settings ---------------- */
+async function renderSettings() {
+  const healthEl = document.getElementById("settings-health");
+  const brainEl = document.getElementById("settings-brain");
+  const kbEl = document.getElementById("settings-kb");
+  healthEl.innerHTML = `<div class="loading-row"><div class="spinner"></div></div>`;
+  try {
+    const h = await (await fetch("/health")).json();
+    healthEl.innerHTML = kvLine("Status", "healthy") + (h.version != null ? kvLine("Version", h.version) : "") + (h.model != null ? kvLine("Router", h.model) : "");
+  } catch (e) {
+    healthEl.innerHTML = `<span style="color:var(--danger)">Health check failed</span>`;
+  }
+  try {
+    const b = await (await fetch(API_BASE + "/brain/status")).json();
+    brainEl.innerHTML = kvLine("Memory enabled", b.enabled ? "yes" : "no") + kvLine("Total records", b.total_records) + kvLine("DB size (bytes)", b.db_size_bytes) + kvLine("Recent records", b.recent_records ? b.recent_records.length : 0);
+  } catch (e) {
+    brainEl.innerHTML = `<span style="color:var(--warn)">Memory status unavailable</span>`;
+  }
+  try {
+    const k = await (await fetch(API_BASE + "/knowledge-base/status")).json();
+    kbEl.innerHTML = kvLine("Sources", k.source_count) + kvLine("Documents", k.document_count) + kvLine("Chunks", k.chunk_count) + (k.corpus_dir ? kvLine("Folder", k.corpus_dir) : "");
+  } catch (e) {
+    kbEl.innerHTML = `<span style="color:var(--warn)">Knowledge Base status unavailable</span>`;
+  }
 }
 
 window.addEventListener("resize", resize);

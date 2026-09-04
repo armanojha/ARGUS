@@ -429,6 +429,22 @@ class Settings(BaseSettings):
         default_factory=lambda: ["eng"],
         description="Languages passed to tesseract/pytesseract for OCR fallback (Phase 11).",
     )
+    ocr_engine: str = Field(
+        default="auto",
+        description="OCR engine: 'auto' (prefer PaddleOCR, fall back to Tesseract), 'paddle' (PaddleOCR only), or 'tesseract' (legacy only).",
+    )
+    ocr_runner_python: str | None = Field(
+        default=None,
+        description="Path to the Python interpreter of the PaddleOCR runner venv (must be Python 3.11+, since PaddlePaddle has no 3.14 wheels). Defaults to REPO_ROOT/.venv-ocr/Scripts/python.exe.",
+    )
+    ocr_runner_script: str | None = Field(
+        default=None,
+        description="Path to the persistent PaddleOCR worker script. Defaults to REPO_ROOT/scripts/paddle_ocr_runner.py.",
+    )
+    ocr_runner_timeout: float = Field(
+        default=120.0,
+        description="Per-page timeout (seconds) for a PaddleOCR runner request.",
+    )
 
     @property
     def providers_config_path(self) -> Path:
