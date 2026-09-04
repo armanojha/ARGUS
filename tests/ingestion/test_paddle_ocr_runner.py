@@ -23,6 +23,7 @@ from PIL import Image
 from app.config import Settings
 from app.ingestion.ocr import (
     PaddleOCRRunner,
+    _OcrCache,
     _resolve_ocr_engine,
     extract_pdf_with_ocr_fallback,
 )
@@ -45,6 +46,17 @@ def _make_blank_pdf() -> bytes:
     return buffer.getvalue()
 
 
+def _make_scanned_pdf() -> bytes:
+    """Image-only page (vector ink, no extractable text layer)."""
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    page.draw_rect(pymupdf.Rect(40, 40, 572, 440), color=None, fill=(0.1, 0.1, 0.1))
+    page.draw_rect(pymupdf.Rect(40, 480, 572, 720), color=None, fill=(0.2, 0.2, 0.2))
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    return buffer.getvalue()
+
+
 @pytest.fixture
 def text_layer_pdf_path():
     p = Path(tempfile.mktemp(suffix=".pdf"))
@@ -57,6 +69,15 @@ def text_layer_pdf_path():
 def scanned_pdf_path():
     p = Path(tempfile.mktemp(suffix=".pdf"))
     p.write_bytes(_make_blank_pdf())
+    yield p
+    p.unlink(missing_ok=True)
+
+
+@pytest.fixture
+def inky_scanned_pdf_path():
+    """Scanned PDF with visible ink but no text layer (exercises OCR fallback)."""
+    p = Path(tempfile.mktemp(suffix=".pdf"))
+    p.write_bytes(_make_scanned_pdf())
     yield p
     p.unlink(missing_ok=True)
 
@@ -201,7 +222,7 @@ class TestPaddlePdfFallback:
         assert len(results) == 1
         assert results[0].ocr_used is False
 
-    def test_pdf_paddle_failure_falls_back_to_tesseract(self, scanned_pdf_path):
+    def test_pdf_paddle_failure_falls_back_to_tesseract(self, inky_scanned_pdf_path):
         """When Paddle fails and Tesseract is available, tesseract is used."""
         settings = Settings(multimodal_enabled=True, multimodal_ocr_enabled=True)
         fake_runner = MagicMock()
@@ -213,7 +234,7 @@ class TestPaddlePdfFallback:
             patch("app.ingestion.ocr._run_tesseract_ocr",
                   return_value=("recovered by tesseract", 88.0)),
         ):
-            results = list(extract_pdf_with_ocr_fallback(scanned_pdf_path, min_chars_per_page=10))
+            results = list(extract_pdf_with_ocr_fallback(inky_scanned_pdf_path, min_chars_per_page=10))
         assert len(results) == 1
         assert results[0].ocr_used is True
         assert results[0].engine == "tesseract"
@@ -230,3 +251,36 @@ class TestPaddlePdfFallback:
         assert len(results) == 1
         assert results[0].ocr_used is False
         assert results[0].text.strip() == ""
+
+    def test_ocr_cache_reuses_stored_result(self, inky_scanned_pdf_path, _clean_runner_singleton, tmp_path):
+        """A second pass over the same PDF must be served from the cache."""
+        cache = _OcrCache(tmp_path)
+        runner = MagicMock()
+        runner.deps = {}
+        runner.run_ocr.return_value = ("FIRST OCR TEXT", 0.95)
+        with (
+            patch("app.ingestion.ocr._get_ocr_cache", return_value=cache),
+            patch("app.ingestion.ocr._resolve_ocr_engine", return_value="paddle"),
+            patch("app.ingestion.ocr._get_runner", return_value=runner),
+        ):
+            first = list(extract_pdf_with_ocr_fallback(inky_scanned_pdf_path, min_chars_per_page=10))
+            runner.run_ocr.reset_mock()
+            second = list(extract_pdf_with_ocr_fallback(inky_scanned_pdf_path, min_chars_per_page=10))
+        assert first[0].text == "FIRST OCR TEXT"
+        assert first[0].ocr_used is True
+        assert second[0].text == "FIRST OCR TEXT"
+        assert runner.run_ocr.call_count == 0  # second pass was served from cache
+
+    def test_blank_scanned_page_skips_ocr(self, scanned_pdf_path, _clean_runner_singleton):
+        """An entirely blank rendered page must skip OCR entirely."""
+        runner = MagicMock()
+        runner.deps = {}
+        runner.run_ocr.return_value = ("should not be called", 0.9)
+        with (
+            patch("app.ingestion.ocr._resolve_ocr_engine", return_value="paddle"),
+            patch("app.ingestion.ocr._get_runner", return_value=runner),
+        ):
+            results = list(extract_pdf_with_ocr_fallback(scanned_pdf_path, min_chars_per_page=10))
+        assert len(results) == 1
+        assert results[0].ocr_used is False
+        assert runner.run_ocr.call_count == 0

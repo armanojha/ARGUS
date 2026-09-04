@@ -477,6 +477,30 @@ class Settings(BaseSettings):
         default=0,
         description="Cap for the detection model's longest input side in pixels (0 = framework default). Lower values speed up detection on large 300-DPI page renders.",
     )
+    ocr_text_detection_model_strong: str = Field(
+        default="PP-OCRv6_medium_det",
+        description="Max-accuracy detection model used for low-confidence escalation (when ocr_escalate_on_low_confidence is set).",
+    )
+    ocr_text_recognition_model_strong: str = Field(
+        default="PP-OCRv6_medium_rec",
+        description="Max-accuracy recognition model used for low-confidence escalation.",
+    )
+    ocr_escalate_on_low_confidence: float = Field(
+        default=0.0,
+        description="If > 0, pages whose fast-tier OCR confidence is below this value are re-run with the strong tier. 0 disables escalation.",
+    )
+    ocr_cache_enabled: bool = Field(
+        default=True,
+        description="Cache per-page OCR results keyed by PDF content hash + page + all OCR-affecting settings. Results are automatically invalidated when the document or OCR stack changes.",
+    )
+    ocr_cache_dir: str | None = Field(
+        default=None,
+        description="Directory for the OCR result cache. Defaults to REPO_ROOT/.cache/ocr.",
+    )
+    ocr_model_cache_dir: str | None = Field(
+        default=None,
+        description="Directory where PaddleX stores downloaded models (default: the worker's ~/.paddlex). Set to keep models inside the project and out of the home directory.",
+    )
 
     @property
     def providers_config_path(self) -> Path:

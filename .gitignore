@@ -17,6 +17,10 @@ venv/
 .venv-ocr/
 # PaddleOCR worker caches its downloaded models in the user home folder.
 .paddlex/
+# Optional project-local OCR model store (if ARGUS_OCR_MODEL_CACHE_DIR set).
+.models/
+# OCR result cache (content-hash keyed; rebuilt automatically).
+.cache/
 
 # Node
 node_modules/

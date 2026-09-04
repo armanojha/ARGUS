@@ -18,6 +18,7 @@ OCR is applied only to pages without a usable text layer (per Phase 11.1).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import queue
@@ -61,6 +62,146 @@ def _get_ocr_languages() -> list[str]:
     settings = get_settings()
     # Default to English, can be extended via settings
     return getattr(settings, "ocr_languages", ["eng"])
+
+
+# ---------------------------------------------------------------------------
+# OCR result cache (content-hash keyed; auto-invalidated)
+# ---------------------------------------------------------------------------
+
+class _OcrCache:
+    """File-backed per-page OCR cache.
+
+    Keys are content hashes derived from the PDF bytes + page number + every
+    setting/version that affects OCR output, so stale entries are structurally
+    impossible: changing the document, model tier, preprocessing, threshold,
+    or the installed OCR stack all produce a different key.
+    """
+
+    SCHEMA = 1
+    MAX_ENTRIES = 2000
+
+    def __init__(self, directory: Path) -> None:
+        self._dir = Path(directory)
+        self._dir.mkdir(parents=True, exist_ok=True)
+
+    def _key(self, pdf_hash: str, page: int, dpi: int, engine: str,
+             languages: list[str], settings, deps: dict, strong_tier: bool) -> str:
+        payload = {
+            "v": self.SCHEMA,
+            "pdf": pdf_hash,
+            "page": page,
+            "dpi": dpi,
+            "engine": engine,
+            "lang": "+".join(languages),
+            "det": getattr(settings, "ocr_text_detection_model", "") or "",
+            "rec": getattr(settings, "ocr_text_recognition_model", "") or "",
+            "det_strong": getattr(settings, "ocr_text_detection_model_strong", "") or "",
+            "rec_strong": getattr(settings, "ocr_text_recognition_model_strong", "") or "",
+            "orient": bool(getattr(settings, "ocr_doc_orientation_classify", True)),
+            "unwarp": bool(getattr(settings, "ocr_doc_unwarping", True)),
+            "textline": bool(getattr(settings, "ocr_textline_orientation", True)),
+            "rec_thresh": getattr(settings, "ocr_rec_score_thresh", 0.4),
+            "det_limit": int(getattr(settings, "ocr_det_limit_side_len", 0) or 0),
+            "esc": getattr(settings, "ocr_escalate_on_low_confidence", 0.0),
+            "strong": bool(strong_tier),
+            "deps": deps,
+        }
+        raw = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+        return hashlib.sha256(raw).hexdigest()
+
+    def get(self, key: str) -> dict | None:
+        p = self._dir / f"{key}.json"
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+    def set(self, key: str, entry: dict) -> None:
+        p = self._dir / f"{key}.json"
+        tmp = p.with_suffix(".tmp")
+        try:
+            tmp.write_text(json.dumps(entry, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(p)
+        except OSError:
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
+        self._prune()
+
+    def _prune(self) -> None:
+        """Bound cache growth: drop the oldest entries beyond the cap."""
+        entries = sorted(self._dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
+        if len(entries) <= self.MAX_ENTRIES:
+            return
+        for p in entries[:-self.MAX_ENTRIES]:
+            try:
+                p.unlink()
+            except OSError:
+                pass
+
+    def clear(self) -> int:
+        removed = 0
+        for p in self._dir.glob("*.json"):
+            try:
+                p.unlink()
+                removed += 1
+            except OSError:
+                pass
+        return removed
+
+
+def _pdf_content_hash(pdf_path: Path) -> str:
+    h = hashlib.sha256()
+    with open(pdf_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _ocr_stack_versions() -> dict:
+    """Installed OCR-stack versions read from the venv's dist-info dirs.
+
+    Filesystem-based (no worker import), so cache keys are stable across
+    processes and automatically change when the OCR stack is upgraded.
+    """
+    python = _resolve_runner_python()
+    if python is None:
+        return {}
+    site = Path(python).resolve().parent.parent / "Lib" / "site-packages"
+    versions: dict = {}
+    for dist_name in ("paddlepaddle", "paddleocr", "paddlex"):
+        try:
+            dists = list(site.glob(f"{dist_name}-*.dist-info"))
+        except OSError:
+            dists = []
+        if dists:
+            versions[dist_name] = dists[0].name[len(dist_name) + 1:-len(".dist-info")]
+    return versions
+
+
+def _get_ocr_cache() -> _OcrCache | None:
+    settings = get_settings()
+    if not getattr(settings, "ocr_cache_enabled", True):
+        return None
+    configured = getattr(settings, "ocr_cache_dir", None)
+    directory = Path(configured) if configured else REPO_ROOT / ".cache" / "ocr"
+    return _OcrCache(directory)
+
+
+def _is_nearly_blank(image: Image.Image, ink_fraction: float = 0.0015) -> bool:
+    """True when the rendered page is effectively blank (no ink).
+
+    A cheap downscaled grayscale check skips OCR (and its several-second cost)
+    for empty/scanned-blank pages.
+    """
+    g = image.convert("L")
+    g.thumbnail((256, 256))
+    raw = g.tobytes()
+    if not raw:
+        return True
+    dark = sum(1 for b in raw if b < 128)
+    return dark / len(raw) < ink_fraction
 
 
 # ---------------------------------------------------------------------------
@@ -127,10 +268,36 @@ class PaddleOCRRunner:
         self._proc: subprocess.Popen | None = None
         self._queue: queue.Queue[dict | None] | None = None
         self._drain_thread: threading.Thread | None = None
+        self._deps: dict = {}  # OCR-stack versions reported by the worker
+        self._lock = threading.Lock()
 
     @property
     def available(self) -> bool:
         return _paddle_available()
+
+    @property
+    def deps(self) -> dict:
+        """Installed OCR-stack versions (paddlepaddle/paddleocr/paddlex)."""
+        return dict(self._deps)
+
+    def _kill_proc(self) -> None:
+        """Best-effort terminate of the current worker subprocess."""
+        proc = self._proc
+        if proc is None:
+            return
+        try:
+            if proc.stdin:
+                proc.stdin.close()
+        except Exception as e:  # noqa: BLE001
+            logger.debug("paddle_ocr_close_stdin_error", error=str(e))
+        try:
+            proc.wait(timeout=5)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("paddle_ocr_wait_timeout", error=str(e))
+            try:
+                proc.kill()
+            except Exception as e2:  # noqa: BLE001
+                logger.debug("paddle_ocr_kill_failed", error=str(e2))
 
     def _start(self) -> None:
         python = _resolve_runner_python()
@@ -139,9 +306,14 @@ class PaddleOCRRunner:
             raise FileNotFoundError("PaddleOCR runner interpreter/script not found")
         settings = get_settings()
         env = dict(os.environ)
+        model_dir = getattr(settings, "ocr_model_cache_dir", None)
+        if model_dir:
+            env["PADDLE_PDX_CACHE_HOME"] = str(model_dir)
         env.update({
             "OCR_DET_MODEL": getattr(settings, "ocr_text_detection_model", "") or "",
             "OCR_REC_MODEL": getattr(settings, "ocr_text_recognition_model", "") or "",
+            "OCR_DET_MODEL_STRONG": getattr(settings, "ocr_text_detection_model_strong", "PP-OCRv6_medium_det") or "PP-OCRv6_medium_det",
+            "OCR_REC_MODEL_STRONG": getattr(settings, "ocr_text_recognition_model_strong", "PP-OCRv6_medium_rec") or "PP-OCRv6_medium_rec",
             "OCR_DOC_ORIENT": "1" if getattr(settings, "ocr_doc_orientation_classify", True) else "0",
             "OCR_DOC_UNWARP": "1" if getattr(settings, "ocr_doc_unwarping", True) else "0",
             "OCR_TEXTLINE_ORIENT": "1" if getattr(settings, "ocr_textline_orientation", True) else "0",
@@ -168,13 +340,26 @@ class PaddleOCRRunner:
         self._drain_thread = threading.Thread(target=self._drain, daemon=True)
         self._drain_thread.start()
         # Wait for the worker's readiness handshake.
-        ready = self._read_json_line(timeout=180.0)
+        try:
+            ready = self._read_json_line(timeout=180.0)
+        except Exception:
+            ready = None
         if not ready or ready.get("event") != "ready":
-            raise RuntimeError("PaddleOCR worker did not report ready")
+            self._kill_proc()
+            self._proc = None
+            failed = (ready or {}).get("error")
+            raise RuntimeError("PaddleOCR worker did not report ready"
+                               + (f": {failed}" if failed else ""))
+        self._deps = dict(ready.get("deps") or {})
 
     def _drain(self) -> None:
         assert self._queue is not None and self._proc is not None and self._proc.stderr is not None
-        for raw in self._proc.stderr:
+        # Capture the queue and stream at thread start: a worker restart
+        # replaces self._queue / self._proc, and the dying thread must keep
+        # pushing to the queue it belongs to, never the new one.
+        q = self._queue
+        stderr = self._proc.stderr
+        for raw in stderr:
             line = raw.strip()
             if not line:
                 continue
@@ -183,9 +368,9 @@ class PaddleOCRRunner:
             except json.JSONDecodeError:
                 continue  # diagnostic noise from Paddle; discard
             if isinstance(obj, dict):
-                self._queue.put(obj)
+                q.put(obj)
         # EOF: worker exited.
-        self._queue.put(None)
+        q.put(None)
 
     def _read_json_line(self, timeout: float = 180.0) -> dict | None:
         """Read the next JSON object from the worker's drained stream."""
@@ -201,8 +386,15 @@ class PaddleOCRRunner:
         self._proc = None
         self._start()
 
-    def run_ocr(self, image: Image.Image, language: str = "en") -> tuple[str, float | None]:
-        """Run PaddleOCR on a PIL image. Returns (text, avg_confidence)."""
+    def run_ocr(self, image: Image.Image, language: str = "en", tier: str = "fast") -> tuple[str, float | None]:
+        """Run PaddleOCR on a PIL image. Returns (text, avg_confidence).
+
+        ``tier`` selects the worker's model set: "fast" (mobile, the default)
+        or "strong" (max-accuracy, used on low-confidence escalation).
+
+        The JSON-lines exchange is serialized with a lock: the worker is
+        single-threaded and concurrent requests would interleave on stdin.
+        """
         if not self.available:
             return "", None
         settings = get_settings()
@@ -219,15 +411,16 @@ class PaddleOCRRunner:
             os.unlink(tf_name)
             raise
         try:
-            req = {"path": tf_name, "lang": language or "en"}
-            self._ensure_started()
-            try:
-                return self._exchange(req, timeout)
-            except (BrokenPipeError, ConnectionResetError, subprocess.SubprocessError):
-                # Worker died mid-call: restart once and retry.
-                self._proc = None
+            req = {"path": tf_name, "lang": language or "en", "tier": tier}
+            with self._lock:
                 self._ensure_started()
-                return self._exchange(req, timeout)
+                try:
+                    return self._exchange(req, timeout)
+                except (BrokenPipeError, ConnectionResetError, subprocess.SubprocessError):
+                    # Worker died mid-call: restart once and retry.
+                    self._proc = None
+                    self._ensure_started()
+                    return self._exchange(req, timeout)
         finally:
             try:
                 os.unlink(tf_name)
@@ -249,19 +442,7 @@ class PaddleOCRRunner:
 
     def close(self) -> None:
         if self._proc is not None and self._proc.poll() is None:
-            try:
-                if self._proc.stdin:
-                    self._proc.stdin.close()
-            except Exception as e:  # noqa: BLE001
-                logger.debug("paddle_ocr_close_stdin_error", error=str(e))
-            try:
-                self._proc.wait(timeout=5)
-            except Exception as e:  # noqa: BLE001
-                logger.warning("paddle_ocr_kill_timeout", error=str(e))
-                try:
-                    self._proc.kill()
-                except Exception:  # noqa: BLE001
-                    logger.debug("paddle_ocr_kill_failed")
+            self._kill_proc()
         self._proc = None
 
 
@@ -348,27 +529,49 @@ def _run_tesseract_ocr(image: Image.Image, languages: list[str]) -> tuple[str, f
         return "", None
 
 
-def _run_paddle_ocr(image: Image.Image, languages: list[str]) -> tuple[str, float | None]:
-    """Run PaddleOCR on a PIL Image via the isolated worker."""
+def _run_paddle_ocr(image: Image.Image, languages: list[str]) -> tuple[str, float | None, str | None]:
+    """Run PaddleOCR on a PIL Image via the isolated worker.
+
+    Runs the fast tier first; if the average confidence falls below the
+    configured escalation threshold and the strong tier is a *different* model
+    set, the page is re-run with the strong (max-accuracy) tier.
+    """
     runner = _get_runner()
     if runner is None:
         logger.warning("paddle_ocr_runner_unavailable")
-        return "", None
+        return "", None, None
     raw_lang = languages[0] if languages else "en"
     # Map ARGUS-style language codes to PaddleOCR-friendly names.
     lang = {"eng": "en", "en": "en"}.get(raw_lang, raw_lang)
     try:
-        text, confidence = runner.run_ocr(image, lang or "en")
-        return text, confidence
+        text, confidence = runner.run_ocr(image, lang or "en", tier="fast")
+        if not text.strip():
+            return text, confidence, "paddle"
+        settings = get_settings()
+        threshold = float(getattr(settings, "ocr_escalate_on_low_confidence", 0.0) or 0.0)
+        strong_det = getattr(settings, "ocr_text_detection_model_strong", "PP-OCRv6_medium_det") or ""
+        strong_rec = getattr(settings, "ocr_text_recognition_model_strong", "PP-OCRv6_medium_rec") or ""
+        fast_det = getattr(settings, "ocr_text_detection_model", "") or ""
+        fast_rec = getattr(settings, "ocr_text_recognition_model", "") or ""
+        escalated = (
+            threshold > 0.0
+            and confidence is not None
+            and confidence < threshold
+            and (strong_det, strong_rec) != (fast_det, fast_rec)
+        )
+        if escalated:
+            logger.info("paddle_ocr_escalating_to_strong", confidence=confidence, threshold=threshold)
+            text, confidence = runner.run_ocr(image, lang or "en", tier="strong")
+        return text, confidence, "paddle"
     except Exception as e:  # noqa: BLE001
         logger.warning("paddle_ocr_failed", error=str(e))
-        return "", None
+        return "", None, None
 
 
 def _run_ocr(image: Image.Image, languages: list[str], engine: str | None) -> tuple[str, float | None, str | None]:
     """Dispatch OCR to the resolved engine. Returns (text, confidence, engine)."""
     if engine == "paddle":
-        text, conf = _run_paddle_ocr(image, languages)
+        text, conf, _ = _run_paddle_ocr(image, languages)
         if text.strip():
             return text, conf, "paddle"
         # fall through to tesseract if OCR produced nothing meaningful
@@ -419,6 +622,9 @@ def extract_pdf_with_ocr_fallback(
         return
 
     languages = _get_ocr_languages()
+    cache = _get_ocr_cache()
+    pdf_hash: str | None = None
+    stack_versions = _ocr_stack_versions()
 
     with pdfplumber.open(str(pdf_path)) as pdf:
         for page_num, page in enumerate(pdf.pages, 1):
@@ -432,38 +638,88 @@ def extract_pdf_with_ocr_fallback(
                     text=text_layer,
                     ocr_used=False,
                 )
-            else:
-                # No usable text layer - apply OCR
-                logger.info("applying_ocr", page=page_num, path=str(pdf_path), engine=engine)
+                continue
 
-                try:
-                    image = _pdf_page_to_image(page, dpi=dpi)
-                    ocr_text, confidence, used_engine = _run_ocr(image, languages, engine)
+            # No usable text layer - apply OCR (check the content-hash cache first)
+            logger.info("applying_ocr", page=page_num, path=str(pdf_path), engine=engine)
 
-                    if ocr_text.strip():
-                        yield OCRResult(
-                            page_number=page_num,
-                            text=ocr_text,
-                            language="+".join(languages),
-                            confidence=confidence,
-                            ocr_used=True,
-                            engine=used_engine,
-                        )
-                    else:
-                        # OCR produced nothing, fall back to empty text layer
-                        yield OCRResult(
-                            page_number=page_num,
-                            text=text_layer,
-                            ocr_used=False,
-                        )
-                except (OSError, ValueError, RuntimeError) as e:
-                    logger.warning("ocr_page_failed", page=page_num, error=str(e))
-                    # Fall back to text layer even if minimal
+            key = None
+            if cache is not None:
+                if pdf_hash is None:
+                    pdf_hash = _pdf_content_hash(pdf_path)
+                key = cache._key(pdf_hash, page_num, dpi, engine, languages,
+                                 settings, stack_versions, strong_tier=False)
+                hit = cache.get(key)
+                if hit is not None:
+                    logger.info("ocr_cache_hit", page=page_num, path=str(pdf_path))
                     yield OCRResult(
                         page_number=page_num,
-                        text=text_layer,
-                        ocr_used=False,
+                        text=hit.get("text", ""),
+                        language="+".join(languages),
+                        confidence=hit.get("confidence"),
+                        ocr_used=True,
+                        engine=hit.get("engine") or engine,
+                        metadata=hit.get("metadata"),
                     )
+                    continue
+
+            try:
+                image = _pdf_page_to_image(page, dpi=dpi)
+            except (OSError, ValueError, RuntimeError, KeyError) as e:
+                logger.warning("ocr_page_failed", page=page_num, error=str(e))
+                # Fall back to text layer even if minimal
+                yield OCRResult(
+                    page_number=page_num,
+                    text=text_layer,
+                    ocr_used=False,
+                )
+                continue
+
+            if _is_nearly_blank(image):
+                # Blank rendered page: nothing to OCR.
+                yield OCRResult(
+                    page_number=page_num,
+                    text=text_layer,
+                    ocr_used=False,
+                )
+                continue
+
+            try:
+                ocr_text, confidence, used_engine = _run_ocr(image, languages, engine)
+            except (OSError, ValueError, RuntimeError, KeyError) as e:
+                logger.warning("ocr_page_failed", page=page_num, error=str(e))
+                # Fall back to text layer even if minimal
+                yield OCRResult(
+                    page_number=page_num,
+                    text=text_layer,
+                    ocr_used=False,
+                )
+                continue
+
+            if ocr_text.strip():
+                result = OCRResult(
+                    page_number=page_num,
+                    text=ocr_text,
+                    language="+".join(languages),
+                    confidence=confidence,
+                    ocr_used=True,
+                    engine=used_engine,
+                )
+                if cache is not None and key is not None and used_engine == "paddle":
+                    cache.set(key, {
+                        "text": result.text,
+                        "confidence": result.confidence,
+                        "engine": result.engine,
+                        "metadata": result.metadata,
+                    })
+                yield result
+            else:
+                # OCR produced nothing, fall back to empty text layer
+                yield OCRResult(
+                    page_number=page_num,
+                    text=text_layer,
+                    ocr_used=False,
+                )
 
 
 def extract_pdf_segments_with_ocr(

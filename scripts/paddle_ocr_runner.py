@@ -47,6 +47,14 @@ language resolution). Benchmarking showed the language-default English
 models resolve to PP-OCRv6_medium, ~17x slower than PP-OCRv5 mobile with
 no measured accuracy loss.
 
+Model cache location: PaddleX stores downloaded models under
+`$PADDLE_PDX_CACHE_HOME` (default `~/.paddlex`); the parent process sets
+that env var to keep models out of the global home directory.
+
+The startup "ready" handshake also reports installed OCR-stack versions
+(`deps`: paddlepaddle/paddleocr/paddlex) so the parent can invalidate any
+cached OCR results when the stack is upgraded.
+
 This module is intentionally self-contained (only stdlib + paddleocr,
 PIL, numpy) so it can run inside the isolated OCR venv without importing
 any ARGUS app code.
@@ -128,7 +136,6 @@ def _env_str(name: str, default: str = "") -> str:
 
 
 def _get_ocr(lang: str, tier: str = "fast"):
-    global _OCR
     lang = lang or "en"
     tier = "strong" if tier == "strong" else "fast"
     cached = _OCR.get((lang, tier))
