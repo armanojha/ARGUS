@@ -18,9 +18,12 @@ OCR is applied only to pages without a usable text layer (per Phase 11.1).
 
 from __future__ import annotations
 
+import json
+import queue
 import shutil
 import subprocess
 import tempfile
+import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -121,6 +124,8 @@ class PaddleOCRRunner:
 
     def __init__(self) -> None:
         self._proc: subprocess.Popen | None = None
+        self._queue: "queue.Queue[dict | None]" | None = None
+        self._drain_thread: "threading.Thread | None" = None
 
     @property
     def available(self) -> bool:
@@ -142,30 +147,39 @@ class PaddleOCRRunner:
             bufsize=1,
             cwd=str(REPO_ROOT),
         )
-        # Wait for the worker's readiness handshake. Paddle emits diagnostic
-        # noise on stderr during model warm-up, so skip non-JSON lines.
-        ready = self._read_json_line()
+        # Drain the worker's stderr continuously so Paddle's diagnostic noise
+        # can never fill the pipe and deadlock the exchange (the worker also
+        # writes protocol JSON on stderr). Non-JSON noise lines are discarded.
+        self._queue = queue.Queue()
+        self._drain_thread = threading.Thread(target=self._drain, daemon=True)
+        self._drain_thread.start()
+        # Wait for the worker's readiness handshake.
+        ready = self._read_json_line(timeout=180.0)
         if not ready or ready.get("event") != "ready":
             raise RuntimeError("PaddleOCR worker did not report ready")
 
-    def _read_json_line(self) -> dict | None:
-        """Read the next JSON object from the worker, skipping noise lines."""
-        assert self._proc is not None and self._proc.stderr is not None
-        import json
-
-        while True:
-            line = self._proc.stderr.readline()
-            if not line:
-                return None  # EOF / worker gone
-            line = line.strip()
+    def _drain(self) -> None:
+        assert self._queue is not None and self._proc is not None and self._proc.stderr is not None
+        for raw in self._proc.stderr:
+            line = raw.strip()
             if not line:
                 continue
             try:
                 obj = json.loads(line)
             except json.JSONDecodeError:
-                continue  # diagnostic noise from Paddle; skip
+                continue  # diagnostic noise from Paddle; discard
             if isinstance(obj, dict):
-                return obj
+                self._queue.put(obj)
+        # EOF: worker exited.
+        self._queue.put(None)
+
+    def _read_json_line(self, timeout: float = 180.0) -> dict | None:
+        """Read the next JSON object from the worker's drained stream."""
+        assert self._queue is not None
+        try:
+            return self._queue.get(timeout=timeout)
+        except Exception:  # noqa: BLE001 (queue.Empty / undefined)
+            return None
 
     def _ensure_started(self) -> None:
         if self._proc is not None and self._proc.poll() is None:
@@ -210,11 +224,10 @@ class PaddleOCRRunner:
 
     def _exchange(self, req: dict, timeout: float) -> tuple[str, float | None]:
         assert self._proc is not None and self._proc.stdin is not None and self._proc.stderr is not None
-        import json
 
         self._proc.stdin.write(json.dumps(req) + "\n")
         self._proc.stdin.flush()
-        resp = self._read_json_line()
+        resp = self._read_json_line(timeout=timeout)
         if resp is None:
             raise BrokenPipeError("PaddleOCR worker closed unexpectedly")
         if not resp.get("ok"):
