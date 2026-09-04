@@ -131,7 +131,7 @@ class Settings(BaseSettings):
     # The user's document corpus. Users drop PDFs/TXT/Markdown/spreadsheets
     # here and ARGUS ingests them recursively into the EvidenceStore.
     knowledge_base_path: Path = Field(
-        default=Path("E:/KNOWLEDGE BASE"),
+        default=Path("./knowledge_base"),
         description="Root directory of the user's persistent document corpus. "
         "Set via ARGUS_KNOWLEDGE_BASE_PATH.",
     )

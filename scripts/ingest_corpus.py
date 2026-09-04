@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 """Ingest/sync a document corpus into the ARGUS evidence store.
 
-Defaults to the persistent corpus at E:/KNOWLEDGE BASE so that dropping
-PDFs/TXT/Markdown/spreadsheets into that folder and running one command syncs
-them into the EvidenceStore. Idempotent: unchanged files are skipped via
+Drops PDFs/TXT/Markdown/spreadsheets into a directory and runs one command to
+sync them into the EvidenceStore. Idempotent: unchanged files are skipped via
 content checksums, so repeated runs are incremental and safe.
 
 Usage:
@@ -36,9 +35,9 @@ def main() -> int:
         "corpus_dir",
         nargs="?",
         type=Path,
-        default=Path("E:/KNOWLEDGE BASE"),
+        default=Path("./knowledge_base"),
         help="Path to directory containing documents to ingest (.pdf, .txt, .md). "
-        "Defaults to the persistent corpus E:/KNOWLEDGE BASE.",
+        "Defaults to ./knowledge_base.",
     )
     parser.add_argument(
         "--db-path",

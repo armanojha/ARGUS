@@ -1,10 +1,9 @@
 """User Knowledge Base ingestion service (control plane).
 
 This is the clean, managed entry point that turns the user's document corpus
-(``settings.knowledge_base_path``, e.g. ``E:/KNOWLEDGE BASE``) into ARGUS's
-EvidenceStore. It reuses the existing ``IngestionPipeline`` (and its built-in
-content-checksum dedup) rather than introducing a second ingestion
-architecture.
+(``settings.knowledge_base_path``) into ARGUS's EvidenceStore. It reuses the
+existing ``IngestionPipeline`` (and its built-in content-checksum dedup) rather
+than introducing a second ingestion architecture.
 
 Design guarantees:
   * Deterministic, index-layer control plane: NO LLM calls are made here.

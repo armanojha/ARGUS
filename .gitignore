@@ -32,12 +32,14 @@ Thumbs.db
 *.log
 tmp/
 temp/
+TMP/
 
 # Build / tooling artifacts
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
 .Opencode/
+.mypy_cache/
 
 # Data artifacts (generated)
 data/evidence.db
@@ -46,3 +48,7 @@ data/indexes/
 data/obsidian_index/
 data/telemetry/
 data/benchmark_reports/
+data/_phase066*.json
+
+# Databases (global)
+*.db

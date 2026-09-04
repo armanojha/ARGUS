@@ -3,8 +3,7 @@
 Every provider implementation raises these exceptions — callers
 (gateway, router, application code) never see provider-specific
 exception types or raw `httpx`/SDK errors. This keeps the "concrete
-provider" layer fully swappable per the layering rule in
-`E:\\ARGUS_VAULT\\03_ARCHITECTURE_DECISIONS.md` / D-005.
+provider" layer fully swappable per the architecture decision records.
 """
 
 from __future__ import annotations

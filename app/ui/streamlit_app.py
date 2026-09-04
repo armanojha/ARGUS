@@ -5,7 +5,7 @@ The user-facing control layer over ARGUS, with four conceptual areas:
   * **Chat / Research** — ask questions, see grounded cited answers + sources,
     evidence, confidence, research process, and whether persistent memory was
     consulted (distinct from user-document evidence).
-  * **Knowledge Base** — the user's document corpus (E:/KNOWLEDGE BASE): status,
+  * **Knowledge Base** — the user's document corpus: status,
     document/source/chunk counts, recently ingested documents, upload files,
     and a "resync" action. Uploads feed the SAME ingestion pipeline as the
     filesystem corpus.

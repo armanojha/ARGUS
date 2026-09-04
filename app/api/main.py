@@ -63,6 +63,22 @@ def create_app() -> FastAPI:
     app.include_router(brain_router)
     app.include_router(obsidian_router)
 
+    # ARGUS Brain knowledge-graph UI (standalone page served by the API).
+    # Mounted at /brain; static assets under app/ui/brain.
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    brain_dir = Path(__file__).resolve().parent.parent / "ui" / "brain"
+
+    @app.get("/brain", include_in_schema=False)
+    def brain_index() -> FileResponse:
+        return FileResponse(str(brain_dir / "index.html"))
+
+    if brain_dir.exists():
+        app.mount("/brain/static", StaticFiles(directory=str(brain_dir)), name="brain-static")
+
     return app
 
 
