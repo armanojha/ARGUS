@@ -466,7 +466,11 @@ class EvidenceGraphStore:
     # -- Graph query operations ----------------------------------------------
 
     def query_graph(self, query: GraphQuery) -> GraphQueryResult:
-        """Execute a multi-hop graph query."""
+        """Execute a multi-hop graph query.
+
+        Scores discovered evidence by edge confidence and path quality.
+        Shorter paths with higher-confidence edges produce higher scores.
+        """
         result = GraphQueryResult()
 
         # Find starting nodes
@@ -486,11 +490,14 @@ class EvidenceGraphStore:
         if not start_keys:
             return result
 
-        # Multi-hop traversal
+        # Multi-hop traversal with confidence-weighted scoring
         visited = set()
         visited_edges: set[tuple[str, str, str]] = set()
         current_frontier = set(start_keys)
         paths: dict[str, list[str]] = {k: [k] for k in start_keys}
+        # Track best score per chunk_id (higher = better)
+        chunk_scores: dict[UUID, float] = {}
+        hop_decay = 0.8  # Each hop multiplies score by this factor
 
         for hop in range(query.max_hops):
             next_frontier = set()
@@ -529,6 +536,14 @@ class EvidenceGraphStore:
                     if query.time_window_end and edge.valid_to and edge.valid_to > query.time_window_end:
                         continue
 
+                    # Compute path score: edge_confidence * hop_decay^depth
+                    path_score = edge.confidence * (hop_decay ** hop)
+
+                    # Update chunk scores for supporting chunks
+                    for chunk_id in edge.supporting_chunk_ids:
+                        if chunk_id not in chunk_scores or path_score > chunk_scores[chunk_id]:
+                            chunk_scores[chunk_id] = path_score
+
                     if target_key not in visited:
                         next_frontier.add(target_key)
                         paths[target_key] = paths[node_key] + [target_key]
@@ -542,7 +557,7 @@ class EvidenceGraphStore:
             if len(path_keys) > 1:
                 result.paths.append([UUID(k.split(":", 1)[1]) for k in path_keys])
 
-        # Collect evidence refs from supporting chunks
+        # Collect evidence refs from supporting chunks with confidence scores
         all_chunk_ids = set()
         for entity in result.entities:
             all_chunk_ids.update(entity.supporting_chunk_ids)
@@ -554,16 +569,21 @@ class EvidenceGraphStore:
         for edge in result.edges:
             all_chunk_ids.update(edge.supporting_chunk_ids)
 
+        # Also include chunks directly referenced by nodes in discovered paths
+        for chunk_id in chunk_scores:
+            all_chunk_ids.add(chunk_id)
+
         if all_chunk_ids:
-            # Get evidence refs from evidence store
             chunks = self.evidence_store.get_chunks_by_ids(list(all_chunk_ids))
-            # Build minimal evidence refs (without scores since we don't have query context)
             from app.evidence.models import EvidenceRef
+            rank = 1
             for chunk in chunks:
                 doc = self.evidence_store.get_document(chunk.document_id)
                 if doc:
                     source = self.evidence_store.get_source(doc.source_id)
                     if source:
+                        # Use confidence-weighted score (default 0.5 for chunks without explicit edge scores)
+                        score = chunk_scores.get(chunk.id, 0.5)
                         result.evidence_refs.append(EvidenceRef(
                             chunk_id=chunk.id,
                             document_id=doc.id,
@@ -574,9 +594,16 @@ class EvidenceGraphStore:
                             page_start=chunk.page_start,
                             page_end=chunk.page_end,
                             section_path=chunk.section_path,
-                            score=1.0,  # placeholder
-                            rank=1,
+                            score=score,
+                            rank=rank,
                         ))
+                        rank += 1
+
+        # Sort by score descending
+        result.evidence_refs.sort(key=lambda r: r.score, reverse=True)
+        # Re-assign ranks after sorting
+        for i, ref in enumerate(result.evidence_refs):
+            ref.rank = i + 1
 
         # Limit results
         result.entities = result.entities[:query.limit]

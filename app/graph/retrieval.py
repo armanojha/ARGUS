@@ -75,6 +75,7 @@ class GraphRetriever:
                 EdgeType.MENTIONS,
                 EdgeType.SUPPORTS,
                 EdgeType.DERIVED_FROM,
+                EdgeType.CONTRADICTS,
             ],
             max_hops=max_hops,
             limit=top_k * 2,

@@ -247,25 +247,6 @@ class EvidenceNeedPlanner:
                 original_need=f"Evidence about {subtopic}",
             ))
 
-        # Phase 18: For dependency-type subtopics, add a probe query that
-        # targets technical infrastructure/systems the entity depends on
-        for subtopic in topics:
-            dep_match = re.search(
-                r"\b(?:depend|rely|require|need|count|conting)\w*\b",
-                subtopic, re.IGNORECASE,
-            )
-            if dep_match and entities:
-                entity_str = " ".join(entities[:2])
-                probe = f"{entity_str} database engine system infrastructure"
-                needs.append(EvidenceNeed(
-                    topic=f"{entity_str} technical dependencies",
-                    entities=entities,
-                    claim_type=ClaimType.SUPPORTING,
-                    search_query=probe,
-                    priority=NeedPriority.MEDIUM,
-                    original_need=f"Technical infrastructure {entity_str} depends on",
-                ))
-
         # If we couldn't decompose, fall back to the original query
         if not needs:
             needs.append(EvidenceNeed(
