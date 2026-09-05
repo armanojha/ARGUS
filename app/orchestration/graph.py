@@ -261,6 +261,7 @@ def build_graph(
 
 def _initial_state(query: str, request_id: str | None, settings: Settings) -> OrchestrationState:
     fast_path = _is_simple_query(query)
+    complexity_tier = classify_complexity(query).value
     pre_analysis: QueryAnalysis | None = None
     pre_plan: ResearchPlan | None = None
     if fast_path:
@@ -304,6 +305,8 @@ def _initial_state(query: str, request_id: str | None, settings: Settings) -> Or
         disagreement_detected=False,
         # Phase 06.5.3 fast-path marker
         fast_path=fast_path,
+        # Phase 18+: complexity tier for evidence-aware model routing
+        complexity_tier=complexity_tier,
     )
 
 

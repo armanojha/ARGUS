@@ -67,6 +67,11 @@ class OrchestrationState(TypedDict):
     # analyze/plan/assess nodes and runs a single retrieve -> synthesize pass.
     fast_path: NotRequired[bool]
 
+    # Phase 18+: complexity tier for evidence-aware model routing.
+    # Starts as the initial classification; may be downgraded mid-loop
+    # when evidence is already strong (cheaper models for remaining calls).
+    complexity_tier: NotRequired[str | None]
+
     # Phase 08/Knowledge-system: set when the memory-enhance node actually
     # consulted persistent memory (derived knowledge, distinct from document
     # evidence). Additive visibility for the user-facing control layer.

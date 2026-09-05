@@ -317,6 +317,29 @@ def make_assess_node(
                 "warnings": warnings,
             }
 
+        # Evidence-aware complexity tier adjustment (Phase 18+):
+        # When evidence is already strong, downgrade the tier so subsequent
+        # calls (synthesis, verification) use cheaper models.
+        updated_tier = state.get("complexity_tier")
+        evidence = state["evidence"]
+        if evidence and updated_tier and updated_tier != "fast":
+            from app.llm_gateway.routing.complexity import (
+                ComplexityTier,
+                adjust_tier_for_evidence,
+            )
+            scores = [ref.score for ref in evidence if ref.score > 0]
+            current = ComplexityTier(updated_tier)
+            adjusted = adjust_tier_for_evidence(current, scores)
+            if adjusted != current:
+                updated_tier = adjusted.value
+                logger.info(
+                    "complexity_tier_downgraded",
+                    from_tier=current.value,
+                    to_tier=adjusted.value,
+                    avg_score=round(sum(scores[:3]) / min(len(scores), 3), 3) if scores else 0,
+                    request_id=state["request_id"],
+                )
+
         # Active evidence seeking (Phase 06.2): formulate targeted retrieval
         # actions whenever the assessment concludes the evidence does not
         # answer the question. Deterministic — never an LLM call.
@@ -354,6 +377,7 @@ def make_assess_node(
                 "stop_reason": stop_reason,
                 "warnings": warnings,
                 "evidence_tasks": evidence_tasks,
+                "complexity_tier": updated_tier,
             }
 
         # Not sufficient, and a next query was proposed: queue it unless
@@ -370,6 +394,7 @@ def make_assess_node(
                 "stop_reason": StopReason.NO_SUBQUESTIONS.value,
                 "warnings": warnings,
                 "evidence_tasks": evidence_tasks,
+                "complexity_tier": updated_tier,
             }
 
         return {
@@ -377,6 +402,7 @@ def make_assess_node(
             "pending_subquestions": pending,
             "warnings": warnings,
             "evidence_tasks": evidence_tasks,
+            "complexity_tier": updated_tier,
         }
 
     return assess_node
