@@ -2,6 +2,7 @@
 
 Provides multi-hop entity/relationship query support over the Evidence Graph.
 Integrates with Phase 01 hybrid retrieval as an additional retrieval method.
+Enhanced with entity/relation embeddings for semantic graph search (Phase 18+).
 """
 
 from __future__ import annotations
@@ -24,6 +25,11 @@ class GraphRetriever:
 
     Wraps the EvidenceGraphStore and provides a retrieval interface
     compatible with the Phase 01 HybridRetriever pattern.
+
+    Enhanced with entity/relation embeddings for semantic graph search:
+    - Entity embeddings enable finding relevant entities by meaning, not just name
+    - Relation embeddings enable finding relevant relationships by theme
+    - Combined with multi-hop traversal for comprehensive evidence discovery
     """
 
     def __init__(
@@ -49,9 +55,9 @@ class GraphRetriever:
 
         This method:
         1. Uses hybrid retrieval to find initial relevant chunks
-        2. Extracts entity names from those chunks
+        2. Extracts entity names from initial results + entity embedding search
         3. Performs multi-hop graph traversal from those entities
-        4. Returns combined evidence with graph-enhanced ranking
+        4. Returns combined evidence with confidence-weighted scoring
         """
         top_k = top_k or self.settings.retrieval_top_k
 
@@ -63,9 +69,21 @@ class GraphRetriever:
             return []
 
         # Step 2: Extract entity names from initial results
-        # (In a full implementation, we'd use NER or the graph's entity index)
-        # For now, use a simple heuristic: look for capitalized words
+        # Combine regex heuristic with entity embedding search
         entity_names = self._extract_entity_names_from_results(initial_results)
+
+        # Also search entity embeddings for semantic matches
+        entity_names.extend(self._search_entity_embeddings(query, top_k=5))
+
+        # Deduplicate while preserving order
+        seen = set()
+        unique_names = []
+        for name in entity_names:
+            name_lower = name.lower()
+            if name_lower not in seen:
+                seen.add(name_lower)
+                unique_names.append(name)
+        entity_names = unique_names
 
         # Step 3: Build graph query
         graph_query = GraphQuery(
@@ -115,6 +133,7 @@ class GraphRetriever:
             "graph_retrieval_completed",
             query=query[:50],
             initial_results=len(initial_results),
+            entity_names_found=len(entity_names),
             graph_entities=len(graph_result.entities),
             graph_claims=len(graph_result.claims),
             graph_events=len(graph_result.events),
@@ -126,8 +145,7 @@ class GraphRetriever:
     def _extract_entity_names_from_results(self, results: list[EvidenceRef]) -> list[str]:
         """Extract potential entity names from retrieval results.
 
-        This is a simplified heuristic. A production version would use
-        the graph's entity index or run NER on the chunk texts.
+        Uses regex heuristic for capitalized words/phrases.
         """
         import re
 
@@ -142,6 +160,33 @@ class GraphRetriever:
                     entity_names.append(match)
 
         return entity_names[:10]  # Limit
+
+    def _search_entity_embeddings(self, query: str, top_k: int = 5) -> list[str]:
+        """Search entity embeddings for semantically similar entities.
+
+        Returns entity names that are semantically related to the query.
+        """
+        try:
+            from app.graph.entity_embeddings import get_entity_embedding_store
+            emb_store = get_entity_embedding_store()
+
+            if emb_store.entity_count == 0:
+                return []
+
+            results = emb_store.search_entities(query, top_k=top_k)
+            names = []
+            for entity_id, score in results:
+                text = emb_store.get_entity_text(entity_id)
+                if text and score > 0.3:  # Minimum similarity threshold
+                    # Extract just the entity name (first part before description)
+                    name = text.split(" ")[0] if text else ""
+                    if name and len(name) > 1:
+                        names.append(name)
+
+            return names
+        except (ImportError, OSError, ValueError):
+            # Graceful fallback if entity embeddings not available
+            return []
 
     def search_by_entity(
         self,

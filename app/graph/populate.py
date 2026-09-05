@@ -36,6 +36,45 @@ def _get_chunks(store: EvidenceStore) -> list[Any]:
     return store.get_chunks_by_ids(chunk_ids)
 
 
+def _populate_entity_embeddings(
+    graph_store: EvidenceGraphStore,
+) -> int:
+    """Embed all entities and relations in the graph store.
+
+    Returns the number of entities embedded.
+    """
+    from app.graph.entity_embeddings import get_entity_embedding_store
+
+    emb_store = get_entity_embedding_store()
+    count = 0
+
+    for entity in graph_store.get_all_entities():
+        emb_store.add_entity(entity)
+        count += 1
+
+    for edge in graph_store.get_all_edges():
+        # Resolve source/target names for relation text
+        source_name = ""
+        target_name = ""
+        if edge.source_node_type == "entity":
+            source_entity = graph_store.get_entity(edge.source_node_id)
+            if source_entity:
+                source_name = source_entity.canonical_name
+        if edge.target_node_type == "entity":
+            target_entity = graph_store.get_entity(edge.target_node_id)
+            if target_entity:
+                target_name = target_entity.canonical_name
+        emb_store.add_relation(edge, source_name, target_name)
+
+    for claim in graph_store.get_all_claims():
+        emb_store.add_claim(claim)
+
+    emb_store.save()
+    logger.info("entity_embeddings_populated", entities=count,
+                relations=emb_store.relation_count)
+    return count
+
+
 async def populate_graph(
     batch_size: int | None = None,
     store: EvidenceStore | None = None,
@@ -43,6 +82,8 @@ async def populate_graph(
     settings: Settings | None = None,
 ) -> dict[str, int]:
     """Run LLM extraction over all existing chunks and populate the graph.
+
+    Also populates entity/relation embeddings for semantic graph search.
 
     Args:
         batch_size: Chunks per extraction call (defaults to
@@ -74,6 +115,9 @@ async def populate_graph(
     for batch in batches:
         extraction = await extract_from_chunks(batch, router, settings, request_id="brain-populate")
         graph_store.apply_extraction(extraction)
+
+    # Populate entity/relation embeddings
+    _populate_entity_embeddings(graph_store)
 
     after = graph_store.stats()
     return {
