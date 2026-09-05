@@ -22,16 +22,16 @@ from __future__ import annotations
 
 import re
 import time
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from app.config import REPO_ROOT, Settings, get_settings
 from app.evidence.models import EvidenceRef
 from app.logging_config import get_logger
 from app.retrieval.hybrid import HybridRetriever
-from app.retrieval.planner import EvidenceNeedPlanner, QueryPlan
-from app.retrieval.multi_query import MultiQueryRetriever, RetrievalResult
+from app.retrieval.multi_query import MultiQueryRetriever
+from app.retrieval.planner import EvidenceNeedPlanner
 from app.retrieval.policy import (
     QuestionPattern,
     RetrievalMethod,
