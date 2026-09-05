@@ -8,6 +8,7 @@ retrieval does not adequately cover evidence needs.
 """
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -17,15 +18,12 @@ from app.evidence.models import EvidenceRef
 from app.logging_config import get_logger
 from app.retrieval.hybrid import HybridRetriever
 from app.retrieval.planner import (
-    ClaimType,
     EvidenceNeed,
     NeedPriority,
     QueryPlan,
 )
 from app.retrieval.recovery import (
-    CoverageAnalysis,
     RecoveryBudget,
-    RecoveryResult,
     RecoveryType,
     TargetedRecovery,
 )
@@ -73,14 +71,23 @@ class MultiQueryRetriever:
         retriever: HybridRetriever,
         top_k: int = 10,
         recovery_budget: RecoveryBudget | None = None,
+        max_concurrency: int | None = None,
     ) -> None:
         self.router = router
         self.retriever = retriever
         self.top_k = top_k
         self.recovery = TargetedRecovery(budget=recovery_budget)
+        if max_concurrency is not None:
+            self._max_concurrency = max_concurrency
+        else:
+            from app.config import get_settings
+            self._max_concurrency = get_settings().multi_query_max_concurrency
 
-    def retrieve(self, plan: QueryPlan) -> RetrievalResult:
+    async def retrieve(self, plan: QueryPlan) -> RetrievalResult:
         """Execute multi-query retrieval for a planned query.
+
+        Sub-queries are dispatched concurrently with bounded fan-out.
+        Results are merged deterministically by original need order.
 
         Args:
             plan: QueryPlan with evidence needs and search variants.
@@ -89,7 +96,6 @@ class MultiQueryRetriever:
             RetrievalResult with merged candidates and selected evidence.
         """
         import time
-
         result = RetrievalResult(query_plan=plan)
 
         if not plan.is_planned:
@@ -104,25 +110,50 @@ class MultiQueryRetriever:
             result.source_diversity = len({r.document_id for r in refs})
             return result
 
-        # Multi-query: run each evidence need's search
+        # Multi-query: dispatch evidence needs concurrently
         all_candidates: list[EvidenceRef] = []
         seen_chunk_ids: set[uuid.UUID] = set()
-        call_count = 0
 
         start = time.perf_counter()
 
-        for need in plan.evidence_needs:
-            query = need.search_query
-            if not query:
-                continue
+        # Build (index, need) pairs for concurrent dispatch
+        indexed_needs = [
+            (i, need)
+            for i, need in enumerate(plan.evidence_needs)
+            if need.search_query
+        ]
 
-            # Classify the sub-query and get appropriate mix
-            pattern = self.router.classify_question(query)
+        if not indexed_needs:
+            result.retrieval_latency_ms = (time.perf_counter() - start) * 1000
+            result.candidates = []
+            result.selected = []
+            result.total_retrieval_calls = 0
+            return result
 
-            # Use existing router for each sub-query
-            refs = self._search_single(query, pattern, need)
+        # Dispatch all sub-queries concurrently with bounded fan-out
+        sem = asyncio.Semaphore(min(self._max_concurrency, len(indexed_needs)))
+
+        async def _search_one(idx: int, need: EvidenceNeed) -> tuple[int, EvidenceNeed, list[EvidenceRef]]:
+            async with sem:
+                query = need.search_query
+                pattern = self.router.classify_question(query)
+                refs = await self._search_single_async(query, pattern, need)
+                return idx, need, refs
+
+        tasks = [_search_one(idx, need) for idx, need in indexed_needs]
+        raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results deterministically in original need order
+        call_count = 0
+        # Filter out exceptions, keep only successful (idx, need, refs) tuples
+        valid_results = [
+            item for item in raw_results
+            if not isinstance(item, BaseException)
+        ]
+        valid_results.sort(key=lambda x: x[0])
+
+        for idx, need, refs in valid_results:
             call_count += 1
-
             # Tag each result with its source need
             for ref in refs:
                 if ref.chunk_id not in seen_chunk_ids:
@@ -138,6 +169,15 @@ class MultiQueryRetriever:
                             existing.score = max(existing.score, ref.score)
                             existing.metadata["multi_need_hit"] = True
                             break
+
+        # Record failed sub-queries (failure isolation)
+        failed_count = sum(1 for item in raw_results if isinstance(item, BaseException))
+        if failed_count:
+            logger.warning(
+                "multi_query_partial_failure",
+                failed_count=failed_count,
+                total=len(indexed_needs),
+            )
 
         result.retrieval_latency_ms = (time.perf_counter() - start) * 1000
         result.total_retrieval_calls = call_count
@@ -167,28 +207,11 @@ class MultiQueryRetriever:
             analysis = self.recovery.analyze_coverage(plan, result.selected)
 
             # Execute recovery
-            import asyncio
             store = self.retriever.store
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # We're in an async context, create a new task
-                    recovered = []
-                else:
-                    recovered = loop.run_until_complete(
-                        self.recovery.recover(
-                            plan, analysis, result.selected,
-                            self.retriever, store,
-                        )
-                    )
-            except RuntimeError:
-                # No event loop, create one
-                recovered = asyncio.run(
-                    self.recovery.recover(
-                        plan, analysis, result.selected,
-                        self.retriever, store,
-                    )
-                )
+            recovered = await self.recovery.recover(
+                plan, analysis, result.selected,
+                self.retriever, store,
+            )
 
             # Merge recovered candidates
             if recovered:
@@ -236,13 +259,13 @@ class MultiQueryRetriever:
 
         return result
 
-    def _search_single(
+    async def _search_single_async(
         self,
         query: str,
         pattern: Any,
         need: EvidenceNeed,
     ) -> list[EvidenceRef]:
-        """Run a single search for one evidence need.
+        """Run a single search for one evidence need (async).
 
         Uses the router's dispatch for pattern-appropriate retrieval.
         """
@@ -265,8 +288,8 @@ class MultiQueryRetriever:
         else:
             top_k = self.top_k
 
-        # Run hybrid search directly (most efficient path)
-        refs = self.retriever.search(
+        # Use async search for concurrent dispatch
+        refs = await self.retriever.search_async(
             query,
             top_k=top_k,
             bm25_weight=mix.bm25_weight,
@@ -296,7 +319,6 @@ class MultiQueryRetriever:
         selected: list[EvidenceRef] = []
 
         # Pre-compute need IDs
-        need_ids = {need.id for need in needs}
         high_priority_ids = {need.id for need in needs if need.priority == NeedPriority.HIGH}
 
         # Sort candidates by score (descending)

@@ -56,6 +56,32 @@ _COMPARATIVE_WORDS = {"compare", "comparison", "difference", "differences", "ver
 _CAUSAL_WORDS = {"cause", "caused", "reason for", "because", "leads to", "result in", "effect of", "impact of", "consequence", "trigger", "root cause", "underlying"}
 _PROCEDURAL_WORDS = {"how to", "steps to", "guide", "tutorial", "instructions", "walkthrough", "procedure", "process for", "method to", "approach to", "best practice", "workflow", "recipe"}
 
+# Phase 17: Canonical classification word lists
+_CONFLICT_WORDS = {
+    "conflict", "contradict", "contradiction", "disagree", "disagreement",
+    "however", "although", "despite", "on the other hand",
+    "legacy.*superseded", "superseded.*current", "authoritative",
+    "which.*correct", "which.*accurate",
+}
+_MULTI_HOP_WORDS = {
+    "downstream", "upstream", "indirectly", "depends on", "via",
+    "through.*chain", "propagat", "affects.*then",
+    "integrates with.*depends", "connects to.*which",
+}
+_COMPLEX_RESEARCH_WORDS = {
+    "assess", "evaluate", "synthesize", "comprehensive analysis",
+    "compare.*and.*explain", "analyze.*relationship",
+    "how.*fit together", "what it depends on",
+}
+_ABSENT_WORDS = {
+    "which quarter.*best sales", "what.*not covered",
+    "what.*missing", "what is not",
+}
+_ADVERSARIAL_WORDS = {
+    "fabricated", "hallucinated", "made up", "not audited",
+    "illustrative only", "these figures are not",
+}
+
 _STOPWORDS = {
     "what", "which", "when", "where", "who", "how", "why", "the", "a", "an", "and", "or", "of",
     "to", "in", "on", "for", "with", "is", "are", "was", "were", "does", "do", "did", "not",
@@ -118,12 +144,18 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
 
         Heuristic, ordered most-specific first. No LLM dependency: the
         policy must keep working when the gateway is unavailable.
+
+        This is the CANONICAL classifier. All code paths (production,
+        benchmark, diagnostics, telemetry) MUST use this or convert
+        through QuestionPattern.from_eval_class().
         """
         q = query.strip()
         low = q.lower()
 
         has_quoted = _has_balanced_quotes(q)
         year_matches = _YEAR_RE.findall(q)
+
+        # --- Standard patterns (most-specific first) ---
 
         if any(w in low for w in _MULTIMODAL_WORDS) and re.search(r"(show|compare|in the .* (figure|chart|table|diagram))", low):
             return QuestionPattern.MULTIMODAL
@@ -155,6 +187,37 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
 
         if has_quoted or any(w in low for w in _EXACT_WORDS):
             return QuestionPattern.EXACT_TERM
+
+        # --- Phase 17: Plannable patterns (after standard patterns) ---
+
+        # CONFLICT: Detect conflict/contradiction keywords
+        # Must be more specific to avoid false positives on "compare" queries
+        if any(w in low for w in _CONFLICT_WORDS) and any(w in low for w in ("conflict", "contradict", "disagree", "however", "although", "legacy", "superseded", "authoritative")):
+            return QuestionPattern.CONFLICT
+
+        # MULTI_HOP: Detect multi-hop reasoning patterns
+        if any(w in low for w in _MULTI_HOP_WORDS):
+            return QuestionPattern.MULTI_HOP
+
+        # COMPLEX_RESEARCH: Detect complex research/analysis queries
+        if any(w in low for w in _COMPLEX_RESEARCH_WORDS):
+            return QuestionPattern.COMPLEX_RESEARCH
+
+        # --- Absent/adversarial detection ---
+
+        # ABSENT_INFO: Detect queries about absent/non-existent information
+        if any(w in low for w in _ABSENT_WORDS):
+            return QuestionPattern.ABSENT_INFO
+
+        # ADVERSARIAL: Detect adversarial/misleading queries
+        if any(w in low for w in _ADVERSARIAL_WORDS):
+            return QuestionPattern.ADVERSARIAL
+
+        # --- Fallback patterns ---
+
+        # NUMERICAL: Detect numerical/quantitative queries (only if very specific)
+        if any(w in low for w in ("how many", "what percentage", "what fraction", "total output", "sum of")):
+            return QuestionPattern.NUMERICAL
 
         if any(w in low for w in _CONCEPT_WORDS):
             return QuestionPattern.CONCEPTUAL
@@ -317,7 +380,7 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
         )
 
         # Execute multi-query retrieval
-        result = self._multi_query_retriever.retrieve(plan)
+        result = await self._multi_query_retriever.retrieve(plan)
 
         # Apply optional reranking
         if result.selected and reranker is not None:

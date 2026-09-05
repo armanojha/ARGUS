@@ -13,6 +13,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import ClassVar
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -36,7 +37,19 @@ class RetrievalMethod(str, Enum):
 
 
 class QuestionPattern(str, Enum):
-    """Question patterns that map to retrieval strategies (V2 §5.2 / V3 §5)."""
+    """Question patterns that map to retrieval strategies (V2 §5.2 / V3 §5).
+
+    This is the canonical classification used by:
+    - Production retrieval (router.py)
+    - EvidenceNeedPlanner
+    - Benchmark evaluation
+    - Diagnostics
+    - Telemetry
+
+    Patterns marked [PLANNABLE] trigger the EvidenceNeedPlanner for
+    multi-query retrieval with evidence need decomposition.
+    """
+    # Original patterns
     EXACT_TERM = "exact_term"                    # Exact term lookup
     CONCEPTUAL = "conceptual"                    # Conceptual/semantic
     ENTITY_RELATIONSHIP = "entity_relationship"  # Entity relationships
@@ -47,6 +60,51 @@ class QuestionPattern(str, Enum):
     COMPARATIVE = "comparative"                  # Comparative
     CAUSAL = "causal"                            # Causal reasoning
     PROCEDURAL = "procedural"                    # How-to/procedural
+    # Evaluation/complex patterns [PLANNABLE where noted]
+    SIMPLE_LOOKUP = "simple_lookup"              # Simple fact lookup
+    NORMAL_QA = "normal_qa"                      # Normal Q&A
+    NUMERICAL = "numerical"                      # Numerical/quantitative
+    TECHNICAL_EXPLANATION = "technical_explanation"  # Technical explanation
+    MULTI_DOC_SYNTHESIS = "multi_doc_synthesis"  # Multi-document synthesis
+    CONFLICT = "conflict"                        # [PLANNABLE] Conflicting evidence
+    COMPLEX_RESEARCH = "complex_research"        # [PLANNABLE] Complex research
+    MULTI_HOP = "multi_hop"                      # [PLANNABLE] Multi-hop reasoning
+    ABSENT_INFO = "absent_info"                  # Information genuinely absent
+    ADVERSARIAL = "adversarial"                  # Adversarial/misleading queries
+
+    # Mapping from evaluation plan classes to canonical patterns
+    # This ensures consistency between eval plan and production classification
+    @classmethod
+    def from_eval_class(cls, eval_class: str) -> "QuestionPattern":
+        """Convert an evaluation plan class to the canonical pattern.
+
+        This is the SINGLE ENTRY POINT for converting eval plan classes
+        to canonical patterns. All benchmarks and diagnostics MUST use this.
+        """
+        mapping = {
+            "simple_lookup": cls.SIMPLE_LOOKUP,
+            "normal_qa": cls.NORMAL_QA,
+            "numerical": cls.NUMERICAL,
+            "technical_explanation": cls.TECHNICAL_EXPLANATION,
+            "multi_doc_synthesis": cls.MULTI_DOC_SYNTHESIS,
+            "conflict": cls.CONFLICT,
+            "complex_research": cls.COMPLEX_RESEARCH,
+            "multi_hop": cls.MULTI_HOP,
+            "absent_info": cls.ABSENT_INFO,
+            "adversarial": cls.ADVERSARIAL,
+            # Legacy mappings
+            "exact_term": cls.EXACT_TERM,
+            "conceptual": cls.CONCEPTUAL,
+            "entity_relationship": cls.ENTITY_RELATIONSHIP,
+            "historical": cls.HISTORICAL,
+            "long_report": cls.LONG_REPORT,
+            "fresh_missing": cls.FRESH_MISSING,
+            "multimodal": cls.MULTIMODAL,
+            "comparative": cls.COMPARATIVE,
+            "causal": cls.CAUSAL,
+            "procedural": cls.PROCEDURAL,
+        }
+        return mapping.get(eval_class, cls.CONCEPTUAL)
 
 
 @dataclass(frozen=True)

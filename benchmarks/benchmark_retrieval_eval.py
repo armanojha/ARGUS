@@ -24,7 +24,14 @@ from app.retrieval.policy import QuestionPattern
 
 
 def load_eval_queries() -> list[dict]:
-    """Load eval queries from the benchmark eval plan."""
+    """Load eval queries from the benchmark eval plan.
+
+    Uses QuestionPattern.from_eval_class() to convert eval plan classes
+    to canonical patterns. This ensures consistency between evaluation
+    and production classification.
+    """
+    from app.retrieval.policy import QuestionPattern
+
     eval_path = Path("benchmarks/eval_data/eval_plan_v1.json")
     if not eval_path.exists():
         return []
@@ -32,10 +39,14 @@ def load_eval_queries() -> list[dict]:
         plan = json.load(f)
     queries = []
     for q in plan.get("queries", []):
+        eval_class = q.get("class", "unknown")
+        # Convert to canonical pattern
+        canonical_pattern = QuestionPattern.from_eval_class(eval_class)
         queries.append({
             "id": q.get("id", "unknown"),
             "query": q.get("query", ""),
-            "pattern": q.get("class", "unknown"),
+            "pattern": canonical_pattern.value,  # Use canonical value
+            "eval_class": eval_class,  # Preserve original eval class for reporting
             "supporting_docs": q.get("supporting_docs", []),
         })
     return queries

@@ -87,7 +87,11 @@ class EvidenceNeedPlanner:
     """
 
     # Patterns that benefit from evidence need planning
-    PLANNABLE_PATTERNS = {"conflict", "complex_research", "multi_hop"}
+    # Uses QuestionPattern enum values for canonical classification
+    PLANNABLE_PATTERNS = {
+        "conflict", "complex_research", "multi_hop",  # String values
+        # Note: Also accepts QuestionPattern.CONFLICT.value, etc.
+    }
 
     # Conflict indicator keywords
     _CONFLICT_INDICATORS = re.compile(

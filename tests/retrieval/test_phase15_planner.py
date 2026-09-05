@@ -228,7 +228,8 @@ class TestPlannerIntegration:
 # ---------------------------------------------------------------------------
 
 class TestMultiQueryRetriever:
-    def test_passthrough_retrieval(self, _router, _retriever):
+    @pytest.mark.asyncio
+    async def test_passthrough_retrieval(self, _router, _retriever):
         """Unplanned query should do single search."""
         retriever = MultiQueryRetriever(_router, _retriever, top_k=10)
         plan = QueryPlan(
@@ -236,11 +237,12 @@ class TestMultiQueryRetriever:
             pattern="simple_lookup",
             is_planned=False,
         )
-        result = retriever.retrieve(plan)
+        result = await retriever.retrieve(plan)
         assert result.total_retrieval_calls == 1
         assert len(result.selected) > 0
 
-    def test_planned_retrieval_runs_multiple_queries(self, _router, _retriever):
+    @pytest.mark.asyncio
+    async def test_planned_retrieval_runs_multiple_queries(self, _router, _retriever):
         """Planned query should run multiple searches."""
         retriever = MultiQueryRetriever(_router, _retriever, top_k=10)
         needs = [
@@ -253,11 +255,12 @@ class TestMultiQueryRetriever:
             evidence_needs=needs,
             is_planned=True,
         )
-        result = retriever.retrieve(plan)
+        result = await retriever.retrieve(plan)
         assert result.total_retrieval_calls >= 2
         assert result.total_candidates > 0
 
-    def test_deduplication_across_queries(self, _router, _retriever):
+    @pytest.mark.asyncio
+    async def test_deduplication_across_queries(self, _router, _retriever):
         """Same chunk found by multiple queries should be deduped."""
         retriever = MultiQueryRetriever(_router, _retriever, top_k=10)
         # Two queries that should find overlapping results
@@ -271,12 +274,13 @@ class TestMultiQueryRetriever:
             evidence_needs=needs,
             is_planned=True,
         )
-        result = retriever.retrieve(plan)
+        result = await retriever.retrieve(plan)
         # All chunk_ids in selected should be unique
         chunk_ids = [r.chunk_id for r in result.selected]
         assert len(chunk_ids) == len(set(chunk_ids))
 
-    def test_need_coverage_computed(self, _router, _retriever):
+    @pytest.mark.asyncio
+    async def test_need_coverage_computed(self, _router, _retriever):
         """Coverage should be computed for each need."""
         retriever = MultiQueryRetriever(_router, _retriever, top_k=10)
         needs = [
@@ -289,10 +293,11 @@ class TestMultiQueryRetriever:
             evidence_needs=needs,
             is_planned=True,
         )
-        result = retriever.retrieve(plan)
+        result = await retriever.retrieve(plan)
         assert len(result.need_coverage) == 2
 
-    def test_source_diversity_tracked(self, _router, _retriever):
+    @pytest.mark.asyncio
+    async def test_source_diversity_tracked(self, _router, _retriever):
         """Source diversity should be tracked."""
         retriever = MultiQueryRetriever(_router, _retriever, top_k=10)
         needs = [
@@ -304,7 +309,7 @@ class TestMultiQueryRetriever:
             evidence_needs=needs,
             is_planned=True,
         )
-        result = retriever.retrieve(plan)
+        result = await retriever.retrieve(plan)
         assert result.source_diversity >= 1
 
 

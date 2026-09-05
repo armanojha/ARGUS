@@ -303,6 +303,10 @@ class Settings(BaseSettings):
         default=0.3,
         description="Minimum top-result score to keep narrow-path results; falls back to full hybrid below this.",
     )
+    multi_query_max_concurrency: int = Field(
+        default=4,
+        description="Maximum number of concurrent retrieval sub-queries in MultiQueryRetriever.",
+    )
     active_evidence_seeking_enabled: bool = Field(
         default=True,
         description="Whether active evidence seeking is enabled.",
