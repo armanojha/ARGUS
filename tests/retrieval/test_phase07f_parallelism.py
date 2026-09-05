@@ -450,7 +450,7 @@ def _resp_for(call_type: str) -> CompletionResponse:
         "research_planning": '{"objective":"x","entities":[],"time_window":null,'
                             '"subquestions":["q"],"evidence_type":"factual",'
                             '"preferred_retrieval_methods":["hybrid"],"required_sources":[],'
-                            '"risk_level":"low","token_budget":6000,"iteration_budget":1,'
+                            '"risk_level":"high","token_budget":6000,"iteration_budget":1,'
                             '"stopping_condition":"stop"}',
         "evidence_extraction": '{"sufficient":true,"reasoning":"ok","next_subquery":null}',
         "synthesis": "The answer is grounded [1].",

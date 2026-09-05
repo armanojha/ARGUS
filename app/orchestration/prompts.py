@@ -68,8 +68,8 @@ def _format_evidence_block(evidence: list[EvidenceRef]) -> str:
     lines = []
     for i, ref in enumerate(evidence, 1):
         snippet = ref.text.strip().replace("\n", " ")
-        if len(snippet) > 500:
-            snippet = snippet[:500] + "..."
+        if len(snippet) > 800:
+            snippet = snippet[:800] + "..."
         lines.append(f"[{i}] (source: {ref.source_path}) {snippet}")
     return "\n".join(lines)
 
@@ -112,6 +112,8 @@ def build_synthesis_messages(plan: ResearchPlan, evidence: list[EvidenceRef]) ->
         "marker, e.g. [1] or [2][3], immediately after the claim. Do not invent "
         "facts not present in the evidence. If the evidence is incomplete, say so "
         "explicitly rather than filling gaps with assumptions. "
+        "Before writing the final answer, briefly identify which evidence passages "
+        "support each key claim — then write the answer citing those passages. "
         f"{_UNTRUSTED_NOTICE}"
     )
     user = (

@@ -128,7 +128,7 @@ class Settings(BaseSettings):
     )
     retrieval_fusion_normalization: str = Field(
         default="rank",
-        description="Score normalization for hybrid fusion: 'max' (original) or 'rank' (rank-based, more robust).",
+        description="Score normalization for hybrid fusion: 'max' (original), 'rank' (rank-based), or 'max_of_both' (max rank from either channel).",
     )
     retrieval_source_diversification: bool = Field(
         default=True,

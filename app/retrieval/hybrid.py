@@ -235,6 +235,7 @@ class HybridRetriever:
             normalization: Score normalization method.
                 "max" - Divide by max score in channel (original ARGUS behavior)
                 "rank" - Rank-based: score = 1/rank (more robust to outliers)
+                "max_of_both" - Max rank from either channel (weight-free, non-compensatory)
         """
         if not bm25_scores and not vector_scores:
             logger.info("hybrid_search_empty", query=query[:50])
@@ -259,6 +260,21 @@ class HybridRetriever:
                 norm_bm25 = (n_bm25 - bm25_ranks.get(chunk_id, n_bm25) + 1) / n_bm25
                 norm_vector = (n_vec - vector_ranks.get(chunk_id, n_vec) + 1) / n_vec
                 fused_score = bm25_weight * norm_bm25 + vector_weight * norm_vector
+                fused_results.append((chunk_id, fused_score, bm25_score, vector_score))
+        elif normalization == "max_of_both":
+            # Max-of-Both: weight-free, take the best rank from either channel
+            bm25_sorted = sorted(bm25_scores.keys(), key=lambda c: bm25_scores[c], reverse=True)
+            vector_sorted = sorted(vector_scores.keys(), key=lambda c: vector_scores[c], reverse=True)
+            bm25_ranks = {cid: i + 1 for i, cid in enumerate(bm25_sorted)}
+            vector_ranks = {cid: i + 1 for i, cid in enumerate(vector_sorted)}
+
+            fused_results = []
+            for chunk_id in all_chunk_ids:
+                bm25_score = bm25_scores.get(chunk_id, 0.0)
+                vector_score = vector_scores.get(chunk_id, 0.0)
+                bm25_rr = 1.0 / bm25_ranks.get(chunk_id, 100)
+                vec_rr = 1.0 / vector_ranks.get(chunk_id, 100)
+                fused_score = max(bm25_rr, vec_rr)
                 fused_results.append((chunk_id, fused_score, bm25_score, vector_score))
         else:
             # Original max-normalization (backward compatible)

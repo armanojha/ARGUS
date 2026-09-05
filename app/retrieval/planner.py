@@ -277,6 +277,8 @@ class EvidenceNeedPlanner:
 
         Multi-hop queries require connecting information across documents.
         We extract the key entities and relationships to search for.
+
+        Phase 18: improved subquery generation to trace relationship chains.
         """
         entities = self._extract_entities(query)
         topic = self._extract_topic(query)
@@ -292,11 +294,14 @@ class EvidenceNeedPlanner:
             original_need=f"Direct evidence for {topic}",
         ))
 
-        # For each pair of entities, search for their relationship
+        # Phase 18: Generate relationship-tracing subqueries
+        # For "X depends on Y via Z" patterns, search for each hop
         if len(entities) >= 2:
+            # Generate entity-pair relationship queries
             for i, entity_a in enumerate(entities):
                 for entity_b in entities[i + 1:]:
-                    rel_query = f"{entity_a} {entity_b} {topic}"
+                    # Direct relationship
+                    rel_query = f"{entity_a} {entity_b}"
                     needs.append(EvidenceNeed(
                         topic=f"{entity_a} - {entity_b}",
                         entities=[entity_a, entity_b],
@@ -306,7 +311,20 @@ class EvidenceNeedPlanner:
                         original_need=f"Relationship between {entity_a} and {entity_b}",
                     ))
 
-        # Also search for each entity individually
+                    # Phase 18: Also search for intermediate hops
+                    # "X supplies Y" or "X feeds Y" or "X depends on Y"
+                    for verb in ["supplies", "feeds", "depends on", "connects to", "produces for"]:
+                        hop_query = f"{entity_a} {verb} {entity_b}"
+                        needs.append(EvidenceNeed(
+                            topic=f"{entity_a} {verb} {entity_b}",
+                            entities=[entity_a, entity_b],
+                            claim_type=ClaimType.CONTEXTUAL,
+                            search_query=hop_query,
+                            priority=NeedPriority.MEDIUM,
+                            original_need=f"{entity_a} {verb} {entity_b}",
+                        ))
+
+        # Also search for each entity individually with the topic
         for entity in entities:
             entity_query = f"{entity} {topic}"
             needs.append(EvidenceNeed(
@@ -365,8 +383,11 @@ class EvidenceNeedPlanner:
         topics = []
 
         # Split on common multi-topic connectors
+        # Phase 18: relaxed terminators - allow end-of-string without punctuation
         connectors = [
-            r"\band\b(?:\s+\w+){0,3}(?=\.|,|;|$)",  # "and evaluate what..."
+            r"\band\s+(?:evaluate|assess|explain|analyze|consider|discuss|review|describe|compare)\b",  # "and evaluate..."
+            r"\band\s+(?:what|how|why|which|where|who|when)\b",  # "and what/ how..."
+            r"\band\s+(?:it|its|this|that|the)\b",  # "and it depends on..."
             r"(?<=\.)\s+(?:Also|Additionally|Furthermore|Moreover)\b",
             r";\s*",
             r"(?<=\w)\s+while\s+",
