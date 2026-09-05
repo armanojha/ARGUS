@@ -210,6 +210,9 @@ def _run_ocr(image_path: str, lang: str, tier: str = "fast") -> dict:
     # Sort top-to-bottom, then left-to-right for natural reading order.
     lines.sort(key=lambda l: (_centroid_y(l["box"]), _centroid_x(l["box"])))
 
+    # Detect headings from bounding box geometry before assembling text
+    lines = _annotate_headings(lines)
+
     text = "\n".join(l["text"] for l in lines)
     confs = [l["confidence"] for l in lines if l["confidence"] is not None]
     avg_conf = (sum(confs) / len(confs)) if confs else None
@@ -234,6 +237,100 @@ def _centroid_y(box):
     if not box:
         return 0.0
     return sum(p[1] for p in box) / len(box)
+
+
+def _bbox_height(box):
+    """Return the height of a bounding box polygon."""
+    if not box or len(box) < 2:
+        return 0.0
+    ys = [p[1] for p in box]
+    return max(ys) - min(ys)
+
+
+def _bbox_width(box):
+    """Return the width of a bounding box polygon."""
+    if not box or len(box) < 2:
+        return 0.0
+    xs = [p[0] for p in box]
+    return max(xs) - min(xs)
+
+
+def _detect_heading_level(text, box, median_height, median_width):
+    """Detect if a line is a heading based on bounding box geometry.
+
+    Uses relative height/width ratio compared to the page median.
+    Taller text relative to median => likely heading.
+
+    Returns:
+        0 = not a heading
+        1 = h1 (very tall, >1.8x median height)
+        2 = h2 (tall, >1.4x median height)
+        3 = h3 (moderately tall, >1.2x median height)
+    """
+    if not box or median_height <= 0:
+        return 0
+
+    height = _bbox_height(box)
+    if height <= 0:
+        return 0
+
+    ratio = height / median_height
+
+    # Also consider width: headings are typically shorter lines
+    width = _bbox_width(box)
+    is_short_line = width < median_width * 1.5 if median_width > 0 else len(text) < 80
+
+    if ratio >= 1.8 and is_short_line:
+        return 1
+    if ratio >= 1.4 and is_short_line:
+        return 2
+    if ratio >= 1.2 and is_short_line:
+        return 3
+    return 0
+
+
+def _annotate_headings(lines):
+    """Add heading markers (# ## ###) to lines detected as headings.
+
+    Modifies the 'text' field of each line dict in-place.
+    Returns the modified lines list.
+    """
+    if not lines:
+        return lines
+
+    # Compute median bbox height and width across all lines with valid boxes
+    heights = []
+    widths = []
+    for line in lines:
+        box = line.get("box")
+        if box and len(box) >= 2:
+            h = _bbox_height(box)
+            w = _bbox_width(box)
+            if h > 0:
+                heights.append(h)
+            if w > 0:
+                widths.append(w)
+
+    if not heights:
+        return lines
+
+    heights.sort()
+    widths.sort()
+    median_height = heights[len(heights) // 2]
+    median_width = widths[len(widths) // 2] if widths else 0
+
+    for line in lines:
+        box = line.get("box")
+        text = line.get("text", "")
+        if not text or not box:
+            continue
+        level = _detect_heading_level(text, box, median_height, median_width)
+        if level > 0:
+            markers = {1: "# ", 2: "## ", 3: "### "}
+            line["text"] = markers[level] + text
+            line["heading_level"] = level
+
+    return lines
 
 
 def _deps() -> dict:

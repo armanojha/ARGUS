@@ -44,8 +44,10 @@ entries:
   - pattern: long_report
     priority: 8
     retrieval_mix:
-      methods: [hybrid, graph]
-      weights: {hybrid: 0.6, graph: 0.4}
+      methods: [vector, hybrid, graph]
+      weights: {vector: 0.5, hybrid: 0.3, graph: 0.2}
+      bm25_weight: 0.3
+      vector_weight: 0.7
       graph_max_hops: 3
 
   - pattern: fresh_missing

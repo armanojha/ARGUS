@@ -21,6 +21,7 @@ Design rules honored here:
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -216,10 +217,17 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
         if pattern in (QuestionPattern.LONG_REPORT, QuestionPattern.COMPARATIVE):
             fused = retriever.expand_with_parent_context(fused, max_context_chunks=3)
 
+        # Source-diversified selection for multi-source patterns
+        if (self.settings.retrieval_source_diversification
+                and pattern in (QuestionPattern.COMPARATIVE, QuestionPattern.LONG_REPORT)):
+            fused = self._conditional_diversify(fused, top_k, top_k,
+                                               self.settings.retrieval_diversification_min_sources)
+        else:
+            fused = fused[:top_k]
+
         if fused and reranker is not None:
             fused = reranker.rerank(query, fused, top_k=top_k)
         else:
-            fused = fused[:top_k]
             for rank, ref in enumerate(fused, 1):
                 fused[rank - 1] = ref.model_copy(update={"rank": rank})
 
@@ -383,6 +391,101 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
             time_end=end.isoformat(),
             top_k=upper_k,
         )
+
+    def _conditional_diversify(
+        self,
+        candidates: list[EvidenceRef],
+        expanded_top: int,
+        final_top: int,
+        min_sources: int,
+    ) -> list[EvidenceRef]:
+        """Conditionally diversify: only when one source dominates top results.
+
+        If the top results already cover >= min_sources distinct documents,
+        return them unchanged.  Otherwise, run round-robin diversification to
+        ensure minimum source coverage, keeping expanded_top candidates.
+        """
+        if not candidates or min_sources <= 0:
+            return candidates[:final_top]
+
+        top = candidates[:expanded_top]
+        sources_in_top = len({r.document_id for r in top})
+
+        if sources_in_top >= min_sources:
+            # Already diverse enough — just trim to final_top
+            result = candidates[:final_top]
+        else:
+            # One source dominates — diversify
+            logger.debug("conditional_diversify_triggered",
+                         sources_in_top=sources_in_top, min_sources=min_sources)
+            result = self._diversify_by_source(candidates, expanded_top, min_sources)
+            result = result[:final_top]
+
+        for rank, ref in enumerate(result, 1):
+            result[rank - 1] = ref.model_copy(update={"rank": rank})
+        return result
+
+    def _diversify_by_source(
+        self,
+        candidates: list[EvidenceRef],
+        top_k: int,
+        min_sources: int,
+    ) -> list[EvidenceRef]:
+        """Select candidates ensuring source document diversity.
+
+        Greedy round-robin: first pass picks the top-scoring chunk from each
+        distinct source, then fills remaining slots by score.  This prevents
+        one dominant document from monopolizing all top-k slots when the query
+        spans multiple documents.
+        """
+        if not candidates or min_sources <= 0:
+            return candidates[:top_k]
+
+        # Group by source document
+        by_source: dict[UUID, list[EvidenceRef]] = {}
+        for ref in candidates:
+            by_source.setdefault(ref.document_id, []).append(ref)
+
+        selected: list[EvidenceRef] = []
+        selected_ids: set[UUID] = set()
+        remaining: list[EvidenceRef] = []
+
+        # Pass 1: pick top chunk from each source
+        for doc_id, refs in by_source.items():
+            if refs:
+                selected.append(refs[0])
+                selected_ids.add(doc_id)
+                remaining.extend(refs[1:])
+
+        # Pass 2: fill remaining slots by score from what's left
+        remaining.sort(key=lambda r: r.score, reverse=True)
+        for ref in remaining:
+            if len(selected) >= top_k:
+                break
+            if ref.chunk_id not in {s.chunk_id for s in selected}:
+                selected.append(ref)
+
+        # If we still haven't hit min_sources, add from any source
+        if len(selected) < min_sources:
+            for ref in candidates:
+                if len(selected) >= top_k:
+                    break
+                if ref.chunk_id not in {s.chunk_id for s in selected}:
+                    selected.append(ref)
+
+        # Re-rank by score
+        selected.sort(key=lambda r: r.score, reverse=True)
+        result = selected[:top_k]
+        for rank, ref in enumerate(result, 1):
+            result[rank - 1] = ref.model_copy(update={"rank": rank})
+
+        logger.debug(
+            "diversify_by_source",
+            input_count=len(candidates),
+            output_count=len(result),
+            sources_covered=len({r.document_id for r in result}),
+        )
+        return result
 
     def _bge_m3_dispatch(
         self,

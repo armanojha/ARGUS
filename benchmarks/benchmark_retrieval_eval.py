@@ -35,8 +35,8 @@ def load_eval_queries() -> list[dict]:
         queries.append({
             "id": q.get("id", "unknown"),
             "query": q.get("query", ""),
-            "pattern": q.get("query_class", "unknown"),
-            "gold_chunks": q.get("gold_chunks", []),
+            "pattern": q.get("class", "unknown"),
+            "supporting_docs": q.get("supporting_docs", []),
         })
     return queries
 
@@ -112,7 +112,7 @@ def run_evaluation() -> dict:
 
     for q in queries:
         gold_ids = set()
-        for doc_id in q.get("gold_chunks", []):
+        for doc_id in q.get("supporting_docs", []):
             if doc_id in chunk_id_map:
                 gold_ids.update(chunk_id_map[doc_id])
 

@@ -130,6 +130,14 @@ class Settings(BaseSettings):
         default="rank",
         description="Score normalization for hybrid fusion: 'max' (original) or 'rank' (rank-based, more robust).",
     )
+    retrieval_source_diversification: bool = Field(
+        default=True,
+        description="Enable source-diversified candidate selection for complex/conflict patterns.",
+    )
+    retrieval_diversification_min_sources: int = Field(
+        default=2,
+        description="Minimum distinct sources to cover when diversifying candidates.",
+    )
 
     # --- BGE-M3 Experimental Backend (A/B testing) ---
     bge_m3_model: str = Field(

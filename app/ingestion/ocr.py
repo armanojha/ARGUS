@@ -728,6 +728,48 @@ def extract_pdf_with_ocr_fallback(
                 )
 
 
+def _parse_ocr_text_with_headings(text: str) -> list[tuple[str, str | None]]:
+    """Parse OCR text that may contain heading markers (# ## ###).
+
+    Returns list of (text, section_path_or_None) tuples.
+    Heading markers are stripped and used to build hierarchical section paths.
+    """
+    result: list[tuple[str, str | None]] = []
+    # Heading stack: list of (title, level) for hierarchical path building
+    heading_stack: list[tuple[str, int]] = []
+    heading_prefixes = {3: "### ", 2: "## ", 1: "# "}
+
+    def _build_path(level: int) -> str | None:
+        """Build hierarchical path, trimming stack to headings above current level."""
+        while heading_stack and heading_stack[-1][1] >= level:
+            heading_stack.pop()
+        parts = [title for title, _ in heading_stack]
+        return " > ".join(parts) if parts else None
+
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Check for heading markers (longest prefix first to avoid ## matching #)
+        matched = False
+        for level in (3, 2, 1):
+            prefix = heading_prefixes[level]
+            if stripped.startswith(prefix):
+                title = stripped[len(prefix):].strip()
+                _build_path(level)  # trims heading_stack as side effect
+                heading_stack.append((title, level))
+                # Don't emit heading lines as segments — they're metadata
+                matched = True
+                break
+
+        if not matched:
+            current_path = " > ".join(t for t, _ in heading_stack) if heading_stack else None
+            result.append((stripped, current_path))
+
+    return result
+
+
 def extract_pdf_segments_with_ocr(
     pdf_path: Path,
     min_chars_per_page: int = 50,
@@ -737,6 +779,8 @@ def extract_pdf_segments_with_ocr(
 
     Returns TextSegment objects suitable for the existing chunking pipeline.
     OCR is only applied to pages without usable text layers.
+    Heading markers from PaddleOCR bounding box analysis are parsed into
+    section_path for structure-aware chunking.
     """
     segments = []
 
@@ -744,14 +788,44 @@ def extract_pdf_segments_with_ocr(
         if not ocr_result.text.strip():
             continue
 
-        segments.append(TextSegment(
-            text=ocr_result.text.strip(),
-            page_start=ocr_result.page_number,
-            page_end=ocr_result.page_number,
-            char_start=0,
-            char_end=len(ocr_result.text),
-            section_path=None,
-        ))
+        # Parse heading markers from OCR text
+        parsed = _parse_ocr_text_with_headings(ocr_result.text)
+        if not parsed:
+            continue
+
+        # Group consecutive lines under the same section into segments
+        current_section_text: list[str] = []
+        current_section_title: str | None = None
+
+        for line_text, section_title in parsed:
+            if section_title != current_section_title and current_section_text:
+                # Section changed — flush previous section as a segment
+                combined = "\n".join(current_section_text)
+                if combined.strip():
+                    segments.append(TextSegment(
+                        text=combined.strip(),
+                        page_start=ocr_result.page_number,
+                        page_end=ocr_result.page_number,
+                        char_start=0,
+                        char_end=len(combined),
+                        section_path=current_section_title,
+                    ))
+                current_section_text = []
+            current_section_title = section_title
+            current_section_text.append(line_text)
+
+        # Flush remaining lines
+        if current_section_text:
+            combined = "\n".join(current_section_text)
+            if combined.strip():
+                segments.append(TextSegment(
+                    text=combined.strip(),
+                    page_start=ocr_result.page_number,
+                    page_end=ocr_result.page_number,
+                    char_start=0,
+                    char_end=len(combined),
+                    section_path=current_section_title,
+                ))
 
     logger.info("pdf_segments_extracted_with_ocr",
                 path=str(pdf_path),
