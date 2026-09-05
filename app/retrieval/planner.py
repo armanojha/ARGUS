@@ -247,6 +247,25 @@ class EvidenceNeedPlanner:
                 original_need=f"Evidence about {subtopic}",
             ))
 
+        # Phase 18: For dependency-type subtopics, add a probe query that
+        # targets technical infrastructure/systems the entity depends on
+        for subtopic in topics:
+            dep_match = re.search(
+                r"\b(?:depend|rely|require|need|count|conting)\w*\b",
+                subtopic, re.IGNORECASE,
+            )
+            if dep_match and entities:
+                entity_str = " ".join(entities[:2])
+                probe = f"{entity_str} database engine system infrastructure"
+                needs.append(EvidenceNeed(
+                    topic=f"{entity_str} technical dependencies",
+                    entities=entities,
+                    claim_type=ClaimType.SUPPORTING,
+                    search_query=probe,
+                    priority=NeedPriority.MEDIUM,
+                    original_need=f"Technical infrastructure {entity_str} depends on",
+                ))
+
         # If we couldn't decompose, fall back to the original query
         if not needs:
             needs.append(EvidenceNeed(
@@ -277,8 +296,6 @@ class EvidenceNeedPlanner:
 
         Multi-hop queries require connecting information across documents.
         We extract the key entities and relationships to search for.
-
-        Phase 18: improved subquery generation to trace relationship chains.
         """
         entities = self._extract_entities(query)
         topic = self._extract_topic(query)
@@ -294,14 +311,11 @@ class EvidenceNeedPlanner:
             original_need=f"Direct evidence for {topic}",
         ))
 
-        # Phase 18: Generate relationship-tracing subqueries
-        # For "X depends on Y via Z" patterns, search for each hop
+        # For each pair of entities, search for their relationship
         if len(entities) >= 2:
-            # Generate entity-pair relationship queries
             for i, entity_a in enumerate(entities):
                 for entity_b in entities[i + 1:]:
-                    # Direct relationship
-                    rel_query = f"{entity_a} {entity_b}"
+                    rel_query = f"{entity_a} {entity_b} {topic}"
                     needs.append(EvidenceNeed(
                         topic=f"{entity_a} - {entity_b}",
                         entities=[entity_a, entity_b],
@@ -311,20 +325,7 @@ class EvidenceNeedPlanner:
                         original_need=f"Relationship between {entity_a} and {entity_b}",
                     ))
 
-                    # Phase 18: Also search for intermediate hops
-                    # "X supplies Y" or "X feeds Y" or "X depends on Y"
-                    for verb in ["supplies", "feeds", "depends on", "connects to", "produces for"]:
-                        hop_query = f"{entity_a} {verb} {entity_b}"
-                        needs.append(EvidenceNeed(
-                            topic=f"{entity_a} {verb} {entity_b}",
-                            entities=[entity_a, entity_b],
-                            claim_type=ClaimType.CONTEXTUAL,
-                            search_query=hop_query,
-                            priority=NeedPriority.MEDIUM,
-                            original_need=f"{entity_a} {verb} {entity_b}",
-                        ))
-
-        # Also search for each entity individually with the topic
+        # Also search for each entity individually
         for entity in entities:
             entity_query = f"{entity} {topic}"
             needs.append(EvidenceNeed(
@@ -407,7 +408,16 @@ class EvidenceNeedPlanner:
             if len(part) > 10:  # Skip very short fragments
                 topic = self._extract_topic(part)
                 if topic and len(topic) > 3:
-                    topics.append(topic)
+                    # If topic lost most of the part (e.g., stop words stripped),
+                    # use a cleaned version of the full part for better recall
+                    words = topic.split()
+                    part_words = part.split()
+                    if len(words) < 2 and len(part_words) > 2:
+                        cleaned = re.sub(r"[^a-zA-Z0-9\s]", "", part).strip()
+                        if cleaned:
+                            topics.append(cleaned)
+                    else:
+                        topics.append(topic)
 
         # If decomposition produced only one topic, try phrase-level extraction
         if len(topics) <= 1:

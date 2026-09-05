@@ -56,6 +56,13 @@ data/obsidian_index/
 data/telemetry/
 data/benchmark_reports/
 data/_phase066*.json
+data/graph/*.pkl
 
 # Databases (global)
 *.db
+
+# Local tool configs (machine-specific)
+.mcp.json
+
+# User data (large binary documents)
+knowledge_base/*.pdf
