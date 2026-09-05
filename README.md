@@ -112,12 +112,12 @@ python scripts/run_obsidian_vault.py /path/to/vault --all
 ### Running the Research UI
 
 ```bash
-# Start the API (separate terminal), then:
-streamlit run app/ui/streamlit_app.py
+# Start the API (separate terminal), then open:
+# http://localhost:8000/brain
 ```
 
-The evidence-explorer UI renders the research plan, evidence, source trail,
-verifier result, conflicts, loop count, and confidence for a live query.
+The ARGUS Brain UI provides the unified interface: Research, Knowledge Base,
+ARGUS Brain (memory), Documents, Evidence, Obsidian Brain, and Settings.
 
 ### Running Live LLM Tests
 

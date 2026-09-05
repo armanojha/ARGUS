@@ -254,6 +254,49 @@
 
   .badge-note { font-size:11px; color:var(--text-faint); line-height:1.4; margin-top:8px; }
 
+  /* ------- Research enhanced ------- */
+  .research-attach { display:flex; gap:8px; align-items:center; padding:0 18px 10px; }
+  .research-attach label { padding:6px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text-dim); font-size:12px; cursor:pointer; transition:all .15s; }
+  .research-attach label:hover { color:var(--accent-2); border-color:var(--accent); }
+  .research-attach input[type=file] { display:none; }
+  .research-attach .attached-name { font-size:11px; color:var(--accent-2); }
+
+  .answer-meta { margin-top:14px; padding-top:14px; border-top:1px solid var(--border-soft); }
+  .meta-row { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:8px; }
+  .meta-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:14px; background:var(--panel-2); border:1px solid var(--border-soft); font-size:11.5px; color:var(--text-dim); }
+  .meta-pill .dot { width:6px; height:6px; border-radius:50%; }
+  .meta-pill .dot.good { background:var(--good); }
+  .meta-pill .dot.warn { background:var(--warn); }
+  .meta-pill .dot.danger { background:var(--danger); }
+
+  .confidence-section { margin-top:10px; }
+  .conf-row { display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; }
+  .conf-row .conf-label { color:var(--text-faint); flex:0 0 180px; }
+  .conf-row .conf-bar-wrap { flex:1; height:5px; border-radius:3px; background:var(--panel-2); overflow:hidden; }
+  .conf-row .conf-bar-fill { height:100%; border-radius:3px; }
+  .conf-row .conf-val { flex:0 0 36px; text-align:right; color:var(--text-dim); font-size:11px; }
+
+  .source-trail { margin-top:10px; }
+  .source-trail-item { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px; }
+  .source-trail-idx { color:var(--accent-2); font-weight:700; flex:0 0 18px; }
+  .source-trail-path { color:var(--text-dim); word-break:break-all; }
+
+  .telemetry-row { display:flex; flex-wrap:wrap; gap:12px; margin-top:10px; }
+  .telemetry-pill { padding:4px 10px; border-radius:10px; background:var(--panel-2); border:1px solid var(--border-soft); font-size:11.5px; }
+  .telemetry-pill .tl { color:var(--text-faint); }
+  .telemetry-pill .tv { color:var(--text); font-weight:600; }
+
+  /* ------- Memory records ------- */
+  .memory-record { padding:12px 14px; background:var(--panel); border:1px solid var(--border); border-radius:10px; margin-bottom:8px; cursor:pointer; transition:border-color .15s; }
+  .memory-record:hover { border-color:var(--accent); }
+  .memory-record .mr-layer { font-size:10px; text-transform:uppercase; letter-spacing:1px; font-weight:700; color:var(--accent-2); }
+  .memory-record .mr-content { font-size:12.5px; color:var(--text); margin-top:4px; line-height:1.5; }
+  .memory-record .mr-meta { font-size:11px; color:var(--text-faint); margin-top:6px; }
+
+  .promote-btn { padding:8px 16px; border-radius:9px; border:1px solid rgba(110,168,254,.4); background:rgba(110,168,254,.14); color:var(--accent-2); font-size:13px; font-weight:600; cursor:pointer; transition:all .15s; margin-top:12px; }
+  .promote-btn:hover { background:rgba(110,168,254,.24); }
+  .promote-btn:disabled { opacity:.5; cursor:not-allowed; }
+
   /* ------- Document viewer modal ------- */
   #docviewer {
     position: fixed; inset: 0; z-index: 70;
@@ -389,9 +432,11 @@
       <a class="nav-item" data-view="research" href="#research"><span class="ic">⌁</span> Research</a>
       <a class="nav-item" data-view="knowledge" href="#knowledge"><span class="ic">▤</span> Knowledge Base</a>
       <a class="nav-item brain" data-view="brain" href="#brain"><span class="ic">◉</span> ARGUS Brain</a>
+      <a class="nav-item" data-view="argusbrain" href="#argusbrain"><span class="ic">🧠</span> Memory</a>
       <a class="nav-item" data-view="documents" href="#documents"><span class="ic">▤</span> Documents</a>
       <a class="nav-item" data-view="evidence" href="#evidence"><span class="ic">✓</span> Evidence</a>
       <div class="nav-group">System</div>
+      <a class="nav-item" data-view="obsidian" href="#obsidian"><span class="ic">🏛</span> Obsidian Brain</a>
       <a class="nav-item" data-view="settings" href="#settings"><span class="ic">⚙</span> Settings</a>
     </nav>
     <div class="sidebar-footer">
@@ -448,6 +493,11 @@
     <!-- RESEARCH -->
     <section id="view-research" class="view" data-view="research">
       <div class="chat-scroll" id="chat-scroll"></div>
+      <div class="research-attach">
+        <label for="research-file">📎 Attach file</label>
+        <input type="file" id="research-file" accept=".pdf,.txt,.md,.csv,.xlsx,.xls,.xlsm" />
+        <span class="attached-name" id="research-attached-name"></span>
+      </div>
       <div class="chat-inputbar">
         <textarea id="research-input" rows="1" placeholder="Ask ARGUS a research question…  (Enter to send, Shift+Enter for newline)"></textarea>
         <button class="chat-send" id="research-send" title="Send">➤</button>
@@ -507,6 +557,55 @@
       </div>
     </section>
 
+    <!-- ARGUS BRAIN (memory) -->
+    <section id="view-argusbrain" class="view" data-view="argusbrain">
+      <div class="view-scroll">
+        <div class="view-intro">
+          <h2>ARGUS Brain</h2>
+          <p>Persistent machine memory: layers, promotion status, and recent records with provenance.</p>
+        </div>
+        <div class="stat-grid" id="brain-stats"></div>
+        <div class="panel">
+          <div class="panel-title">By layer</div>
+          <div id="brain-layers" class="badge-note">Loading…</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">By promotion status</div>
+          <div id="brain-promotions" class="badge-note">Loading…</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Recent memory records</div>
+          <div id="brain-records"><div class="loading-row"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OBSIDIAN BRAIN -->
+    <section id="view-obsidian" class="view" data-view="obsidian">
+      <div class="view-scroll">
+        <div class="view-intro">
+          <h2>Obsidian Brain</h2>
+          <p>ARGUS's dedicated Obsidian vault for long-term structured knowledge.</p>
+        </div>
+        <div class="stat-grid" id="obsidian-stats"></div>
+        <div class="panel">
+          <div class="panel-title">Vault status</div>
+          <div id="obsidian-status" class="badge-note">Loading…</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Recent notes</div>
+          <div id="obsidian-notes"><div class="loading-row"><div class="spinner"></div></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Promotion</div>
+          <div id="obsidian-promote">
+            <button class="promote-btn" id="obsidian-promote-btn">Promote eligible memories into vault</button>
+            <div id="obsidian-promote-msg" class="badge-note" style="margin-top:8px"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- SETTINGS -->
     <section id="view-settings" class="view" data-view="settings">
       <div class="view-scroll">
@@ -525,6 +624,10 @@
         <div class="panel">
           <div class="panel-title">Knowledge Base</div>
           <div id="settings-kb" class="badge-note">Loading…</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Recent run traces</div>
+          <div id="settings-telemetry"><div class="loading-row"><div class="spinner"></div></div></div>
         </div>
       </div>
     </section>
@@ -1461,8 +1564,10 @@ const VIEWS = {
   brain:     { title: "ARGUS Brain",    sub: "Explore connected knowledge" },
   research:  { title: "Research",       sub: "Ask ARGUS a research question" },
   knowledge: { title: "Knowledge Base", sub: "Manage the document corpus" },
+  argusbrain:{ title: "Memory",         sub: "Persistent machine memory" },
   documents: { title: "Documents",      sub: "Browse graph documents & sources" },
   evidence:  { title: "Evidence",       sub: "Knowledge graph summary" },
+  obsidian:  { title: "Obsidian Brain", sub: "Dedicated Obsidian vault" },
   settings:  { title: "Settings",       sub: "System status & configuration" },
 };
 let currentView = "brain";
@@ -1485,18 +1590,19 @@ function switchView(id) {
   pageSub.textContent = VIEWS[id].sub;
 
   if (id === "brain") {
-    // Canvas may not have valid dimensions while hidden; remeasure and fit.
     requestAnimationFrame(() => { resize(); requestDraw(); });
   }
   if (loaded[id] == null && loaders[id]) loaded[id] = loaders[id]();
 }
 
 const loaders = {
-  research()  { renderResearchLanding(); },
-  knowledge() { renderKnowledge(); },
-  documents() { renderDocuments(); },
-  evidence()  { renderEvidence(); },
-  settings()  { renderSettings(); },
+  research()   { renderResearchLanding(); },
+  knowledge()  { renderKnowledge(); },
+  argusbrain() { renderArgusBrain(); },
+  documents()  { renderDocuments(); },
+  evidence()   { renderEvidence(); },
+  obsidian()   { renderObsidian(); },
+  settings()   { renderSettings(); },
 };
 
 document.querySelectorAll("#sidebar .nav-item[data-view]").forEach(a => {
@@ -1521,7 +1627,20 @@ window.addEventListener("popstate", () => {
 const researchInput = document.getElementById("research-input");
 const researchSend = document.getElementById("research-send");
 const chatScroll = document.getElementById("chat-scroll");
+const researchFile = document.getElementById("research-file");
+const researchAttachedName = document.getElementById("research-attached-name");
 let researchBusy = false;
+let researchAttachedFile = null;
+
+researchFile.addEventListener("change", () => {
+  if (researchFile.files.length) {
+    researchAttachedFile = researchFile.files[0];
+    researchAttachedName.textContent = researchAttachedFile.name;
+  } else {
+    researchAttachedFile = null;
+    researchAttachedName.textContent = "";
+  }
+});
 
 function addChat(status, who, html, cls) {
   const el = document.createElement("div");
@@ -1550,21 +1669,94 @@ function renderResearchLanding() {
 }
 
 function fmtAnswer(res) {
+  if (!res || typeof res !== "object") {
+    return `<span style="color:var(--danger)">Invalid response from API</span>`;
+  }
   const answer = escapeHtml(res.answer || "*(no answer)*");
   const outcome = res.outcome || "answered";
 
   let citHtml = "";
-  if (res.citations && res.citations.length) {
-    const chips = res.citations.slice(0, 16).map((c, i) =>
-      `<span class="cit-chip" data-src="${escapeAttr(c.source_path || "")}" data-text="${escapeAttr((c.text || "").slice(0, 240))}">${i + 1}</span>`
-    ).join("");
-    citHtml = `<div class="chat-a"><div class="panel-title" style="margin:0">Citations (${res.citations.length})</div><div class="chip-row">${chips}</div></div>`;
+  const citations = Array.isArray(res.citations) ? res.citations : [];
+  if (citations.length) {
+    const chips = citations.slice(0, 16).map((c, i) => {
+      if (!c || typeof c !== "object") return "";
+      return `<span class="cit-chip" data-src="${escapeAttr(c.source_path || "")}" data-text="${escapeAttr((c.text || "").slice(0, 240))}" data-page="${c.page_start != null ? c.page_start : ""}" data-section="${escapeAttr(c.section_path || "")}">${i + 1}</span>`;
+    }).join("");
+    citHtml = `<div class="chat-a"><div class="panel-title" style="margin:0">Citations (${citations.length})</div><div class="chip-row">${chips}</div></div>`;
   }
 
-  let meta = `<div class="badge-note" style="margin-top:10px">outcome: ${escapeHtml(outcome)} · plan: ${escapeHtml(res.question_pattern || "—")} · iterations: ${escapeHtml(String(res.iterations_used != null ? res.iterations_used : "—"))} · sub-queries: ${escapeHtml(String(res.sub_queries_issued != null ? res.sub_queries_issued : "—"))}</div>`;
-  if (res.verification && res.verification.triggered) {
-    meta += `<div class="badge-note" style="color:${res.verification.status === "supported" ? "var(--good)" : "var(--warn)"}">verification: ${escapeHtml(res.verification.status || "")}${res.verification.confidence != null ? " · " + Math.round(res.verification.confidence * 100) + "%" : ""}</div>`;
+  // Source trail
+  let sourceTrail = "";
+  const seenPaths = [];
+  citations.forEach(c => {
+    if (!c || typeof c !== "object") return;
+    const p = c.source_path;
+    if (p && !seenPaths.includes(p)) seenPaths.push(p);
+  });
+  if (seenPaths.length) {
+    sourceTrail = `<div class="source-trail"><div class="panel-title" style="margin:0">Sources</div>` +
+      seenPaths.map((p, i) => `<div class="source-trail-item"><span class="source-trail-idx">${i+1}</span><span class="source-trail-path">${escapeHtml(p)}</span></div>`).join("") +
+      `</div>`;
   }
+
+  // Verification
+  let verHtml = "";
+  const ver = res.verification;
+  if (ver && typeof ver === "object" && ver.triggered) {
+    const vcolor = ver.status === "supported" ? "var(--good)" : ver.status === "contradicted" ? "var(--danger)" : "var(--warn)";
+    verHtml = `<div class="meta-row" style="margin-top:10px">
+      <span class="meta-pill"><span class="dot" style="background:${vcolor}"></span>Verification: ${escapeHtml(ver.status || "")}${ver.confidence != null ? " · " + Math.round(ver.confidence * 100) + "%" : ""}</span>
+    </div>`;
+    if (ver.reasoning) verHtml += `<div style="font-size:12px;color:var(--text-dim);margin-top:6px;line-height:1.5">${escapeHtml(ver.reasoning)}</div>`;
+  }
+
+  // Confidence breakdown
+  let confHtml = "";
+  if (ver && typeof ver === "object") {
+    const comp = [
+      ["Evidence coverage", ver.evidence_coverage],
+      ["Source quality", ver.source_quality],
+      ["Cross-source agreement", ver.cross_source_agreement],
+      ["Temporal relevance", ver.temporal_relevance],
+      ["Retrieval rank", ver.retrieval_rank],
+      ["Verifier judgment", ver.verifier_judgment],
+    ].filter(([k,v]) => v != null);
+    if (comp.length) {
+      confHtml = `<div class="confidence-section">` +
+        comp.map(([k,v]) => `<div class="conf-row"><span class="conf-label">${k}</span><div class="conf-bar-wrap"><div class="conf-bar-fill" style="width:${Math.round(v*100)}%;background:linear-gradient(90deg,var(--warn),var(--good))"></div></div><span class="conf-val">${Math.round(v*100)}%</span></div>`).join("") +
+        `</div>`;
+    }
+  }
+
+  // Telemetry
+  let telHtml = "";
+  const t = res.telemetry;
+  if (t && typeof t === "object") {
+    telHtml = `<div class="telemetry-row">
+      <span class="telemetry-pill"><span class="tl">calls </span><span class="tv">${t.total_calls || 0}</span></span>
+      ${t.failed_calls ? `<span class="telemetry-pill"><span class="tl">failed </span><span class="tv" style="color:var(--danger)">${t.failed_calls}</span></span>` : ""}
+      <span class="telemetry-pill"><span class="tl">tokens </span><span class="tv">${t.total_tokens || 0}</span></span>
+      <span class="telemetry-pill"><span class="tl">time </span><span class="tv">${t.duration_ms || 0}ms</span></span>
+    </div>`;
+  }
+
+  // Memory consulted
+  let memHtml = "";
+  const mem = res.memory_consulted;
+  if (Array.isArray(mem) && mem.length) {
+    memHtml = `<div class="meta-row" style="margin-top:8px"><span class="meta-pill"><span class="dot good"></span>Consulted ARGUS memory</span></div>`;
+  }
+
+  let meta = `<div class="answer-meta">
+    <div class="meta-row">
+      <span class="meta-pill">outcome: ${escapeHtml(outcome)}</span>
+      <span class="meta-pill">plan: ${escapeHtml(res.question_pattern || "—")}</span>
+      <span class="meta-pill">iterations: ${escapeHtml(String(res.iterations_used != null ? res.iterations_used : "—"))}</span>
+      <span class="meta-pill">sub-queries: ${escapeHtml(String(res.sub_queries_issued != null ? res.sub_queries_issued : "—"))}</span>
+    </div>
+    ${verHtml}${confHtml}${memHtml}${sourceTrail}${telHtml}
+  </div>`;
+
   return answer + citHtml + meta;
 }
 
@@ -1576,8 +1768,31 @@ async function sendResearch() {
   addChat(q, "user", escapeHtml(q));
   researchInput.value = "";
   autosizeResearch();
-  const statusEl = addStatus("Planning and researching…");
+
+  const file = researchAttachedFile;
+  researchAttachedFile = null;
+  researchAttachedName.textContent = "";
+  researchFile.value = "";
+
+  let statusMsg = "Planning and researching…";
+  if (file) {
+    statusMsg = `Uploading ${file.name} and researching…`;
+  }
+  const statusEl = addStatus(statusMsg);
+
   try {
+    if (file) {
+      const fd = new FormData();
+      fd.append("files", file);
+      statusEl.querySelector("div:last-child").textContent = `Uploading ${file.name}…`;
+      const upRes = await fetch(API_BASE + "/knowledge-base/upload", { method: "POST", body: fd });
+      if (!upRes.ok) {
+        let errMsg = "Upload failed: HTTP " + upRes.status;
+        try { const e = await upRes.json(); errMsg = e.detail || e.error || errMsg; } catch(_){}
+        throw new Error(errMsg);
+      }
+      statusEl.querySelector("div:last-child").textContent = "Researching…";
+    }
     const res = await fetch(API_BASE + "/query", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1586,8 +1801,14 @@ async function sendResearch() {
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
     statusEl.remove();
-    const bubble = addChat(q, "brain", fmtAnswer(data));
-    // wire citation chips -> open source viewer via brain/document?source
+    let formatted;
+    try {
+      formatted = fmtAnswer(data);
+    } catch (fmtErr) {
+      console.error("fmtAnswer error:", fmtErr, data);
+      formatted = `<span style="color:var(--danger)">Formatting error: ${escapeHtml(fmtErr.message)}</span><pre style="font-size:11px;color:var(--text-faint);margin-top:8px;white-space:pre-wrap">${escapeHtml(JSON.stringify(data, null, 2).slice(0, 2000))}</pre>`;
+    }
+    const bubble = addChat(q, "brain", formatted);
     bubble.querySelectorAll(".cit-chip[data-src]").forEach(chip => {
       chip.addEventListener("click", () => {
         showToast("Source: " + short(chip.dataset.src, 60));
@@ -1729,6 +1950,14 @@ async function renderEvidence() {
       <div class="stat-card"><div class="s-val">${counts.chunk || 0}</div><div class="s-label">Chunks</div></div>`;
     breakdown.innerHTML = Object.entries(d.nodes.reduce((acc, n) => { acc[n.node_type] = (acc[n.node_type] || 0) + 1; return acc; }, {}))
       .map(([k, v]) => `${escapeHtml(k)}: ${v}`).join(" · ") || "—";
+
+    // Edge breakdown
+    const edgeCounts = {};
+    d.edges.forEach(e => { edgeCounts[e.edge_type] = (edgeCounts[e.edge_type] || 0) + 1; });
+    if (Object.keys(edgeCounts).length) {
+      breakdown.innerHTML += `<br><span style="margin-top:6px;display:inline-block">Edge types: ` +
+        Object.entries(edgeCounts).map(([k,v]) => `${escapeHtml(k)}: ${v}`).join(" · ") + `</span>`;
+    }
   } catch (e) {
     statsEl.innerHTML = `<div class="badge-note" style="color:var(--danger)">Failed: ${escapeHtml(e.message)}</div>`;
   }
@@ -1745,11 +1974,127 @@ async function renderEvidence() {
   }
 }
 
+/* ---------------- ARGUS Brain (memory) ---------------- */
+async function renderArgusBrain() {
+  const statsEl = document.getElementById("brain-stats");
+  const layersEl = document.getElementById("brain-layers");
+  const promEl = document.getElementById("brain-promotions");
+  const recordsEl = document.getElementById("brain-records");
+  statsEl.innerHTML = `<div class="loading-row"><div class="spinner"></div> Loading…</div>`;
+
+  try {
+    const r = await fetch(API_BASE + "/brain/status");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const b = await r.json();
+
+    if (!b.enabled) {
+      statsEl.innerHTML = `<div class="stat-card"><div class="s-val" style="font-size:16px">Disabled</div><div class="s-label">Memory</div></div>`;
+      layersEl.innerHTML = `ARGUS memory is disabled (<code>ARGUS_MEMORY_ENABLED=false</code>).`;
+      promEl.innerHTML = "";
+      recordsEl.innerHTML = "";
+      return;
+    }
+
+    const promoted = Object.values(b.promotion_counts || {}).reduce((a,b) => a+b, 0);
+    statsEl.innerHTML = `
+      <div class="stat-card"><div class="s-val">${b.total_records}</div><div class="s-label">Records</div></div>
+      <div class="stat-card"><div class="s-val">${b.avg_confidence != null ? (b.avg_confidence * 100).toFixed(0) + "%" : "—"}</div><div class="s-label">Avg confidence</div></div>
+      <div class="stat-card"><div class="s-val">${(b.db_size_bytes / 1024).toFixed(1)} KiB</div><div class="s-label">DB size</div></div>
+      <div class="stat-card"><div class="s-val">${promoted}</div><div class="s-label">Promoted</div></div>`;
+
+    const layers = b.layer_counts || {};
+    layersEl.innerHTML = Object.keys(layers).length
+      ? Object.entries(layers).map(([k,v]) => kvLine(k, v)).join("")
+      : "No layer data.";
+
+    const proms = b.promotion_counts || {};
+    promEl.innerHTML = Object.keys(proms).length
+      ? Object.entries(proms).map(([k,v]) => kvLine(k, v)).join("")
+      : "No promotion data.";
+
+    const records = b.recent_records || [];
+    if (!records.length) {
+      recordsEl.innerHTML = `<div class="badge-note">No recent memory records.</div>`;
+    } else {
+      recordsEl.innerHTML = records.map(rec => {
+        const layer = rec.layer || "—";
+        const conf = rec.confidence != null ? (rec.confidence * 100).toFixed(0) + "%" : "—";
+        const content = escapeHtml(String(rec.content || "").slice(0, 300));
+        const meta = `id=${escapeHtml(String(rec.id || ""))} · promotion=${escapeHtml(String(rec.promotion_status || ""))} · ${rec.created_at || ""}`;
+        const sq = rec.source_query ? `<br>source_query: ${escapeHtml(rec.source_query)}` : "";
+        return `<div class="memory-record">
+          <div class="mr-layer">${escapeHtml(layer)} · ${conf}</div>
+          <div class="mr-content">${content}${content.length >= 300 ? "…" : ""}</div>
+          <div class="mr-meta">${meta}${sq}</div>
+        </div>`;
+      }).join("");
+    }
+  } catch (e) {
+    statsEl.innerHTML = `<div class="badge-note" style="color:var(--danger)">Failed to load: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+/* ---------------- Obsidian Brain ---------------- */
+async function renderObsidian() {
+  const statsEl = document.getElementById("obsidian-stats");
+  const statusEl = document.getElementById("obsidian-status");
+  const notesEl = document.getElementById("obsidian-notes");
+  const msgEl = document.getElementById("obsidian-promote-msg");
+  statsEl.innerHTML = `<div class="loading-row"><div class="spinner"></div> Loading…</div>`;
+
+  try {
+    const r = await fetch(API_BASE + "/obsidian-brain/status");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const b = await r.json();
+
+    statsEl.innerHTML = `
+      <div class="stat-card"><div class="s-val">${b.configured ? "Yes" : "No"}</div><div class="s-label">Configured</div></div>
+      <div class="stat-card"><div class="s-val">${b.exists ? "Yes" : "No"}</div><div class="s-label">Vault exists</div></div>
+      <div class="stat-card"><div class="s-val">${b.note_count}</div><div class="s-label">Notes</div></div>`;
+
+    statusEl.innerHTML = kvLine("Vault path", b.vault_path) + kvLine("Write-back root", b.write_back_root);
+
+    if (!b.configured || !b.exists) {
+      notesEl.innerHTML = `<div class="badge-note">The Obsidian brain vault is not configured or does not exist. Set <code>ARGUS_BRAIN_VAULT_PATH</code> to enable.</div>`;
+    } else {
+      const notes = b.recent_notes || [];
+      if (!notes.length) {
+        notesEl.innerHTML = `<div class="badge-note">No notes in vault.</div>`;
+      } else {
+        notesEl.innerHTML = notes.map(n =>
+          `<div class="doc-item"><div><div class="d-name">${escapeHtml(n.path || "")}</div><div class="d-meta">${escapeHtml(n.modified_iso || "")}</div></div></div>`
+        ).join("");
+      }
+    }
+  } catch (e) {
+    statsEl.innerHTML = `<div class="badge-note" style="color:var(--danger)">Failed: ${escapeHtml(e.message)}</div>`;
+  }
+
+  document.getElementById("obsidian-promote-btn").onclick = async () => {
+    const btn = document.getElementById("obsidian-promote-btn");
+    btn.disabled = true;
+    msgEl.textContent = "Sweeping eligible PROMOTED long-term memories…";
+    try {
+      const r = await fetch(API_BASE + "/obsidian-brain/promote", { method: "POST" });
+      const d = await r.json();
+      msgEl.textContent = `Created ${d.notes_created}, skipped ${d.notes_skipped}, failed ${d.notes_failed}.`;
+      if (d.created_paths && d.created_paths.length) {
+        msgEl.textContent += " Paths: " + d.created_paths.join(", ");
+      }
+    } catch (e) {
+      msgEl.textContent = "Promotion failed: " + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  };
+}
+
 /* ---------------- Settings ---------------- */
 async function renderSettings() {
   const healthEl = document.getElementById("settings-health");
   const brainEl = document.getElementById("settings-brain");
   const kbEl = document.getElementById("settings-kb");
+  const telEl = document.getElementById("settings-telemetry");
   healthEl.innerHTML = `<div class="loading-row"><div class="spinner"></div></div>`;
   try {
     const h = await (await fetch("/health")).json();
@@ -1768,6 +2113,23 @@ async function renderSettings() {
     kbEl.innerHTML = kvLine("Sources", k.source_count) + kvLine("Documents", k.document_count) + kvLine("Chunks", k.chunk_count) + (k.corpus_dir ? kvLine("Folder", k.corpus_dir) : "");
   } catch (e) {
     kbEl.innerHTML = `<span style="color:var(--warn)">Knowledge Base status unavailable</span>`;
+  }
+  try {
+    const runs = await (await fetch(API_BASE + "/telemetry?limit=8")).json();
+    if (!runs || !runs.length) {
+      telEl.innerHTML = `<div class="badge-note">No recent runs.</div>`;
+    } else {
+      telEl.innerHTML = runs.map(r => {
+        return `<div class="doc-item" style="cursor:default">
+          <div>
+            <div class="d-name">${escapeHtml(r.run_id || "—")}</div>
+            <div class="d-meta">${r.duration_ms || 0}ms · ${r.total_calls || 0} calls · ${r.total_tokens || 0} tokens${r.failed_calls ? " · <span style='color:var(--danger)'>" + r.failed_calls + " failed</span>" : ""}</div>
+          </div>
+        </div>`;
+      }).join("");
+    }
+  } catch (e) {
+    telEl.innerHTML = `<span style="color:var(--warn)">Telemetry unavailable</span>`;
   }
 }
 
