@@ -93,6 +93,11 @@ def run_evaluation() -> dict:
     retriever.ensure_indexes()
     print(f"  Index built in {time.monotonic()-t0:.1f}s")
 
+    # Build router for planned retrieval (Phase 15)
+    from app.retrieval.router import RetrievalPolicyRouter
+    router = RetrievalPolicyRouter()
+    planner_activation_count = 0
+
     # Load queries
     queries = load_eval_queries()
     if not queries:
@@ -116,8 +121,18 @@ def run_evaluation() -> dict:
             if doc_id in chunk_id_map:
                 gold_ids.update(chunk_id_map[doc_id])
 
+        # Use planned retrieval for complex patterns, direct search for simple
+        pattern = q.get("pattern", "")
         t0 = time.monotonic()
-        refs = retriever.search(q["query"], top_k=10)
+        if pattern in ("conflict", "complex_research", "multi_hop"):
+            import asyncio
+            # Use eval plan class (not router classification) for planned retrieval
+            refs = asyncio.run(router.execute_planned_retrieval(
+                q["query"], pattern, retriever, top_k=10,
+            ))
+            planner_activation_count += 1
+        else:
+            refs = retriever.search(q["query"], top_k=10)
         latency = (time.monotonic() - t0) * 1000
         latencies.append(latency)
 
@@ -152,6 +167,7 @@ def run_evaluation() -> dict:
         "avg_latency_ms": round(np.mean(latencies), 1) if latencies else 0,
         "p95_latency_ms": round(np.percentile(latencies, 95), 1) if latencies else 0,
         "query_count": len(queries),
+        "planner_activations": planner_activation_count,
     }
 
     # Print results
@@ -164,6 +180,7 @@ def run_evaluation() -> dict:
     print(f"  nDCG@10:     {summary['ndcg_at_10']:.3f}")
     print(f"  Avg Latency: {summary['avg_latency_ms']:.1f}ms")
     print(f"  P95 Latency: {summary['p95_latency_ms']:.1f}ms")
+    print(f"  Planner:     {planner_activation_count}/{len(queries)} queries")
 
     # Per-pattern breakdown
     patterns = sorted(set(r["pattern"] for r in results))

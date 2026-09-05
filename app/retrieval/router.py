@@ -21,6 +21,7 @@ Design rules honored here:
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,8 @@ from app.config import REPO_ROOT, Settings, get_settings
 from app.evidence.models import EvidenceRef
 from app.logging_config import get_logger
 from app.retrieval.hybrid import HybridRetriever
+from app.retrieval.planner import EvidenceNeedPlanner, QueryPlan
+from app.retrieval.multi_query import MultiQueryRetriever, RetrievalResult
 from app.retrieval.policy import (
     QuestionPattern,
     RetrievalMethod,
@@ -96,6 +99,9 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
         self.graph_retriever = graph_retriever
         # Optional BGE-M3 experimental backend. Lazy-loaded on first use.
         self._bge_m3_retriever = bge_m3_retriever
+        # Phase 15: Evidence Need Planner (lazy-initialized)
+        self._planner: EvidenceNeedPlanner | None = None
+        self._multi_query_retriever: MultiQueryRetriever | None = None
 
     # -- policy access -------------------------------------------------------
 
@@ -261,6 +267,76 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
             results=len(fused),
         )
         return fused
+
+    async def execute_planned_retrieval(
+        self,
+        query: str,
+        pattern: QuestionPattern,
+        retriever: HybridRetriever,
+        top_k: int | None = None,
+        reranker: Any | None = None,
+    ) -> list[EvidenceRef]:
+        """Execute retrieval with evidence need planning (Phase 15).
+
+        For complex patterns (CONFLICT, COMPLEX_RESEARCH, MULTI_HOP),
+        decomposes the query into evidence needs and runs multi-query
+        retrieval. For simple patterns, falls through to execute_retrieval.
+
+        This is the entry point for the Query Intelligence layer.
+        """
+        top_k = top_k or self.settings.retrieval_top_k
+        pattern_value = pattern.value if hasattr(pattern, 'value') else pattern
+
+        # Only plan for complex patterns
+        if pattern_value not in EvidenceNeedPlanner.PLANNABLE_PATTERNS:
+            return await self.execute_retrieval(query, pattern, retriever, top_k, reranker)
+
+        # Lazy-init planner and multi-query retriever
+        if self._planner is None:
+            self._planner = EvidenceNeedPlanner()
+        if self._multi_query_retriever is None:
+            self._multi_query_retriever = MultiQueryRetriever(
+                router=self, retriever=retriever, top_k=top_k,
+            )
+
+        # Create query plan
+        start = time.perf_counter()
+        plan = self._planner.plan(query, pattern_value)
+        planner_latency = (time.perf_counter() - start) * 1000
+
+        if not plan.is_planned:
+            # Planner decided not to decompose; use standard path
+            return await self.execute_retrieval(query, pattern, retriever, top_k, reranker)
+
+        logger.info(
+            "planner_activated",
+            pattern=pattern_value,
+            needs=plan.need_count,
+            queries=plan.query_count,
+            planner_latency_ms=round(planner_latency, 1),
+        )
+
+        # Execute multi-query retrieval
+        result = self._multi_query_retriever.retrieve(plan)
+
+        # Apply optional reranking
+        if result.selected and reranker is not None:
+            result.selected = reranker.rerank(query, result.selected, top_k=top_k)
+
+        # Ensure ranks are correct
+        for rank, ref in enumerate(result.selected, 1):
+            result.selected[rank - 1] = ref.model_copy(update={"rank": rank})
+
+        logger.info(
+            "planned_retrieval_complete",
+            pattern=pattern_value,
+            selected=len(result.selected),
+            coverage=result.need_coverage,
+            sources=result.source_diversity,
+            retrieval_latency_ms=round(result.retrieval_latency_ms, 1),
+        )
+
+        return result.selected
 
     def _dispatch(
         self,
