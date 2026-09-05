@@ -144,9 +144,13 @@ class IngestionPipeline:
         )
 
         # 9. Update chunks with correct document_id and store atomically
+        doc_title = pdf_path.stem  # filename without extension
         for i, chunk in enumerate(chunks):
             chunk.document_id = document.id
             chunk.ordinal = i
+            # Enrich chunk metadata with document title for better retrieval context
+            if "document_title" not in chunk.metadata:
+                chunk.metadata["document_title"] = doc_title
 
         with self.store.transaction() as conn:
             conn.execute(
@@ -287,9 +291,12 @@ class IngestionPipeline:
         )
 
         # 8. Update chunks with correct document_id and store atomically
+        doc_title = web_result.title or url
         for i, chunk in enumerate(chunks):
             chunk.document_id = document.id
             chunk.ordinal = i
+            if "document_title" not in chunk.metadata:
+                chunk.metadata["document_title"] = doc_title
 
         with self.store.transaction() as conn:
             conn.execute(
@@ -423,9 +430,12 @@ class IngestionPipeline:
         )
 
         # 8. Update chunks with correct document_id and store atomically
+        doc_title = file_path.stem
         for i, chunk in enumerate(chunks):
             chunk.document_id = document.id
             chunk.ordinal = i
+            if "document_title" not in chunk.metadata:
+                chunk.metadata["document_title"] = doc_title
 
         with self.store.transaction() as conn:
             conn.execute(
@@ -550,9 +560,12 @@ class IngestionPipeline:
         )
 
         # Update and store chunks atomically
+        doc_title = file_path.stem  # filename without extension
         for i, chunk in enumerate(chunks):
             chunk.document_id = document.id
             chunk.ordinal = i
+            if "document_title" not in chunk.metadata:
+                chunk.metadata["document_title"] = doc_title
 
         with self.store.transaction() as conn:
             conn.execute(

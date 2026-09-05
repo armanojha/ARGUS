@@ -232,8 +232,10 @@ DEFAULT_RETRIEVAL_POLICY = RetrievalPolicy(
         RetrievalPolicyEntry(
             pattern=QuestionPattern.LONG_REPORT,
             retrieval_mix=RetrievalMix(
-                methods=[RetrievalMethod.HYBRID, RetrievalMethod.GRAPH],
-                weights={RetrievalMethod.HYBRID: 0.6, RetrievalMethod.GRAPH: 0.4},
+                methods=[RetrievalMethod.VECTOR, RetrievalMethod.HYBRID, RetrievalMethod.GRAPH],
+                weights={RetrievalMethod.VECTOR: 0.5, RetrievalMethod.HYBRID: 0.3, RetrievalMethod.GRAPH: 0.2},
+                bm25_weight=0.3,
+                vector_weight=0.7,
                 graph_max_hops=3,
             ),
             priority=8,

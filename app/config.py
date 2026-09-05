@@ -126,6 +126,10 @@ class Settings(BaseSettings):
         default=10,
         description="Number of results to return after reranking.",
     )
+    retrieval_fusion_normalization: str = Field(
+        default="rank",
+        description="Score normalization for hybrid fusion: 'max' (original) or 'rank' (rank-based, more robust).",
+    )
 
     # --- BGE-M3 Experimental Backend (A/B testing) ---
     bge_m3_model: str = Field(

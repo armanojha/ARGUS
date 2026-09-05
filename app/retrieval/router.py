@@ -212,6 +212,10 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
         fused = self._fuse(per_method, mix.weights)
         fused = self._apply_metadata_filters(fused, mix.metadata_filters)
 
+        # Parent context expansion for long-document patterns
+        if pattern in (QuestionPattern.LONG_REPORT, QuestionPattern.COMPARATIVE):
+            fused = retriever.expand_with_parent_context(fused, max_context_chunks=3)
+
         if fused and reranker is not None:
             fused = reranker.rerank(query, fused, top_k=top_k)
         else:
