@@ -257,6 +257,10 @@ class Settings(BaseSettings):
         default="configs/retrieval_policy.yaml",
         description="Path to retrieval policy configuration file.",
     )
+    retrieval_policy_fallback_threshold: float = Field(
+        default=0.3,
+        description="Minimum top-result score to keep narrow-path results; falls back to full hybrid below this.",
+    )
     active_evidence_seeking_enabled: bool = Field(
         default=True,
         description="Whether active evidence seeking is enabled.",

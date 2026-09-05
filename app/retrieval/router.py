@@ -48,6 +48,9 @@ _LONG_WORDS = {"overview", "comprehensive", "report", "summary", "review", "surv
 _EXACT_WORDS = {"define", "definition", "meaning", "term", "stands for"}
 _RELATION_WORDS = {"relationship", "relation", "relate", "associated", "correlat", "influence", "impact", "cause", "lead to", "between", "connected", "linked", "based on"}
 _CONCEPT_WORDS = {"explain", "how does", "how do", "why does", "concept", "conceptual", "principle", "theory", "mechanism", "idea"}
+_COMPARATIVE_WORDS = {"compare", "comparison", "difference", "differences", "versus", "vs", "contrast", "similarities", "similar to", "differ from", "better", "worse", "advantage", "disadvantage", "pros", "cons", "tradeoffs"}
+_CAUSAL_WORDS = {"cause", "caused", "why does", "why do", "reason for", "because", "leads to", "result in", "effect of", "impact of", "consequence", "trigger", "root cause", "underlying"}
+_PROCEDURAL_WORDS = {"how to", "steps to", "guide", "tutorial", "instructions", "walkthrough", "procedure", "process for", "method to", "approach to", "best practice", "workflow", "recipe"}
 
 _STOPWORDS = {
     "what", "which", "when", "where", "who", "how", "why", "the", "a", "an", "and", "or", "of",
@@ -131,6 +134,15 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
         if any(w in low for w in _RELATION_WORDS) and ("and" in low or "between" in low):
             return QuestionPattern.ENTITY_RELATIONSHIP
 
+        if any(w in low for w in _COMPARATIVE_WORDS):
+            return QuestionPattern.COMPARATIVE
+
+        if any(w in low for w in _CAUSAL_WORDS):
+            return QuestionPattern.CAUSAL
+
+        if any(w in low for w in _PROCEDURAL_WORDS):
+            return QuestionPattern.PROCEDURAL
+
         if has_quoted or any(w in low for w in _EXACT_WORDS):
             return QuestionPattern.EXACT_TERM
 
@@ -203,6 +215,29 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
             fused = fused[:top_k]
             for rank, ref in enumerate(fused, 1):
                 fused[rank - 1] = ref.model_copy(update={"rank": rank})
+
+        # Confidence fallback: if the narrow-path mix scored poorly on the top
+        # result, retry with a full hybrid pass.  Only activates when the
+        # classified pattern is NOT already a full hybrid (avoids infinite loop).
+        fallback_threshold = self.settings.retrieval_policy_fallback_threshold
+        already_hybrid = mix.methods == [RetrievalMethod.HYBRID]
+        if fused and fused[0].score < fallback_threshold and not already_hybrid:
+            logger.info(
+                "policy_low_confidence_fallback",
+                pattern=pattern.value,
+                top_score=fused[0].score,
+                threshold=fallback_threshold,
+            )
+            hybrid_refs = retriever.search(query, top_k=top_k)
+            if hybrid_refs:
+                if reranker is not None:
+                    hybrid_refs = reranker.rerank(query, hybrid_refs, top_k=top_k)
+                hybrid_refs = [
+                    ref.model_copy(update={"metadata": {**ref.metadata, "policy_fallback": True}})
+                    for ref in hybrid_refs
+                ]
+                if not fused or hybrid_refs[0].score > fused[0].score:
+                    fused = hybrid_refs
 
         logger.info(
             "policy_retrieval_executed",

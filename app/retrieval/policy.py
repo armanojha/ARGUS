@@ -250,6 +250,37 @@ DEFAULT_RETRIEVAL_POLICY = RetrievalPolicy(
             ),
             priority=5,
         ),
+        RetrievalPolicyEntry(
+            pattern=QuestionPattern.COMPARATIVE,
+            retrieval_mix=RetrievalMix(
+                methods=[RetrievalMethod.BM25, RetrievalMethod.VECTOR, RetrievalMethod.GRAPH],
+                weights={RetrievalMethod.BM25: 0.4, RetrievalMethod.VECTOR: 0.4, RetrievalMethod.GRAPH: 0.2},
+                bm25_weight=0.5,
+                vector_weight=0.5,
+                graph_max_hops=2,
+            ),
+            priority=10,
+        ),
+        RetrievalPolicyEntry(
+            pattern=QuestionPattern.CAUSAL,
+            retrieval_mix=RetrievalMix(
+                methods=[RetrievalMethod.VECTOR, RetrievalMethod.BM25],
+                weights={RetrievalMethod.VECTOR: 0.6, RetrievalMethod.BM25: 0.4},
+                bm25_weight=0.4,
+                vector_weight=0.6,
+            ),
+            priority=10,
+        ),
+        RetrievalPolicyEntry(
+            pattern=QuestionPattern.PROCEDURAL,
+            retrieval_mix=RetrievalMix(
+                methods=[RetrievalMethod.BM25, RetrievalMethod.VECTOR],
+                weights={RetrievalMethod.BM25: 0.6, RetrievalMethod.VECTOR: 0.4},
+                bm25_weight=0.6,
+                vector_weight=0.4,
+            ),
+            priority=10,
+        ),
     ],
 )
 
