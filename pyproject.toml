@@ -48,6 +48,12 @@ retrieval = [
     "pdfplumber>=0.11",
 ]
 
+# BGE-M3 experimental retrieval backend (A/B testing against baseline).
+bge_m3 = [
+    "FlagEmbedding>=1.2",
+    "scipy>=1.11",
+]
+
 # Evidence graph (Phase 03).
 graph = [
     "networkx>=3.2",

@@ -29,6 +29,10 @@ class RetrievalMethod(str, Enum):
     WEB = "web"
     METADATA_FILTER = "metadata_filter"
     TEMPORAL = "temporal"
+    # BGE-M3 experimental methods (A/B testing)
+    BGE_M3_DENSE = "bge_m3_dense"
+    BGE_M3_SPARSE = "bge_m3_sparse"
+    BGE_M3_HYBRID = "bge_m3_hybrid"
 
 
 class QuestionPattern(str, Enum):

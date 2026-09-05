@@ -86,12 +86,15 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
         policy: RetrievalPolicy | None = None,
         graph_retriever: Any | None = None,
         settings: Settings | None = None,
+        bge_m3_retriever: Any | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self._policy = policy or load_retrieval_policy(self.settings)
         # Optional Phase 03 graph retriever. When absent, GRAPH/TEMPORAL
         # dispatch degrades to hybrid retrieval (never fabricates output).
         self.graph_retriever = graph_retriever
+        # Optional BGE-M3 experimental backend. Lazy-loaded on first use.
+        self._bge_m3_retriever = bge_m3_retriever
 
     # -- policy access -------------------------------------------------------
 
@@ -301,6 +304,12 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
             for ref in refs:
                 ref.metadata["policy_fallback"] = "web->hybrid"
             return refs
+        if method in (
+            RetrievalMethod.BGE_M3_DENSE,
+            RetrievalMethod.BGE_M3_SPARSE,
+            RetrievalMethod.BGE_M3_HYBRID,
+        ):
+            return self._bge_m3_dispatch(method, query, upper_k)
         return retriever.search(query, top_k=upper_k)
 
     @staticmethod
@@ -370,6 +379,33 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
             time_end=end.isoformat(),
             top_k=upper_k,
         )
+
+    def _bge_m3_dispatch(
+        self,
+        method: RetrievalMethod,
+        query: str,
+        upper_k: int,
+    ) -> list[EvidenceRef]:
+        """Dispatch BGE-M3 retrieval methods.
+
+        Lazy-loads the BGEM3Retriever on first use. Degrades to baseline
+        hybrid if BGE-M3 is unavailable or fails.
+        """
+        if self._bge_m3_retriever is None:
+            try:
+                from app.retrieval.bge_m3 import BGEM3Retriever
+
+                self._bge_m3_retriever = BGEM3Retriever()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("bge_m3_unavailable", error=str(exc))
+                return []
+
+        bge = self._bge_m3_retriever
+        if method == RetrievalMethod.BGE_M3_DENSE:
+            return bge.search_as_refs(query, top_k=upper_k, mode="dense")
+        if method == RetrievalMethod.BGE_M3_SPARSE:
+            return bge.search_as_refs(query, top_k=upper_k, mode="sparse")
+        return bge.search_as_refs(query, top_k=upper_k, mode="hybrid")
 
     # -- fusion helpers ------------------------------------------------------
 
@@ -507,9 +543,15 @@ def load_retrieval_policy(settings: Settings | None = None) -> RetrievalPolicy:
 def get_retrieval_policy_router(
     settings: Settings | None = None,
     graph_retriever: Any | None = None,
+    bge_m3_retriever: Any | None = None,
 ) -> RetrievalPolicyRouter:
     """Create a policy router bound to the settings' policy table."""
-    return RetrievalPolicyRouter(policy=None, graph_retriever=graph_retriever, settings=settings)
+    return RetrievalPolicyRouter(
+        policy=None,
+        graph_retriever=graph_retriever,
+        settings=settings,
+        bge_m3_retriever=bge_m3_retriever,
+    )
 
 
 __all__ = [

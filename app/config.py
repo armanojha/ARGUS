@@ -127,6 +127,36 @@ class Settings(BaseSettings):
         description="Number of results to return after reranking.",
     )
 
+    # --- BGE-M3 Experimental Backend (A/B testing) ---
+    bge_m3_model: str = Field(
+        default="BAAI/bge-m3",
+        description="HuggingFace model name for BGE-M3 dense+sparse retrieval.",
+    )
+    bge_m3_dense_index_path: Path = Field(
+        default=REPO_ROOT / "data" / "indexes" / "bge_m3_dense.index",
+        description="Path to BGE-M3 FAISS dense index file.",
+    )
+    bge_m3_sparse_index_path: Path = Field(
+        default=REPO_ROOT / "data" / "indexes" / "bge_m3_sparse.pkl",
+        description="Path to BGE-M3 sparse (CSR) index file.",
+    )
+    bge_m3_dense_dim: int = Field(
+        default=1024,
+        description="Dense embedding dimension for BGE-M3.",
+    )
+    bge_m3_dense_weight: float = Field(
+        default=0.5,
+        description="Weight for BGE-M3 dense scores in hybrid fusion.",
+    )
+    bge_m3_sparse_weight: float = Field(
+        default=0.5,
+        description="Weight for BGE-M3 sparse scores in hybrid fusion.",
+    )
+    bge_m3_enabled: bool = Field(
+        default=False,
+        description="Whether BGE-M3 experimental backend is enabled.",
+    )
+
     # --- User Knowledge Base (persistent document corpus) ---
     # The user's document corpus. Users drop PDFs/TXT/Markdown/spreadsheets
     # here and ARGUS ingests them recursively into the EvidenceStore.

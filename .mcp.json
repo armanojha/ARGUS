@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "codag": {
+      "command": "node",
+      "args": [
+        "c:\\Users\\LOQ\\.vscode\\extensions\\codag.codag-0.2.5\\out\\mcp-server.js",
+        "e:\\ARGUS\\ARGUS"
+      ]
+    }
+  }
+}
