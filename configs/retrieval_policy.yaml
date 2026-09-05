@@ -59,3 +59,28 @@ entries:
     retrieval_mix:
       methods: [hybrid, vector]
       weights: {hybrid: 0.5, vector: 0.5}
+
+  - pattern: comparative
+    priority: 10
+    retrieval_mix:
+      methods: [bm25, vector, graph]
+      weights: {bm25: 0.4, vector: 0.4, graph: 0.2}
+      bm25_weight: 0.5
+      vector_weight: 0.5
+      graph_max_hops: 2
+
+  - pattern: causal
+    priority: 10
+    retrieval_mix:
+      methods: [vector, bm25]
+      weights: {vector: 0.6, bm25: 0.4}
+      bm25_weight: 0.4
+      vector_weight: 0.6
+
+  - pattern: procedural
+    priority: 10
+    retrieval_mix:
+      methods: [bm25, vector]
+      weights: {bm25: 0.6, vector: 0.4}
+      bm25_weight: 0.6
+      vector_weight: 0.4

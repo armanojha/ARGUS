@@ -49,7 +49,7 @@ _EXACT_WORDS = {"define", "definition", "meaning", "term", "stands for"}
 _RELATION_WORDS = {"relationship", "relation", "relate", "associated", "correlat", "influence", "impact", "cause", "lead to", "between", "connected", "linked", "based on"}
 _CONCEPT_WORDS = {"explain", "how does", "how do", "why does", "concept", "conceptual", "principle", "theory", "mechanism", "idea"}
 _COMPARATIVE_WORDS = {"compare", "comparison", "difference", "differences", "versus", "vs", "contrast", "similarities", "similar to", "differ from", "better", "worse", "advantage", "disadvantage", "pros", "cons", "tradeoffs"}
-_CAUSAL_WORDS = {"cause", "caused", "why does", "why do", "reason for", "because", "leads to", "result in", "effect of", "impact of", "consequence", "trigger", "root cause", "underlying"}
+_CAUSAL_WORDS = {"cause", "caused", "reason for", "because", "leads to", "result in", "effect of", "impact of", "consequence", "trigger", "root cause", "underlying"}
 _PROCEDURAL_WORDS = {"how to", "steps to", "guide", "tutorial", "instructions", "walkthrough", "procedure", "process for", "method to", "approach to", "best practice", "workflow", "recipe"}
 
 _STOPWORDS = {
