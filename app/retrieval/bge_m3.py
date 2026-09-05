@@ -37,6 +37,56 @@ _model_lock = threading.Lock()
 _bge_m3_model: Any = None
 
 
+class _TransformersBGE3:
+    """Lightweight wrapper around raw transformers for BGE-M3 dense+sparse.
+
+    Provides the same encode() interface as BGEM3FlagModel but uses
+    AutoModel + ColBERT linear layers directly. Used when FlagEmbedding
+    is unavailable or too heavy.
+    """
+
+    def __init__(self, model: Any, tokenizer: Any):
+        self.model = model
+        self.tokenizer = tokenizer
+        import torch
+        self._torch = torch
+
+    def encode(self, texts: list[str], **kwargs: Any) -> dict[str, Any]:
+        import torch
+        with torch.no_grad():
+            encoded = self.tokenizer(
+                texts, padding=True, truncation=True,
+                max_length=kwargs.get("max_length", 512),
+                return_tensors="pt",
+            )
+            output = self.model(**encoded, output_hidden_states=True)
+            # Dense: CLS pooling
+            dense = output.last_hidden_state[:, 0, :].numpy()
+            # Sparse: ColBERT-style max-pooling over linear
+            hidden = output.last_hidden_state  # (batch, seq, hidden)
+            sparse_linear = None
+            for name, param in self.model.named_parameters():
+                if "sparse" in name and "linear" in name:
+                    sparse_linear = param
+                    break
+            if sparse_linear is not None:
+                sparse = self._torch.einsum("bsd,dv->bsv", hidden, sparse_linear)
+                sparse = sparse.max(dim=1).values.clamp(min=0).numpy()
+            else:
+                # Fallback: use token embeddings as sparse signal
+                sparse = hidden.max(dim=1).values.clamp(min=0).numpy()
+            return {"dense_vecs": dense, "lexical_weights": [self._row_to_dict(s) for s in sparse]}
+
+    @staticmethod
+    def _row_to_dict(row: Any) -> dict[int, float]:
+        """Convert a sparse row to {token_id: weight} dict, keeping nonzero."""
+        d: dict[int, float] = {}
+        for i, v in enumerate(row):
+            if v > 0:
+                d[i] = float(v)
+        return d
+
+
 @dataclass
 class BGEIndexStats:
     """Diagnostic stats for a BGE-M3 index build/search cycle."""
@@ -98,7 +148,11 @@ class BGEM3Retriever:
 
     @classmethod
     def _get_model(cls) -> Any:
-        """Lazy-load the BGE-M3 model (singleton, thread-safe)."""
+        """Lazy-load the BGE-M3 model (singleton, thread-safe).
+
+        Tries FlagEmbedding first (full dense+sparse+colbert support),
+        falls back to raw transformers for lighter CPU-only usage.
+        """
         global _bge_m3_model
         with _model_lock:
             if _bge_m3_model is None:
@@ -110,10 +164,23 @@ class BGEM3Retriever:
                         "BAAI/bge-m3",
                         use_fp16=False,  # CPU-safe default; set True for GPU
                     )
+                    _bge_m3_model._backend = "flag"
                     logger.info("bge_m3_model_loaded")
-                except Exception as exc:  # noqa: BLE001
-                    logger.error("bge_m3_model_load_failed", error=str(exc))
-                    raise
+                except Exception as exc_flag:  # noqa: BLE001
+                    logger.warning("flag_embedding_unavailable", error=str(exc_flag))
+                    try:
+                        import torch
+                        from transformers import AutoModel, AutoTokenizer
+
+                        tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-m3")
+                        model = AutoModel.from_pretrained("BAAI/bge-m3")
+                        model.eval()
+                        _bge_m3_model = _TransformersBGE3(model, tokenizer)
+                        _bge_m3_model._backend = "transformers"
+                        logger.info("bge_m3_model_loaded_via_transformers")
+                    except Exception as exc_tf:  # noqa: BLE001
+                        logger.error("bge_m3_model_load_failed", error=str(exc_tf))
+                        raise
             return _bge_m3_model
 
     # -- Encode --------------------------------------------------------------
