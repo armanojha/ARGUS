@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARGUS — Interactive Workflow Visualization</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;
+    --text:#e0e0e0;--muted:#888;--accent:#7c83ff;
+    --green:#4ade80;--red:#f87171;--yellow:#fbbf24;--cyan:#22d3ee;--purple:#a78bfa;
+    --groq:#ff6b35;--gemini:#4285f4;--cerebras:#00d4aa;--zen:#a78bfa;
+  }
+  body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;overflow-x:hidden;min-height:100vh}
+  
+  /* Header */
+  .header{text-align:center;padding:30px 20px 10px;position:relative;z-index:10}
+  .header h1{font-size:2.2rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px}
+  .header p{color:var(--muted);font-size:0.95rem;margin-top:6px}
+  .header .subtitle{font-size:0.8rem;color:var(--muted);margin-top:4px;opacity:0.7}
+  
+  /* Legend */
+  .legend{display:flex;justify-content:center;gap:16px;margin:12px 0;flex-wrap:wrap}
+  .legend-item{display:flex;align-items:center;gap:5px;font-size:0.75rem;color:var(--muted)}
+  .legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  
+  /* Main container */
+  .container{position:relative;width:100%;max-width:1400px;margin:0 auto;padding:10px 20px 40px}
+  
+  /* SVG Diagram */
+  .diagram-wrapper{position:relative;width:100%;overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+  svg{display:block;width:100%;height:auto}
+  
+  /* Nodes */
+  .node{cursor:pointer;transition:transform 0.2s,filter 0.2s}
+  .node:hover{transform:scale(1.04);filter:brightness(1.2)}
+  .node:hover .node-bg{stroke-width:2.5}
+  .node-bg{rx:10;ry:10;transition:stroke-width 0.2s}
+  .node-label{font-size:11px;font-weight:600;fill:#fff;text-anchor:middle;pointer-events:none}
+  .node-sublabel{font-size:8px;fill:rgba(255,255,255,0.6);text-anchor:middle;pointer-events:none}
+  
+  /* Edges */
+  .edge{fill:none;stroke-width:1.5;marker-end:url(#arrowhead);opacity:0.5;transition:opacity 0.3s}
+  .edge:hover{opacity:1;stroke-width:2.5}
+  .edge.animated{stroke-dasharray:8 4;animation:flow 1.5s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-12}}
+  
+  /* Detail Panel */
+  .detail-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+  .detail-overlay.active{display:flex}
+  .detail-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:640px;width:90%;max-height:85vh;overflow-y:auto;padding:32px;position:relative;box-shadow:0 25px 80px rgba(0,0,0,0.5)}
+  .detail-panel::-webkit-scrollbar{width:6px}
+  .detail-panel::-webkit-scrollbar-track{background:transparent}
+  .detail-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  .detail-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:all 0.2s}
+  .detail-close:hover{background:rgba(255,255,255,0.1);color:#fff}
+  .detail-panel h2{font-size:1.4rem;font-weight:700;margin-bottom:4px}
+  .detail-panel .tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;margin:4px 4px 12px 0}
+  .detail-panel h3{font-size:0.85rem;font-weight:600;color:var(--accent);margin:16px 0 6px;text-transform:uppercase;letter-spacing:0.5px}
+  .detail-panel p,.detail-panel li{font-size:0.85rem;line-height:1.6;color:var(--text)}
+  .detail-panel ul{padding-left:18px;margin:4px 0}
+  .detail-panel li{margin:3px 0}
+  .detail-panel code{background:rgba(124,131,255,0.15);padding:2px 6px;border-radius:4px;font-size:0.8rem;font-family:'JetBrains Mono',monospace}
+  .detail-panel .tech-stack{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+  .detail-panel .tech-tag{background:rgba(124,131,255,0.1);border:1px solid rgba(124,131,255,0.2);padding:3px 10px;border-radius:6px;font-size:0.72rem;color:var(--accent)}
+  .detail-panel .llm-badge{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);color:var(--green)}
+  .detail-panel .det-badge{background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);color:var(--yellow)}
+  .detail-panel .io-block{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:12px;margin:8px 0;font-size:0.8rem}
+  .detail-panel .io-block strong{color:var(--cyan)}
+  
+  /* Tooltip */
+  .tooltip{position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:0.75rem;color:var(--text);pointer-events:none;z-index:50;max-width:240px;box-shadow:0 8px 24px rgba(0,0,0,0.4);opacity:0;transition:opacity 0.15s}
+  .tooltip.visible{opacity:1}
+  
+  /* Footer */
+  .footer{text-align:center;padding:20px;color:var(--muted);font-size:0.75rem}
+  .footer a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>ARGUS</h1>
+  <p>Adaptive Autonomous Evidence & Reasoning Intelligence System</p>
+  <div class="subtitle">Click any node to explore • Hover for quick summary • 13 phases • 4 LLM providers • 559 tests</div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>LLM Call</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>Deterministic</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div>Data Store</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>External Integration</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>API / UI</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--groq)"></div>Groq</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--gemini)"></div>Gemini</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--cerebras)"></div>Cerebras</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--zen)"></div>Zen</div>
+</div>
+
+<div class="container">
+<div class="diagram-wrapper">
+<svg viewBox="0 0 1200 1600" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="rgba(124,131,255,0.6)"/>
+  </marker>
+  <marker id="arrowhead-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="rgba(74,222,128,0.6)"/>
+  </marker>
+  <linearGradient id="grad-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" style="stop-color:#7c83ff;stop-opacity:0.15"/>
+    <stop offset="100%" style="stop-color:#22d3ee;stop-opacity:0.08"/>
+  </linearGradient>
+  <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+
+<!-- ============ EDGES (data flow) ============ -->
+<!-- User → API -->
+<path class="edge animated" d="M600,45 L600,90" stroke="var(--accent)"/>
+<!-- API → Orchestration -->
+<path class="edge animated" d="M600,145 L600,200" stroke="var(--accent)"/>
+<!-- Orchestration → Analyze -->
+<path class="edge animated" d="M520,255 L350,320" stroke="var(--green)"/>
+<!-- Orchestration → Plan -->
+<path class="edge animated" d="M600,255 L600,320" stroke="var(--green)"/>
+<!-- Plan → Memory Enhance -->
+<path class="edge animated" d="M680,370 L850,320" stroke="var(--purple)"/>
+<!-- Orchestration → Retrieve -->
+<path class="edge animated" d="M600,255 L600,430" stroke="var(--yellow)"/>
+<!-- Retrieve → BM25 -->
+<path class="edge animated" d="M520,480 L300,540" stroke="var(--yellow)"/>
+<!-- Retrieve → Vector -->
+<path class="edge animated" d="M600,480 L600,540" stroke="var(--yellow)"/>
+<!-- Retrieve → Graph Ret -->
+<path class="edge animated" d="M680,480 L900,540" stroke="var(--yellow)"/>
+<!-- BM25/EvidenceStore -->
+<path class="edge animated" d="M300,595 L300,660" stroke="var(--cyan)"/>
+<!-- Vector/EvidenceStore -->
+<path class="edge animated" d="M600,595 L600,660" stroke="var(--cyan)"/>
+<!-- GraphRet/EvidenceGraph -->
+<path class="edge animated" d="M900,595 L900,660" stroke="var(--cyan)"/>
+<!-- Retrieve → Assess -->
+<path class="edge animated" d="M600,480 L600,740" stroke="var(--green)"/>
+<!-- Assess → Stop Check -->
+<path class="edge animated" d="M600,795 L600,860" stroke="var(--yellow)"/>
+<!-- Stop → Retrieve (loop) -->
+<path class="edge" d="M540,890 Q350,890 350,480 Q350,450 470,450" stroke="var(--yellow)" stroke-dasharray="4 3" marker-end="url(#arrowhead)"/>
+<!-- Stop → Debate -->
+<path class="edge animated" d="M660,890 L850,860" stroke="var(--green)"/>
+<!-- Debate → Synthesize -->
+<path class="edge animated" d="M850,910 L700,970" stroke="var(--green)"/>
+<!-- Stop → Synthesize -->
+<path class="edge animated" d="M600,890 L600,970" stroke="var(--green)"/>
+<!-- Synthesize → Verify -->
+<path class="edge animated" d="M600,1020 L600,1080" stroke="var(--green)"/>
+<!-- Verify → Result -->
+<path class="edge animated" d="M600,1130 L600,1180" stroke="var(--accent)"/>
+<!-- Gateway connections -->
+<path class="edge" d="M350,370 L200,1250" stroke="var(--groq)" opacity="0.3"/>
+<path class="edge" d="M600,370 L600,1250" stroke="var(--gemini)" opacity="0.3"/>
+<path class="edge" d="M850,370 L1000,1250" stroke="var(--cerebras)" opacity="0.3"/>
+
+<!-- ============ INPUT SECTION ============ -->
+<g class="node" data-node="user" onclick="showDetail('user')">
+  <rect class="node-bg" x="530" y="10" width="140" height="35" fill="url(#grad-accent)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text class="node-label" x="600" y="32">User Query</text>
+</g>
+
+<!-- ============ API LAYER ============ -->
+<g class="node" data-node="api" onclick="showDetail('api')">
+  <rect class="node-bg" x="460" y="90" width="280" height="55" fill="rgba(124,131,255,0.1)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text class="node-label" x="600" y="115">FastAPI Server</text>
+  <text class="node-sublabel" x="600" y="132">REST Endpoints • Telemetry • Auth</text>
+</g>
+
+<!-- ============ ORCHESTRATION ============ -->
+<g class="node" data-node="orchestration" onclick="showDetail('orchestration')">
+  <rect class="node-bg" x="420" y="200" width="360" height="60" fill="rgba(124,131,255,0.08)" stroke="var(--accent)" stroke-width="2"/>
+  <text class="node-label" x="600" y="228">Orchestration Loop</text>
+  <text class="node-sublabel" x="600" y="245">LangGraph State Machine • Phase 02</text>
+</g>
+
+<!-- ============ ANALYZE NODE ============ -->
+<g class="node" data-node="analyze" onclick="showDetail('analyze')">
+  <rect class="node-bg" x="230" y="320" width="200" height="55" fill="rgba(74,222,128,0.1)" stroke="var(--green)" stroke-width="1.5"/>
+  <text class="node-label" x="330" y="343">Analyze Query</text>
+  <text class="node-sublabel" x="330" y="360">LLM Call #1 • query_analysis</text>
+</g>
+
+<!-- ============ PLAN NODE ============ -->
+<g class="node" data-node="plan" onclick="showDetail('plan')">
+  <rect class="node-bg" x="490" y="320" width="220" height="55" fill="rgba(74,222,128,0.1)" stroke="var(--green)" stroke-width="1.5"/>
+  <text class="node-label" x="600" y="343">Research Planning</text>
+  <text class="node-sublabel" x="600" y="360">LLM Call #2 • research_planning</text>
+</g>
+
+<!-- ============ MEMORY ENHANCE ============ -->
+<g class="node" data-node="memory_enhance" onclick="showDetail('memory_enhance')">
+  <rect class="node-bg" x="820" y="270" width="180" height="55" fill="rgba(167,139,250,0.1)" stroke="var(--purple)" stroke-width="1.5"/>
+  <text class="node-label" x="910" y="293">Memory Enhance</text>
+  <text class="node-sublabel" x="910" y="310">Phase 08 • Optional</text>
+</g>
+
+<!-- ============ RETRIEVE ============ -->
+<g class="node" data-node="retrieve" onclick="showDetail('retrieve')">
+  <rect class="node-bg" x="440" y="430" width="320" height="55" fill="rgba(251,191,36,0.1)" stroke="var(--yellow)" stroke-width="1.5"/>
+  <text class="node-label" x="600" y="453">Retrieval Pipeline</text>
+  <text class="node-sublabel" x="600" y="470">Hybrid Search • BM25 + FAISS + Graph</text>
+</g>
+
+<!-- ============ BM25 ============ -->
+<g class="node" data-node="bm25" onclick="showDetail('bm25')">
+  <rect class="node-bg" x="190" y="540" width="180" height="50" fill="rgba(251,191,36,0.06)" stroke="var(--yellow)" stroke-width="1"/>
+  <text class="node-label" x="280" y="563">BM25 Search</text>
+  <text class="node-sublabel" x="280" y="578">Lexical • rank_bm25</text>
+</g>
+
+<!-- ============ VECTOR ============ -->
+<g class="node" data-node="vector" onclick="showDetail('vector')">
+  <rect class="node-bg" x="500" y="540" width="200" height="50" fill="rgba(251,191,36,0.06)" stroke="var(--yellow)" stroke-width="1"/>
+  <text class="node-label" x="600" y="563">Vector Search</text>
+  <text class="node-sublabel" x="600" y="578">Dense • FAISS + sentence-transformers</text>
+</g>
+
+<!-- ============ GRAPH RETRIEVE ============ -->
+<g class="node" data-node="graph_retrieve" onclick="showDetail('graph_retrieve')">
+  <rect class="node-bg" x="800" y="540" width="200" height="50" fill="rgba(251,191,36,0.06)" stroke="var(--yellow)" stroke-width="1"/>
+  <text class="node-label" x="900" y="563">Graph Retrieval</text>
+  <text class="node-sublabel" x="900" y="578">NetworkX BFS • multi-hop</text>
+</g>
+
+<!-- ============ EVIDENCE STORE ============ -->
+<g class="node" data-node="evidence_store" onclick="showDetail('evidence_store')">
+  <rect class="node-bg" x="180" y="660" width="200" height="55" fill="rgba(34,211,238,0.1)" stroke="var(--cyan)" stroke-width="1.5"/>
+  <text class="node-label" x="280" y="683">Evidence Store</text>
+  <text class="node-sublabel" x="280" y="700">SQLite • Source→Doc→Chunk</text>
+</g>
+
+<!-- ============ EVIDENCE GRAPH ============ -->
+<g class="node" data-node="evidence_graph" onclick="showDetail('evidence_graph')">
+  <rect class="node-bg" x="480" y="660" width="240" height="55" fill="rgba(34,211,238,0.1)" stroke="var(--cyan)" stroke-width="1.5"/>
+  <text class="node-label" x="600" y="683">Evidence Graph</text>
+  <text class="node-sublabel" x="600" y="700">NetworkX • 8 edge types • temporal</text>
+</g>
+
+<!-- ============ MEMORY STORE ============ -->
+<g class="node" data-node="memory_store" onclick="showDetail('memory_store')">
+  <rect class="node-bg" x="780" y="660" width="220" height="55" fill="rgba(34,211,238,0.1)" stroke="var(--cyan)" stroke-width="1.5"/>
+  <text class="node-label" x="890" y="683">Memory Store</text>
+  <text class="node-sublabel" x="890" y="700">SQLite • 6 layers • fresh-evidence-wins</text>
+</g>
+
+<!-- ============ ASSESS ============ -->
+<g class="node" data-node="assess" onclick="showDetail('assess')">
+  <rect class="node-bg" x="470" y="740" width="260" height="55" fill="rgba(74,222,128,0.1)" stroke="var(--green)" stroke-width="1.5"/>
+  <text class="node-label" x="600" y="763">Evidence Assessment</text>
+  <text class="node-sublabel" x="600" y="780">LLM Call #3 • evidence_extraction</text>
+</g>
+
+<!-- ============ STOP CHECK ============ -->
+<g class="node" data-node="stop_check" onclick="showDetail('stop_check')">
+  <rect class="node-bg" x="480" y="860" width="240" height="40" fill="rgba(251,191,36,0.08)" stroke="var(--yellow)" stroke-width="1"/>
+  <text class="node-label" x="600" y="885">Stop Conditions</text>
+</g>
+
+<!-- ============ DEBATE ============ -->
+<g class="node" data-node="debate" onclick="showDetail('debate')">
+  <rect class="node-bg" x="820" y="830" width="180" height="80" fill="rgba(167,139,250,0.1)" stroke="var(--purple)" stroke-width="1.5"/>
+  <text class="node-label" x="910" y="860">Multi-Agent</text>
+  <text class="node-label" x="910" y="878">Debate</text>
+  <text class="node-sublabel" x="910" y="898">5 roles • Phase 10</text>
+</g>
+
+<!-- ============ SYNTHESIZE ============ -->
+<g class="node" data-node="synthesize" onclick="showDetail('synthesize')">
+  <rect class="node-bg" x="470" y="970" width="260" height="55" fill="rgba(74,222,128,0.1)" stroke="var(--green)" stroke-width="2"/>
+  <text class="node-label" x="600" y="993">Synthesis</text>
+  <text class="node-sublabel" x="600" y="1010">LLM Call #4 • synthesis • citations</text>
+</g>
+
+<!-- ============ VERIFY ============ -->
+<g class="node" data-node="verify" onclick="showDetail('verify')">
+  <rect class="node-bg" x="470" y="1080" width="260" height="50" fill="rgba(74,222,128,0.08)" stroke="var(--green)" stroke-width="1"/>
+  <text class="node-label" x="600" y="1103">Verification</text>
+  <text class="node-sublabel" x="600" y="1118">LLM Call #5 • cross-model</text>
+</g>
+
+<!-- ============ RESULT ============ -->
+<g class="node" data-node="result" onclick="showDetail('result')">
+  <rect class="node-bg" x="470" y="1180" width="260" height="55" fill="url(#grad-accent)" stroke="var(--accent)" stroke-width="2"/>
+  <text class="node-label" x="600" y="1203">Final Answer</text>
+  <text class="node-sublabel" x="600" y="1220">Cited • Verified • Confidence-scored</text>
+</g>
+
+<!-- ============ LLM GATEWAY ============ -->
+<g class="node" data-node="gateway" onclick="showDetail('gateway')">
+  <rect class="node-bg" x="200" y="1250" width="800" height="60" fill="rgba(124,131,255,0.05)" stroke="var(--accent)" stroke-width="1" stroke-dasharray="4 2"/>
+  <text class="node-label" x="600" y="1278">LLM Gateway — MultiModelRouter</text>
+  <text class="node-sublabel" x="600" y="1295">Call-type routing • Health tracking • Quota enforcement • Fallback chains</text>
+</g>
+
+<!-- ============ PROVIDERS ============ -->
+<g class="node" data-node="groq" onclick="showDetail('groq')">
+  <rect class="node-bg" x="220" y="1340" width="160" height="50" fill="rgba(255,107,53,0.1)" stroke="var(--groq)" stroke-width="1.5"/>
+  <text class="node-label" x="300" y="1363">Groq</text>
+  <text class="node-sublabel" x="300" y="1378">gpt-oss-120b • 30 RPM free</text>
+</g>
+<g class="node" data-node="gemini" onclick="showDetail('gemini')">
+  <rect class="node-bg" x="420" y="1340" width="160" height="50" fill="rgba(66,133,244,0.1)" stroke="var(--gemini)" stroke-width="1.5"/>
+  <text class="node-label" x="500" y="1363">Gemini</text>
+  <text class="node-sublabel" x="500" y="1378">3.5-flash • 1M context</text>
+</g>
+<g class="node" data-node="cerebras" onclick="showDetail('cerebras')">
+  <rect class="node-bg" x="620" y="1340" width="160" height="50" fill="rgba(0,212,170,0.1)" stroke="var(--cerebras)" stroke-width="1.5"/>
+  <text class="node-label" x="700" y="1363">Cerebras</text>
+  <text class="node-sublabel" x="700" y="1378">gpt-oss-120b • 10 RPM</text>
+</g>
+<g class="node" data-node="zen" onclick="showDetail('zen')">
+  <rect class="node-bg" x="820" y="1340" width="160" height="50" fill="rgba(167,139,250,0.1)" stroke="var(--zen)" stroke-width="1.5"/>
+  <text class="node-label" x="900" y="1363">Zen</text>
+  <text class="node-sublabel" x="900" y="1378">nemotron-3 • unlimited free</text>
+</g>
+
+<!-- ============ OBSIDIAN / EXTERNAL ============ -->
+<g class="node" data-node="obsidian" onclick="showDetail('obsidian')">
+  <rect class="node-bg" x="50" y="900" width="160" height="55" fill="rgba(167,139,250,0.08)" stroke="var(--purple)" stroke-width="1"/>
+  <text class="node-label" x="130" y="923">Obsidian Vault</text>
+  <text class="node-sublabel" x="130" y="940">7-class taxonomy</text>
+</g>
+<g class="node" data-node="ingestion" onclick="showDetail('ingestion')">
+  <rect class="node-bg" x="50" y="750" width="160" height="55" fill="rgba(251,191,36,0.08)" stroke="var(--yellow)" stroke-width="1"/>
+  <text class="node-label" x="130" y="773">Ingestion</text>
+  <text class="node-sublabel" x="130" y="790">PDF/MD/TXT/XLSX</text>
+</g>
+
+<!-- ============ VERSIONING ============ -->
+<g class="node" data-node="versioning" onclick="showDetail('versioning')">
+  <rect class="node-bg" x="1020" y="660" width="150" height="55" fill="rgba(34,211,238,0.06)" stroke="var(--cyan)" stroke-width="1"/>
+  <text class="node-label" x="1095" y="683">Versioning</text>
+  <text class="node-sublabel" x="1095" y="700">Delta tracking</text>
+</g>
+
+<!-- ============ CONTRADICTION ============ -->
+<g class="node" data-node="contradiction" onclick="showDetail('contradiction')">
+  <rect class="node-bg" x="1020" y="750" width="150" height="55" fill="rgba(251,191,36,0.06)" stroke="var(--yellow)" stroke-width="1"/>
+  <text class="node-label" x="1095" y="773">Contradiction</text>
+  <text class="node-sublabel" x="1095" y="790">8 type checks</text>
+</g>
+
+<!-- Connection lines for side components -->
+<path class="edge" d="M210,925 L420,890" stroke="var(--purple)" opacity="0.3"/>
+<path class="edge" d="M210,780 L440,460" stroke="var(--yellow)" opacity="0.3"/>
+<path class="edge" d="M1020,688 L720,688" stroke="var(--cyan)" opacity="0.3"/>
+<path class="edge" d="M1020,778 L730,778" stroke="var(--yellow)" opacity="0.3"/>
+
+</svg>
+</div>
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip"></div>
+
+<!-- Detail Overlay -->
+<div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-panel" id="detailPanel"></div>
+</div>
+
+<div class="footer">
+  ARGUS v0.1.0 — 105 source files • 13 phases • 559 tests • <a href="https://github.com/armanojha/ARGUS">GitHub</a>
+</div>
+
+<script>
+const nodeData = {
+  user: {
+    title: "User Query",
+    tags: [{text:"Input",color:"var(--accent)"}],
+    what: "The entry point for every interaction. A user submits a natural-language question through the API, CLI, or Streamlit UI.",
+    why: "ARGUS treats every question as an evidence-backed investigation — not a simple lookup. The query drives the entire orchestration loop.",
+    how: "Passed as a string to the orchestration loop. A zero-cost regex classifier immediately determines if it's a simple factual query (fast path) or requires deep research (full path).",
+    tech: ["FastAPI POST /api/v1/query","Streamlit UI","CLI scripts"],
+    input: "Raw question string",
+    output: "QueryAnalysis {complexity, reasoning, subquestion_count}"
+  },
+  api: {
+    title: "FastAPI Server",
+    tags: [{text:"API Layer",color:"var(--accent)"},{text:"Phase 00.1",color:"var(--muted)"}],
+    what: "The HTTP surface of ARGUS. Provides RESTful endpoints for querying, ingestion, status checks, telemetry, and memory operations.",
+    why: "Decouples the orchestration engine from any specific client. The same backend serves the Streamlit UI, CLI tools, MCP servers, and external integrations.",
+    how: "FastAPI with structured error envelopes, request-ID propagation, and CORS. Every response includes a unique request ID for tracing. Telemetry is recorded per-request.",
+    tech: ["FastAPI","Uvicorn","Pydantic","structlog"],
+    input: "HTTP requests",
+    output: "JSON responses with request IDs"
+  },
+  orchestration: {
+    title: "Orchestration Loop",
+    tags: [{text:"Brain",color:"var(--green)"},{text:"Phase 02",color:"var(--muted)"},{text:"LangGraph",color:"var(--purple)"}],
+    what: "A LangGraph state machine that coordinates the entire research pipeline. It decides which nodes to run, when to loop, and when to stop.",
+    why: "Complex questions require iterative retrieval and assessment. A state machine provides clear control flow, conditional branching, and loop management without spaghetti code.",
+    how: "Builds a StateGraph with 7-9 nodes (analyze → plan → retrieve → assess → stop_check → debate → synthesize). Each node is a factory-created async callable with closed-over dependencies. The graph runs with a 120s timeout.",
+    tech: ["LangGraph","StateGraph","asyncio","TypedDict state"],
+    input: "User query + settings",
+    output: "OrchestrationResult {answer, citations, evidence, outcome}"
+  },
+  analyze: {
+    title: "Query Analysis",
+    tags: [{text:"LLM Call #1",color:"var(--green)"},{text:"query_analysis",color:"var(--muted)"}],
+    what: "Classifies the user's query into a complexity tier (FAST, BALANCED, or STRONG) and estimates how many sub-questions it decomposes into.",
+    why: "Not all queries need the same treatment. A simple factual lookup ('What is Python?') should skip multi-step research. This saves LLM calls and tokens.",
+    how: "Sends the query to the LLM with a system prompt requesting classification into SIMPLE/MODERATE/COMPLEX. The response is parsed into a QueryAnalysis Pydantic model. A zero-cost regex pre-classifier can short-circuit to FAST tier without an LLM call.",
+    tech: ["LLM structured output","JSON schema","Pydantic validation"],
+    input: "Raw query string",
+    output: "QueryAnalysis {complexity, reasoning, suggested_subquestion_count}"
+  },
+  plan: {
+    title: "Research Planning",
+    tags: [{text:"LLM Call #2",color:"var(--green)"},{text:"research_planning",color:"var(--muted)"}],
+    what: "Decomposes the query into a research plan with objective, entities, sub-questions, risk level, and budget constraints.",
+    why: "A structured plan ensures systematic evidence gathering. It defines what to search for, how deep to go, and when to stop — preventing both under-research and over-research.",
+    how: "The LLM receives the query + analysis and outputs a ResearchPlan with objective, entity list, time window, sub-questions, evidence type, preferred retrieval methods, risk level, token/iteration budgets, and stopping conditions. Budgets are clamped to hard ceilings from config.",
+    tech: ["LLM structured output","Pydantic model","budget clamping"],
+    input: "Query + QueryAnalysis",
+    output: "ResearchPlan {objective, entities, subquestions, risk_level, budgets}"
+  },
+  memory_enhance: {
+    title: "Memory Enhancement",
+    tags: [{text:"Phase 08",color:"var(--purple)"},{text:"Optional",color:"var(--muted)"}],
+    what: "Enriches the research plan with knowledge from persistent memory — past research, entity relationships, and user preferences.",
+    why: "Previous research sessions may have already answered parts of the current query. Memory enhancement avoids redundant work and provides context the evidence store alone can't.",
+    how: "Queries the MemoryStore for relevant records (by entity, topic, or text search). Passes found context to the LLM to refine the plan — adding sub-questions, adjusting risk level, or noting known entities.",
+    tech: ["MemoryStore","MemoryQuery","SQLite"],
+    input: "ResearchPlan + MemoryStore",
+    output: "Enhanced ResearchPlan"
+  },
+  retrieve: {
+    title: "Retrieval Pipeline",
+    tags: [{text:"Deterministic",color:"var(--yellow)"},{text:"Zero LLM Calls",color:"var(--yellow)"},{text:"Phase 01+06",color:"var(--muted)"}],
+    what: "The core search engine. Dispatches multiple retrieval methods concurrently, fuses results, and returns ranked evidence.",
+    why: "No single retrieval method is perfect. BM25 excels at exact terms, vector search at semantic similarity, graph at relationships. Hybrid fusion combines their strengths.",
+    how: "1) Classify question pattern (deterministic heuristics). 2) Look up retrieval mix from policy table. 3) Dispatch BM25, vector, and graph searches concurrently via asyncio.gather. 4) Normalize scores per method. 5) Apply weighted fusion. 6) Deduplicate by chunk_id. 7) Optional reranking. 8) Build EvidenceRef objects with full provenance.",
+    tech: ["rank_bm25","FAISS","sentence-transformers","asyncio","NetworkX"],
+    input: "Sub-questions from plan",
+    output: "list[EvidenceRef] {chunk_id, text, score, source_path, metadata}"
+  },
+  bm25: {
+    title: "BM25 Search",
+    tags: [{text:"Lexical",color:"var(--yellow)"},{text:"Deterministic",color:"var(--yellow)"}],
+    what: "Keyword-based lexical retrieval using the BM25 ranking algorithm. Excels at exact term matching and factual lookups.",
+    why: "Vector search can miss exact keywords. BM25 catches precise terminology, product names, error codes, and specific phrases that semantic search might overlook.",
+    how: "Maintains an in-memory BM25 index over all document chunks. On query, tokenizes and scores each chunk. Returns top-k results with BM25 scores. Index is rebuilt incrementally when new documents are ingested.",
+    tech: ["rank_bm25","content-hash dedup","incremental indexing"],
+    input: "Query string",
+    output: "list[(chunk_id, bm25_score)]"
+  },
+  vector: {
+    title: "Vector Search",
+    tags: [{text:"Dense",color:"var(--yellow)"},{text:"Embedding Model",color:"var(--muted)"}],
+    what: "Semantic search using dense vector embeddings. Captures meaning and context, not just keywords.",
+    why: "Users often ask questions using different words than the source documents. Vector search bridges this vocabulary gap by matching semantic meaning.",
+    how: "1) Generate query embedding via sentence-transformers. 2) Search FAISS index for nearest neighbors. 3) Return top-k with cosine similarity scores. Embeddings are pre-computed for all chunks during ingestion.",
+    tech: ["sentence-transformers","FAISS","cosine similarity"],
+    input: "Query string",
+    output: "list[(chunk_id, vector_score)]"
+  },
+  graph_retrieve: {
+    title: "Graph Retrieval",
+    tags: [{text:"NetworkX BFS",color:"var(--yellow)"},{text:"Multi-hop",color:"var(--muted)"}],
+    what: "Traverses the Evidence Graph to find related entities, claims, and events beyond direct keyword/semantic matches.",
+    why: "Some questions require following relationships: 'What companies does X supply?' requires traversing supply-chain edges. Graph retrieval captures these connections.",
+    how: "Starts from named entities in the query, performs BFS traversal up to max_hops, filters by edge type and temporal window, collects connected entities/claims/events, and builds EvidenceRef from their supporting chunks.",
+    tech: ["NetworkX","BFS","GraphQuery","8 edge types"],
+    input: "Query + entity hints",
+    output: "list[EvidenceRef]"
+  },
+  evidence_store: {
+    title: "Evidence Store",
+    tags: [{text:"SQLite",color:"var(--cyan)"},{text:"ACID",color:"var(--cyan)"},{text:"Phase 01",color:"var(--muted)"}],
+    what: "The canonical source of truth for all evidence. Stores the Source → Document → Chunk hierarchy with full provenance tracking.",
+    why: "Every claim must be traceable to its source. The evidence store ensures no evidence is fabricated — every chunk links back to a specific document, file, and byte range.",
+    how: "SQLite database with three tables: sources (file + checksum), documents (versioned), chunks (text + provenance). Dedup via SHA256 checksums. Chunks carry embedding indices and BM25 doc IDs for fast retrieval.",
+    tech: ["SQLite","SHA256 checksums","JSON metadata","provenance chain"],
+    input: "Ingested files",
+    output: "EvidenceRef objects with full citation chain"
+  },
+  evidence_graph: {
+    title: "Evidence Graph",
+    tags: [{text:"NetworkX",color:"var(--cyan)"},{text:"8 Edge Types",color:"var(--cyan)"},{text:"Phase 03",color:"var(--muted)"}],
+    what: "A knowledge graph storing entities, claims, events, and their relationships. All facts are traceable to evidence chunks.",
+    why: "Flat document retrieval misses relationships between entities. The graph captures 'X contradicts Y', 'Z was derived from W', and temporal validity — enabling multi-hop reasoning.",
+    how: "NetworkX MultiDiGraph serialized to pickle. Nodes are entities/claims/events with UUID keys. Edges are typed (SUPPORTS, CONTRADICTS, DERIVED_FROM, MENTIONS, RELATES_TO, INSTANCE_OF, HAS_ASSUMPTION, VALID_DURING). Query via BFS traversal from named entities.",
+    tech: ["NetworkX","MultiDiGraph","pickle serialization","GraphQuery"],
+    input: "LLM extraction results (entities, claims, events)",
+    output: "GraphQueryResult with connected evidence"
+  },
+  memory_store: {
+    title: "Memory Store",
+    tags: [{text:"6 Layers",color:"var(--cyan)"},{text:"Fresh-Evidence-Wins",color:"var(--cyan)"},{text:"Phase 08",color:"var(--muted)"}],
+    what: "Persistent multi-layer memory that remembers past research, entity relationships, and user patterns across sessions.",
+    why: "Without memory, ARGUS re-discovers the same facts every session. Memory enables cumulative knowledge building — each query enriches the system's understanding.",
+    how: "SQLite-backed store with 6 layers: working, long-term knowledge, research history, source memory, user memory, vault memory. Implements fresh-evidence-wins semantics — new information about the same topic supersedes older records. Enforces per-layer limits by pruning lowest-confidence records.",
+    tech: ["SQLite","6 layer enum","promotion engine","supersession logic"],
+    input: "MemoryRecords from orchestration",
+    output: "Retrieved memories for plan enhancement"
+  },
+  assess: {
+    title: "Evidence Assessment",
+    tags: [{text:"LLM Call #3",color:"var(--green)"},{text:"evidence_extraction",color:"var(--muted)"}],
+    what: "Evaluates whether the accumulated evidence is sufficient to answer the query, and proposes the next sub-question if not.",
+    why: "Indefinite retrieval wastes tokens. The assessor acts as a quality gate — stopping when evidence is strong enough, or directing retrieval to fill specific gaps.",
+    how: "Sends the plan + accumulated evidence to the LLM. Returns EvidenceAssessment with sufficient (bool), reasoning, and next_subquery. Deterministic short-circuits skip the LLM call for budget exhaustion or consecutive empty retrievals.",
+    tech: ["LLM structured output","gap detection","deterministic short-circuits"],
+    input: "ResearchPlan + accumulated EvidenceRef list",
+    output: "EvidenceAssessment {sufficient, next_subquery}"
+  },
+  stop_check: {
+    title: "Stop Conditions",
+    tags: [{text:"Deterministic",color:"var(--yellow)"},{text:"5 Conditions",color:"var(--yellow)"},{text:"Phase 06",color:"var(--muted)"}],
+    what: "Evaluates 5 stop conditions in priority order to determine if the retrieval loop should continue or terminate.",
+    why: "The assessor might say 'not sufficient' but the budget is exhausted, or evidence gain has plateaued. Deterministic stop conditions provide hard safety rails that never require an LLM call.",
+    how: "Checks in priority order: 1) USER_EARLY_STOP (explicit signal), 2) BUDGET_EXHAUSTED (iteration/token limits), 3) NEGLIGIBLE_GAIN (diminishing returns), 4) CLAIMS_SUPPORTED (evidence quality high enough), 5) NO_CONTRADICTION (no unresolved conflicts). Returns the first condition that fires.",
+    tech: ["5 checker classes","priority composition","deterministic"],
+    input: "Full orchestration state",
+    output: "StopDecision {should_stop, condition, reason}"
+  },
+  debate: {
+    title: "Multi-Agent Debate",
+    tags: [{text:"Phase 10",color:"var(--purple)"},{text:"5 Agent Roles",color:"var(--purple)"},{text:"Optional",color:"var(--muted)"}],
+    what: "Five specialized AI agents debate the evidence and challenge each other's reasoning before synthesis.",
+    why: "Single-perspective synthesis can miss weaknesses in evidence or reasoning. Multi-agent debate surfaces disagreements, alternative hypotheses, and blind spots.",
+    how: "Coordinator activates agents based on risk score and evidence conflict level: Researcher (evidence gathering), Skeptic (challenges claims), Alternative Hypothesis (proposes alternatives), Verifier (fact-checks), Judge (final synthesis). Each agent processes the same evidence independently, then the judge synthesizes.",
+    tech: ["AgentCoordinator","5 role classes","disagreement detection","score-based merging"],
+    input: "Evidence + ResearchPlan",
+    output: "DebateResult with agent perspectives"
+  },
+  synthesize: {
+    title: "Synthesis",
+    tags: [{text:"LLM Call #4",color:"var(--green)"},{text:"synthesis",color:"var(--muted)"}],
+    what: "Generates the final answer with citations, drawing from all accumulated evidence.",
+    why: "Raw evidence is useless without interpretation. Synthesis transforms scattered evidence into a coherent, cited answer that directly addresses the user's question.",
+    how: "Sends the research plan + numbered evidence blocks to the LLM with temperature=0.2. The LLM generates a natural-language answer with bracket citations [1], [2][3]. Citation indices are extracted via regex, normalized (full-width support), and deduplicated. If no evidence exists, returns a truthful 'no evidence' response without an LLM call.",
+    tech: ["LLM raw output","citation regex","temperature=0.2","degradation fallback"],
+    input: "ResearchPlan + EvidenceRef list",
+    output: "Answer text with [N] citations"
+  },
+  verify: {
+    title: "Cross-Model Verification",
+    tags: [{text:"LLM Call #5",color:"var(--green)"},{text:"verification",color:"var(--muted)"},{text:"Phase 04+07b",color:"var(--muted)"}],
+    what: "Post-synthesis verification that checks the answer against evidence using a DIFFERENT provider than the synthesizer.",
+    why: "The same model that synthesized the answer might repeat its own biases. Cross-model verification uses a different provider to catch errors the synthesizer missed.",
+    how: "Selects a verifier from a preferred provider list (zen → gemini → groq → cerebras), excluding the synthesizer's provider. Runs contradiction detection on claims. Annotates the answer with confidence scores. Never replaces the answer — only annotates.",
+    tech: ["cross_model_verification policy","ContradictionDetector","confidence scoring"],
+    input: "Answer + EvidenceRef list",
+    output: "Confidence annotation + contradiction flags"
+  },
+  result: {
+    title: "Final Answer",
+    tags: [{text:"Output",color:"var(--accent)"}],
+    what: "The complete response returned to the user, including the cited answer, evidence list, confidence score, and outcome classification.",
+    why: "The user needs not just an answer but trust indicators — which sources support it, how confident the system is, and whether any contradictions were found.",
+    how: "OrchestrationResult includes: answer text with citations, evidence list with scores, outcome classification (ANSWERED / ANSWERED_DEGRADED / ANSWED_FALLBACK / NOT_FOUND / NO_ANSWER), confidence score, contradiction flags, loop count, and token usage. Returned via API or rendered in Streamlit UI.",
+    tech: ["OrchestrationResult","outcome classification","citation mapping"],
+    input: "Synthesis output + verification results",
+    output: "Structured response to user"
+  },
+  gateway: {
+    title: "LLM Gateway — MultiModelRouter",
+    tags: [{text:"Phase 07",color:"var(--accent)"},{text:"4 Providers",color:"var(--accent)"},{text:"Routing Fabric",color:"var(--muted)"}],
+    what: "The central routing fabric that maps call types to providers/models, handles fallbacks, tracks health, and enforces quotas.",
+    why: "No single LLM provider is perfect. Different models excel at different tasks. The gateway routes each call to the best provider, with automatic failover if one is down or rate-limited.",
+    how: "For each call: 1) Classify query complexity (fast/balanced/strong). 2) Resolve model chain from model_policy.yaml. 3) For each candidate: check health tracker (cooldown?), quota tracker (exhausted?), capabilities (supports structured output?). 4) Execute with bounded retry. 5) On failure: classify provider-level vs model-level, record in health tracker, try next candidate. 6) If all fail: fire one recovery probe to nearest-to-recovery provider.",
+    tech: ["model_policy.yaml","ProviderHealthTracker","QuotaTracker","Telemetry","recovery probes"],
+    input: "messages + call_type + settings",
+    output: "CompletionResponse {content, tool_calls, usage}"
+  },
+  groq: {
+    title: "Groq Provider",
+    tags: [{text:"Provider",color:"var(--groq)"},{text:"Fast Inference",color:"var(--groq)"}],
+    what: "Cloud LLM provider using custom LPU hardware for fast inference. Free tier: 30 RPM, 1K RPD.",
+    why: "Groq provides the fastest inference for GPT-OSS models. Used as the primary provider for most call types due to speed and free-tier availability.",
+    how: "OpenAI-compatible API at api.groq.com/openai/v1. Supports structured output (JSON schema) and tool calling. Default model: openai/gpt-oss-120b. Fallback: openai/gpt-oss-20b. HTTP 429 triggers 10s cooldown.",
+    tech: ["OpenAI-compatible API","GPT-OSS models","131K context","8K output"],
+    input: "Chat completion request",
+    output: "CompletionResponse"
+  },
+  gemini: {
+    title: "Gemini Provider",
+    tags: [{text:"Provider",color:"var(--gemini)"},{text:"1M Context",color:"var(--gemini)"}],
+    what: "Google's Gemini API with a 1M token context window. Free tier: 15 RPM, 1K RPD.",
+    why: "Gemini's massive context window is unique — it can process entire document sets in one call. Used for research planning and verification where context window matters.",
+    how: "OpenAI-compatible API at generativelanguage.googleapis.com. Default model: gemini-3.5-flash-lite. Fallback: gemini-3.5-flash. 60s timeout (longer than others due to large context processing).",
+    tech: ["OpenAI-compatible API","3.5-flash models","1M context window","60s timeout"],
+    input: "Chat completion request",
+    output: "CompletionResponse"
+  },
+  cerebras: {
+    title: "Cerebras Provider",
+    tags: [{text:"Provider",color:"var(--cerebras)"},{text:"Wafer-Scale",color:"var(--cerebras)"}],
+    what: "Cloud LLM provider using wafer-scale hardware. Free tier: 10 RPM, 500 RPD.",
+    why: "Cerebras provides an alternative inference path when Groq/Gemini are rate-limited. Adds redundancy to the fallback chain.",
+    how: "OpenAI-compatible API at api.cerebras.ai/v1. Model: gpt-oss-120b. Same structured output support as Groq. Lower free-tier limits but useful as fallback.",
+    tech: ["OpenAI-compatible API","GPT-OSS model","131K context"],
+    input: "Chat completion request",
+    output: "CompletionResponse"
+  },
+  zen: {
+    title: "Zen Provider",
+    tags: [{text:"Provider",color:"var(--zen)"},{text:"Unlimited Free",color:"var(--zen)"}],
+    what: "OpenCode Zen API with unlimited free tier. Provides multiple models including nemotron-3-ultra-free, mimo-v2.5-free, and big-pickle.",
+    why: "Zen's unlimited free tier means ARGUS can always fall back to it when all other providers are rate-limited. It's the safety net.",
+    how: "OpenAI-compatible API at opencode.ai/zen/v1. Multiple models available: nemotron-3-ultra-free (general), mimo-v2.5-free (fast), big-pickle (strong). No quota tracking needed.",
+    tech: ["OpenAI-compatible API","multiple free models","no quota limits"],
+    input: "Chat completion request",
+    output: "CompletionResponse"
+  },
+  obsidian: {
+    title: "Obsidian Vault Integration",
+    tags: [{text:"Phase 05+09",color:"var(--purple)"},{text:"7-Class Taxonomy",color:"var(--purple)"}],
+    what: "Bidirectional integration with Obsidian personal knowledge bases. Reads vault notes and writes research outputs back.",
+    why: "Researchers live in Obsidian. ARGUS reads their existing knowledge and writes findings back in the same format — no context-switching.",
+    how: "7-class taxonomy: source, knowledge, hypothesis, project, task, research, reference. Vault scanner parses frontmatter, wikilinks, callouts. Hypothesis research runner converts hypotheses to research objectives. Write-back proposals with user approval.",
+    tech: ["Obsidian parser","frontmatter extraction","wikilink resolution","write-back proposals"],
+    input: "Obsidian vault directory",
+    output: "Classified notes + research outputs"
+  },
+  ingestion: {
+    title: "Document Ingestion",
+    tags: [{text:"Phase 01",color:"var(--yellow)"},{text:"Multimodal",color:"var(--yellow)"}],
+    what: "Processes raw documents (PDF, Markdown, text, spreadsheets) into chunks stored in the Evidence Store.",
+    why: "Documents must be chunked, deduplicated, and indexed before they can be retrieved. Ingestion is the bridge between raw files and searchable evidence.",
+    how: "Recursive file discovery → SHA256 checksum dedup → text extraction (per format) → section-aware chunking → store in EvidenceStore → build BM25 + FAISS indexes. Supports PDF, Markdown, TXT, XLSX, XLS, CSV, images (OCR via Tesseract/PaddleOCR), and web pages.",
+    tech: ["pypdf","pdfplumber","openpyxl","pytesseract","PaddleOCR","BeautifulSoup"],
+    input: "Raw files",
+    output: "Chunks in EvidenceStore + built indexes"
+  },
+  versioning: {
+    title: "Graph Versioning",
+    tags: [{text:"Phase 08.2",color:"var(--cyan)"},{text:"Delta Tracking",color:"var(--cyan)"}],
+    what: "Tracks every mutation to the Evidence Graph as versioned deltas with full history.",
+    why: "Knowledge evolves. Versioning lets you see when a claim was added, updated, contradicted, or superseded — and revert if needed.",
+    how: "Every graph mutation (entity/claim/event/edge upsert) creates a GraphDelta record with delta_type, status (provisional/promoted/rejected), and supporting evidence. Claim versions maintain full history. Auto-promotes high-confidence deltas.",
+    tech: ["GraphDelta","DeltaType enum","delta_chain","claim_versions","auto-promotion"],
+    input: "Graph mutations",
+    output: "Versioned delta records"
+  },
+  contradiction: {
+    title: "Contradiction Detection",
+    tags: [{text:"Phase 04",color:"var(--yellow)"},{text:"8 Type Checks",color:"var(--yellow)"},{text:"Rule-Based",color:"var(--muted)"}],
+    what: "Detects contradictions between claims in the Evidence Graph using 8 rule-based heuristics.",
+    why: "Contradictions between sources are critical information. They signal unreliable sources, evolving facts, or measurement differences that the user should know about.",
+    how: "O(n²) pairwise check of all claims. For each pair: check overlap (same subject/predicate?), then run 8 type-specific checks: PUBLICATION_DATE, METRIC_DEFINITION, GEOGRAPHIC_SCOPE, TIME_PERIOD, REVISED_NUMBERS, ENTITY_MISMATCH, SOURCE_CONFLICT, TEMPORAL_CONFLICT. Filter by severity threshold.",
+    tech: ["8 ContradictionType checks","severity scoring","predicate similarity","synonym groups"],
+    input: "list[Claim] from Evidence Graph",
+    output: "list[ContradictionDetail]"
+  }
+};
+
+function showDetail(nodeId) {
+  const d = nodeData[nodeId];
+  if (!d) return;
+  
+  const panel = document.getElementById('detailPanel');
+  let tagsHtml = d.tags.map(t => `<span class="tag" style="background:${t.color}20;border:1px solid ${t.color}40;color:${t.color}">${t.text}</span>`).join('');
+  let techHtml = d.tech.map(t => `<span class="tech-tag">${t}</span>`).join('');
+  
+  panel.innerHTML = `
+    <button class="detail-close" onclick="closeDetail()">&times;</button>
+    <h2>${d.title}</h2>
+    <div>${tagsHtml}</div>
+    
+    <h3>What It Does</h3>
+    <p>${d.what}</p>
+    
+    <h3>Why It Exists</h3>
+    <p>${d.why}</p>
+    
+    <h3>How It Works</h3>
+    <p>${d.how}</p>
+    
+    <h3>Technologies</h3>
+    <div class="tech-stack">${techHtml}</div>
+    
+    <div class="io-block">
+      <strong>Input:</strong> ${d.input}<br>
+      <strong>Output:</strong> ${d.output}
+    </div>
+  `;
+  
+  document.getElementById('detailOverlay').classList.add('active');
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('active');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+
+// Tooltip on hover
+const tooltip = document.getElementById('tooltip');
+document.querySelectorAll('.node').forEach(node => {
+  node.addEventListener('mouseenter', e => {
+    const id = node.dataset.node;
+    const d = nodeData[id];
+    if (!d) return;
+    tooltip.innerHTML = `<strong>${d.title}</strong><br><span style="color:var(--muted)">${d.tags[0].text}</span>`;
+    tooltip.classList.add('visible');
+  });
+  node.addEventListener('mousemove', e => {
+    tooltip.style.left = (e.clientX + 12) + 'px';
+    tooltip.style.top = (e.clientY + 12) + 'px';
+  });
+  node.addEventListener('mouseleave', () => {
+    tooltip.classList.remove('visible');
+  });
+});
+</script>
+</body>
+</html>
