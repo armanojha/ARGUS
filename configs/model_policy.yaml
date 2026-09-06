@@ -43,6 +43,7 @@ call_types:
     fallbacks:
       - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zai/glm-4.5-flash"
       - "zen/nemotron-3.5-lightning-free"
 
   query_analysis:
@@ -50,6 +51,7 @@ call_types:
     fallbacks:
       - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zai/glm-4.5-flash"
       - "zen/nemotron-3.5-lightning-free"
     # Task-adaptive complexity tiers (HARDEN-06.5.2). A tier chain fully
     # replaces primary+fallbacks for that call type when a tier is requested
@@ -60,7 +62,7 @@ call_types:
       fast:
         - "groq/openai/gpt-oss-20b"
         - "gemini/gemini-3.5-flash-lite"
-        - "zen/nemotron-3.5-lightning-free"
+        - "zai/glm-4.5-flash"
       strong:
         - "groq/openai/gpt-oss-120b"
         - "gemini/gemini-3.5-flash-lite"
@@ -75,6 +77,7 @@ call_types:
     fallbacks:
       - "groq/openai/gpt-oss-120b"
       - "cerebras/gpt-oss-120b"
+      - "zai/glm-4.5-flash"
       - "zen/big-pickle"
 
   evidence_extraction:
@@ -82,6 +85,7 @@ call_types:
     fallbacks:
       - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zai/glm-4.5-flash"
       - "zen/mimo-v2.5-free"
 
   reasoning:
@@ -89,6 +93,7 @@ call_types:
     fallbacks:
       - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zai/glm-4.5-flash"
       - "zen/nemotron-3-ultra-free"
 
   synthesis:
@@ -96,6 +101,7 @@ call_types:
     fallbacks:
       - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zai/glm-4.5-flash"
       - "zen/nemotron-3-ultra-free"
 
   verification:
@@ -103,6 +109,7 @@ call_types:
     fallbacks:
       - "groq/openai/gpt-oss-20b"
       - "cerebras/gpt-oss-120b"
+      - "zai/glm-4.5-flash"
       - "zen/mimo-v2.5-free"
 
   revision:
@@ -110,12 +117,14 @@ call_types:
     fallbacks:
       - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
+      - "zai/glm-4.5-flash"
       - "zen/nemotron-3.5-lightning-free"
 
 provider_fallbacks:
   - "groq"
   - "gemini"
   - "cerebras"
+  - "zai"
   - "zen"
 
 # Quota tracking configuration (deterministic, configuration-driven)
@@ -148,6 +157,9 @@ quota:
     # disabled (unlimited) rather than inventing numbers. Add real limits here
     # once confirmed.
     enabled: false
+  zai:
+    # Z.ai free-tier limits not published; tracking disabled until confirmed.
+    enabled: false
 
 # Cross-model verification settings
 cross_model_verification:
@@ -158,6 +170,7 @@ cross_model_verification:
   allow_same_provider_different_model: true
   # Preferred verifier providers (in order)
   preferred_verifier_providers:
+    - "zai"
     - "zen"
     - "gemini"
     - "groq"

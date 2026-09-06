@@ -76,3 +76,21 @@ providers:
     timeout: 30.0
     max_retries: 2
     notes: "OpenCode Zen free-tier models (openai-compatible /chat/completions). Model IDs verified 2026-08-31 @ opencode.ai/docs/zen + live /zen/v1/models: big-pickle, mimo-v2.5-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free. big-pickle (Big Pickle) added 2026-08-31 as the quality-sensitive primary per Model Policy Optimization. NVIDIA trial endpoints log session data. Key from https://opencode.ai/auth."
+
+  - name: zai
+    enabled: true
+    api_key_env: ZAI_API_KEY
+    protocol: "openai-compatible"
+    base_url: "https://api.z.ai/api/paas/v4"
+    default_model: "glm-4.5-flash"
+    fallback_models: ["glm-4.6v-flash"]
+    roles: [general]
+    capabilities:
+      structured_output: true
+      tool_calling: true
+      streaming: false
+      max_context_tokens: 128000
+      max_output_tokens: 4096
+    timeout: 30.0
+    max_retries: 2
+    notes: "Z.ai (Zhipu AI) free GLM models. Verified 2026-09-06 via live API: glm-4.5-flash is free with tool calling + structured output (~5.5s avg). glm-4.6v-flash is free vision model (no tool calling, ~4.9s avg). glm-4.7-flash free but aggressive rate limits (~33s under load). Key from https://z.ai."

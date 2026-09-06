@@ -24,6 +24,7 @@ from app.llm_gateway.providers import get_provider_factory
 # pattern in favor of auto-discovery — see model-policy rule).
 from app.llm_gateway.providers import groq as _groq  # noqa: F401
 from app.llm_gateway.providers import zen as _zen  # noqa: F401
+from app.llm_gateway.providers import zai as _zai  # noqa: F401
 from app.llm_gateway.providers.exceptions import ConfigurationError
 from app.llm_gateway.providers.openai_compatible import OpenAICompatibleProvider
 
