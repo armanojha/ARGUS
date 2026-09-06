@@ -67,6 +67,7 @@ class ExpResult:
     answer: str
     strategy: str
     latency_ms: float
+    method: str = ""
     pass1_latency_ms: float = 0.0
     pass2_latency_ms: float = 0.0
     pass1_claims: int = 0
@@ -105,7 +106,7 @@ async def strategy_a_baseline(router, query, evidence, settings):
         parsed = ClaimGenerationOutput.model_validate(_json.loads(response.content))
         claims = parsed.claims
     except Exception:
-        return ("", (time.time() - t_total) * 1000, (time.time() - t_p1) * 1000, 0, 0, 0, 0, 0,
+        return ("", (time.time() - t_total) * 1000, (time.time() - t_p1) * 1000, 0, 0, 0, 0,
                 "pass1_error", 0, 0, 0, 0, len(evidence))
 
     t_v = time.time()
@@ -194,7 +195,7 @@ async def strategy_d_minimal_prompt(router, query, evidence, settings):
         parsed = ClaimGenerationOutput.model_validate(_json.loads(response.content))
         claims = parsed.claims
     except Exception:
-        return ("", (time.time() - t_total) * 1000, (time.time() - t_p1) * 1000, 0, 0, 0, 0, 0,
+        return ("", (time.time() - t_total) * 1000, (time.time() - t_p1) * 1000, 0, 0, 0, 0,
                 "pass1_error", 0, 0, 0, 0, len(evidence))
 
     t_v = time.time()
@@ -236,62 +237,28 @@ async def strategy_d_minimal_prompt(router, query, evidence, settings):
             p1_in, p1_out, p2_in, p2_out, len(evidence))
 
 
-# ---- Strategy E: Claim count cap (max 8) ----
+# ---- Strategy E: Claim count cap (max 8) — SAME prompt as baseline, only cap differs ----
 async def strategy_e_claim_cap_8(router, query, evidence, settings):
     from app.orchestration.two_pass_synthesis import verify_claims, ClaimGenerationOutput
-    from app.orchestration.two_pass_prompts import build_verified_synthesis_messages
-    from app.llm_gateway.providers.models import Message, MessageRole
-    from app.orchestration.prompts import _format_evidence_block
+    from app.orchestration.two_pass_prompts import build_claim_generation_messages, build_verified_synthesis_messages
     import json as _json
 
     plan = ResearchPlan(objective=query, subquestions=[query])
     t_total = time.time()
 
-    evidence_block = _format_evidence_block(evidence, include_scores=True)
-    system = (
-        "You are the claim-generation stage of a research assistant. "
-        "Given the research objective and numbered evidence passages, "
-        "extract every factual claim the evidence supports.\n\n"
-        "RULES:\n"
-        "1. EVERY claim MUST cite at least one evidence passage using its [N] number.\n"
-        "2. Claims with NO evidence ID are INVALID and must not be generated.\n"
-        "3. For numerical claims, include the exact numbers from evidence.\n"
-        "4. For comparison claims, cite evidence for EACH side.\n"
-        "5. For contradictions, create SEPARATE claims for each conflicting fact.\n"
-        "6. If the evidence does NOT contain information to answer the question, "
-        "generate a single claim of type 'absent' explaining this.\n"
-        "7. Do NOT use external knowledge. Only extract what is IN the evidence.\n"
-        "8. Each claim should be ONE factual statement, not a compound paragraph.\n"
-        "9. MAXIMUM 8 claims. Prioritize the most important facts.\n\n"
-        "OUTPUT FORMAT: JSON with a 'claims' array. Each claim has:\n"
-        '- "claim": the factual statement\n'
-        '- "evidence_ids": list of 1-based evidence indices supporting it\n'
-        '- "confidence": 0.0-1.0\n'
-        '- "claim_type": "factual" | "numerical" | "comparison" | "relationship" | "absent"\n'
-        '- "numerical_values": list of specific numbers referenced (if any)\n'
-    )
-    user = (
-        f"Objective: {query}\n"
-        f"--- NUMBERED EVIDENCE ---\n{evidence_block}\n--- END EVIDENCE ---\n\n"
-        "Extract all factual claims from the evidence. Output JSON with 'claims' array. MAX 8 claims."
-    )
-    messages = [
-        Message(role=MessageRole.SYSTEM, content=system),
-        Message(role=MessageRole.USER, content=user),
-    ]
-
+    claim_messages = build_claim_generation_messages(plan, evidence)
     t_p1 = time.time()
     try:
-        response = await router.complete(messages, response_format=ClaimGenerationOutput,
+        response = await router.complete(claim_messages, response_format=ClaimGenerationOutput,
                                          temperature=0.1, timeout=settings.orchestration_llm_timeout,
                                          call_type="synthesis", request_id=None, query=query, tier="strong")
         p1_latency = (time.time() - t_p1) * 1000
         p1_in = getattr(getattr(response, "usage", None), "prompt_tokens", 0) or 0
         p1_out = getattr(getattr(response, "usage", None), "completion_tokens", 0) or 0
         parsed = ClaimGenerationOutput.model_validate(_json.loads(response.content))
-        claims = parsed.claims[:8]  # Hard cap
+        claims = parsed.claims[:8]  # ONLY difference from baseline: hard cap at 8
     except Exception:
-        return ("", (time.time() - t_total) * 1000, (time.time() - t_p1) * 1000, 0, 0, 0, 0, 0,
+        return ("", (time.time() - t_total) * 1000, (time.time() - t_p1) * 1000, 0, 0, 0, 0,
                 "pass1_error", 0, 0, 0, 0, len(evidence))
 
     t_v = time.time()
@@ -368,7 +335,7 @@ async def strategy_f_combined(router, query, evidence, settings):
         parsed = ClaimGenerationOutput.model_validate(_json.loads(response.content))
         claims = parsed.claims[:8]
     except Exception:
-        return ("", (time.time() - t_total) * 1000, (time.time() - t_p1) * 1000, 0, 0, 0, 0, 0,
+        return ("", (time.time() - t_total) * 1000, (time.time() - t_p1) * 1000, 0, 0, 0, 0,
                 "pass1_error", 0, 0, 0, 0, len(evidence))
 
     t_v = time.time()
@@ -457,10 +424,13 @@ async def run_experiment():
             except Exception as e:
                 print(f"ERROR: {e}")
                 answer, total_lat, p1_lat, p2_lat = "", 0, 0, 0
-                p1_cl, v_cl, r_cl, method = 0, 0, 0, f"error: {e}"
+                p1_cl, v_cl, r_cl, method = 0, 0, 0, "PROVIDER_FAILURE"
                 p1_in, p1_out, p2_in, p2_out, ev_count = 0, 0, 0, 0, len(evidence)
 
-            print(f"OK ({total_lat:.0f}ms, {method})")
+            # Mark pass1_error and pass2_error as provider failures for quality exclusion
+            is_provider_failure = method in ("pass1_error", "pass2_error", "PROVIDER_FAILURE")
+
+            print(f"OK ({total_lat:.0f}ms, {method})" + (" [PROVIDER_FAILURE]" if is_provider_failure else ""))
 
             if answer:
                 ev = evaluate_answer(answer, evidence, gold_facts=qi.get("gold_facts") or None, query=query)
@@ -477,7 +447,8 @@ async def run_experiment():
             results.append(ExpResult(
                 query_id=qi["id"], query_class=qi["class"],
                 answer=answer[:500] if answer else "", strategy=strat_name,
-                latency_ms=total_lat, pass1_latency_ms=p1_lat, pass2_latency_ms=p2_lat,
+                latency_ms=total_lat, method=method,
+                pass1_latency_ms=p1_lat, pass2_latency_ms=p2_lat,
                 pass1_claims=p1_cl, verified_claims=v_cl, rejected_claims=r_cl,
                 pass1_tokens_in=p1_in, pass1_tokens_out=p1_out,
                 pass2_tokens_in=p2_in, pass2_tokens_out=p2_out,
@@ -492,17 +463,18 @@ async def run_experiment():
     print("=" * 70)
 
     for strat_name, results in all_results.items():
-        valid = [r for r in results if "error" not in r.pass1_claims.__class__.__name__ and r.latency_ms > 0]
-        if not valid:
-            print(f"{strat_name}: ALL FAILED"); continue
+        provider_failures = [r for r in results if r.method in ("pass1_error", "pass2_error", "PROVIDER_FAILURE")]
+        quality_results = [r for r in results if r.method not in ("pass1_error", "pass2_error", "PROVIDER_FAILURE") and r.latency_ms > 0]
+        if not quality_results:
+            print(f"{strat_name}: ALL FAILED ({len(provider_failures)} provider failures)"); continue
 
-        avg = lambda key: sum(r.evaluation.get(key, 0) for r in valid) / len(valid)
-        gold = [r.evaluation.get("gold_fact_coverage") for r in valid if r.evaluation.get("gold_fact_coverage") is not None]
-        absent_correct = sum(1 for r in valid if r.query_class in ("absent_info", "adversarial") and "does not" in r.answer.lower())
-        absent_total = sum(1 for r in valid if r.query_class in ("absent_info", "adversarial"))
-        latencies = [r.latency_ms for r in valid]
-        p1_lats = [r.pass1_latency_ms for r in valid if r.pass1_latency_ms > 0]
-        p2_lats = [r.pass2_latency_ms for r in valid if r.pass2_latency_ms > 0]
+        avg = lambda key: sum(r.evaluation.get(key, 0) for r in quality_results) / len(quality_results)
+        gold = [r.evaluation.get("gold_fact_coverage") for r in quality_results if r.evaluation.get("gold_fact_coverage") is not None]
+        absent_correct = sum(1 for r in quality_results if r.query_class in ("absent_info", "adversarial") and "does not" in r.answer.lower())
+        absent_total = sum(1 for r in quality_results if r.query_class in ("absent_info", "adversarial"))
+        latencies = [r.latency_ms for r in quality_results]
+        p1_lats = [r.pass1_latency_ms for r in quality_results if r.pass1_latency_ms > 0]
+        p2_lats = [r.pass2_latency_ms for r in quality_results if r.pass2_latency_ms > 0]
 
         print(f"\n{strat_name}:")
         print(f"  Claim Support:     {avg('claim_support_rate'):.1%}")
@@ -520,33 +492,34 @@ async def run_experiment():
             print(f"  P95 Latency:        {sorted_lat[min(p95_idx, len(sorted_lat)-1)]:.0f}ms")
         print(f"  Avg Pass1 Latency:  {statistics.mean(p1_lats):.0f}ms" if p1_lats else "  Avg Pass1 Latency:  N/A")
         print(f"  Avg Pass2 Latency:  {statistics.mean(p2_lats):.0f}ms" if p2_lats else "  Avg Pass2 Latency:  N/A")
-        total_p1_in = sum(r.pass1_tokens_in for r in valid)
-        total_p1_out = sum(r.pass1_tokens_out for r in valid)
-        total_p2_in = sum(r.pass2_tokens_in for r in valid)
-        total_p2_out = sum(r.pass2_tokens_out for r in valid)
+        total_p1_in = sum(r.pass1_tokens_in for r in quality_results)
+        total_p1_out = sum(r.pass1_tokens_out for r in quality_results)
+        total_p2_in = sum(r.pass2_tokens_in for r in quality_results)
+        total_p2_out = sum(r.pass2_tokens_out for r in quality_results)
         print(f"  Pass1 Tokens:       {total_p1_in} in / {total_p1_out} out")
         print(f"  Pass2 Tokens:       {total_p2_in} in / {total_p2_out} out")
-        avg_ev = statistics.mean([r.evidence_chunks for r in valid])
+        avg_ev = statistics.mean([r.evidence_chunks for r in quality_results])
         print(f"  Avg Evidence Chunks: {avg_ev:.1f}")
-        failed = len(results) - len(valid)
-        print(f"  Failed:             {failed}/{len(results)}")
+        pf = len(provider_failures)
+        print(f"  Provider Failures:  {pf}/{len(results)}")
+        print(f"  Quality Results:    {len(quality_results)}/{len(results)}")
 
     # ---- Latency comparison (baseline vs best) ----
     print("\n" + "=" * 70)
     print("LATENCY COMPARISON vs BASELINE")
     print("=" * 70)
     baseline = all_results.get("A_baseline_8chunks", [])
-    baseline_valid = [r for r in baseline if r.latency_ms > 0]
-    if baseline_valid:
-        baseline_p1 = statistics.mean([r.pass1_latency_ms for r in baseline_valid if r.pass1_latency_ms > 0])
-        baseline_total = statistics.mean([r.latency_ms for r in baseline_valid])
+    baseline_quality = [r for r in baseline if r.method not in ("pass1_error", "pass2_error", "PROVIDER_FAILURE") and r.latency_ms > 0]
+    if baseline_quality:
+        baseline_p1 = statistics.mean([r.pass1_latency_ms for r in baseline_quality if r.pass1_latency_ms > 0])
+        baseline_total = statistics.mean([r.latency_ms for r in baseline_quality])
         for strat_name, results in all_results.items():
             if strat_name == "A_baseline_8chunks":
                 continue
-            valid = [r for r in results if r.latency_ms > 0]
-            if not valid: continue
-            p1 = statistics.mean([r.pass1_latency_ms for r in valid if r.pass1_latency_ms > 0])
-            total = statistics.mean([r.latency_ms for r in valid])
+            quality = [r for r in results if r.method not in ("pass1_error", "pass2_error", "PROVIDER_FAILURE") and r.latency_ms > 0]
+            if not quality: continue
+            p1 = statistics.mean([r.pass1_latency_ms for r in quality if r.pass1_latency_ms > 0])
+            total = statistics.mean([r.latency_ms for r in quality])
             p1_saved = (1 - p1 / baseline_p1) * 100
             total_saved = (1 - total / baseline_total) * 100
             print(f"  {strat_name}: Pass1 {p1_saved:+.1f}% ({p1:.0f}ms), Total {total_saved:+.1f}% ({total:.0f}ms)")
@@ -556,9 +529,11 @@ async def run_experiment():
     print("SAFETY INVARIANT CHECK")
     print("=" * 70)
     for strat_name, results in all_results.items():
-        absent_q = [r for r in results if r.query_class in ("absent_info", "adversarial")]
+        quality = [r for r in results if r.method not in ("pass1_error", "pass2_error", "PROVIDER_FAILURE") and r.latency_ms > 0]
+        absent_q = [r for r in quality if r.query_class in ("absent_info", "adversarial")]
         absent_correct = sum(1 for r in absent_q if "does not" in r.answer.lower() or "no information" in r.answer.lower())
-        print(f"  {strat_name}: Absent info correct: {absent_correct}/{len(absent_q)}")
+        pf = len([r for r in results if r.method in ("pass1_error", "pass2_error", "PROVIDER_FAILURE")])
+        print(f"  {strat_name}: Absent info correct: {absent_correct}/{len(absent_q)} (pf={pf})")
 
     # ---- Save ----
     output = Path("benchmarks/results")
@@ -568,7 +543,8 @@ async def run_experiment():
         save_data[strat_name] = [
             {
                 "query_id": r.query_id, "class": r.query_class, "answer": r.answer,
-                "strategy": r.strategy, "latency_ms": r.latency_ms,
+                "strategy": r.strategy, "method": r.method,
+                "latency_ms": r.latency_ms,
                 "pass1_latency_ms": r.pass1_latency_ms, "pass2_latency_ms": r.pass2_latency_ms,
                 "pass1_claims": r.pass1_claims, "verified_claims": r.verified_claims,
                 "rejected_claims": r.rejected_claims, "pass1_tokens_in": r.pass1_tokens_in,
