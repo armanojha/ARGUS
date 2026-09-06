@@ -1,0 +1,323 @@
+{
+  "eval_id": "PHASE24_2_STRESS",
+  "corpus_version": "corpus_v2_stress",
+  "corpus_dir": "corpus_v2_stress",
+  "documents": {
+    "doc-01": "doc-01-meridian-overview.md",
+    "doc-02": "doc-02-meridian-cloud.md",
+    "doc-03": "doc-03-meridian-manufacturing.md",
+    "doc-04": "doc-04-meridian-research.md",
+    "doc-05": "doc-05-meridian-financials.md",
+    "doc-06": "doc-06-meridian-competitive.md",
+    "doc-07": "doc-07-meridian-case-studies.md",
+    "doc-08": "doc-08-meridian-specs.md"
+  },
+  "query_classes": {
+    "A": {
+      "name": "simple_lookup",
+      "desc": "Simple factual lookup, single doc, expected 1 round"
+    },
+    "B": {
+      "name": "multi_doc_synthesis",
+      "desc": "Required evidence exists across multiple documents"
+    },
+    "C": {
+      "name": "multi_hop",
+      "desc": "Requires chained reasoning across dependencies"
+    },
+    "D": {
+      "name": "conflict",
+      "desc": "Two or more credible sources disagree"
+    },
+    "E": {
+      "name": "incomplete_evidence",
+      "desc": "Initial retrieval finds partial evidence but misses required needs"
+    },
+    "F": {
+      "name": "absent_info",
+      "desc": "Information genuinely absent from corpus"
+    },
+    "G": {
+      "name": "distractor_heavy",
+      "desc": "Many superficially relevant chunks but only subset useful"
+    },
+    "H": {
+      "name": "hard_complex_research",
+      "desc": "Several evidence needs distributed across multiple documents"
+    }
+  },
+  "queries": [
+    {
+      "id": "S01",
+      "query": "What is the headquarters location of Meridian Technologies?",
+      "class": "simple_lookup",
+      "supporting_docs": ["doc-01"],
+      "gold_facts": ["Austin", "Texas"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "S02",
+      "query": "Who is the CEO of Meridian Technologies?",
+      "class": "simple_lookup",
+      "supporting_docs": ["doc-01"],
+      "gold_facts": ["Samuel Chen"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "S03",
+      "query": "What year was Meridian Technologies founded?",
+      "class": "simple_lookup",
+      "supporting_docs": ["doc-01"],
+      "gold_facts": ["1994"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "S04",
+      "query": "How many data centers does Meridian operate globally?",
+      "class": "simple_lookup",
+      "supporting_docs": ["doc-01", "doc-02"],
+      "gold_facts": ["42"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "S05",
+      "query": "What is the name of Meridian's microkernel operating system?",
+      "class": "simple_lookup",
+      "supporting_docs": ["doc-02"],
+      "gold_facts": ["MeridianOS"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "S06",
+      "query": "What is the defect rate at Meridian's manufacturing plants?",
+      "class": "simple_lookup",
+      "supporting_docs": ["doc-03"],
+      "gold_facts": ["0.023%"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "S07",
+      "query": "How many patents does Meridian hold?",
+      "class": "simple_lookup",
+      "supporting_docs": ["doc-04"],
+      "gold_facts": ["12,847"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "S08",
+      "query": "What is Meridian's total revenue for FY2025?",
+      "class": "simple_lookup",
+      "supporting_docs": ["doc-05"],
+      "gold_facts": ["47.2 billion", "$47.2B"],
+      "difficulty": "easy"
+    },
+    {
+      "id": "M01",
+      "query": "Compare Meridian's revenue growth across all business segments in FY2025.",
+      "class": "multi_doc_synthesis",
+      "supporting_docs": ["doc-01", "doc-05"],
+      "gold_facts": ["Cloud Infrastructure 15.4%", "Enterprise Software 10.8%", "Advanced Manufacturing 10.1%", "Research 8.5%"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "M02",
+      "query": "How does Meridian's manufacturing quality compare across its global plants?",
+      "class": "multi_doc_synthesis",
+      "supporting_docs": ["doc-03", "doc-07"],
+      "gold_facts": ["0.023% defect rate", "94.7% on-time delivery", "87.3% OEE"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "M03",
+      "query": "What are the total R&D investments across all Meridian's research projects?",
+      "class": "multi_doc_synthesis",
+      "supporting_docs": ["doc-04", "doc-05"],
+      "gold_facts": ["$4.2 billion", "Project Catalyst $1.8B", "Project Neural Link $890M", "Project Titan $450M"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "M04",
+      "query": "How do Meridian's security certifications compare across cloud and manufacturing?",
+      "class": "multi_doc_synthesis",
+      "supporting_docs": ["doc-02", "doc-03"],
+      "gold_facts": ["ISO 27001", "SOC 2 Type II", "FedRAMP High", "ISO 9001", "IATF 16949"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "M05",
+      "query": "What is the complete supply chain risk profile for Meridian's semiconductor dependencies?",
+      "class": "multi_doc_synthesis",
+      "supporting_docs": ["doc-03", "doc-06"],
+      "gold_facts": ["Intel", "Samsung", "TSMC", "26-week lead times", "Taiwan strait risks"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "H01",
+      "query": "If Intel (Meridian's Tier 1 supplier) faces a production disruption, which manufacturing plants would be affected and what would be the downstream impact on cloud platform availability?",
+      "class": "multi_hop",
+      "supporting_docs": ["doc-02", "doc-03", "doc-05"],
+      "gold_facts": ["Intel supplies processors", "12 manufacturing plants", "Cloud platform revenue $18.7B"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "H02",
+      "query": "How does Project Catalyst's quantum computing milestone relate to Meridian's competitive position against IBM and Google?",
+      "class": "multi_hop",
+      "supporting_docs": ["doc-04", "doc-06"],
+      "gold_facts": ["1,200 qubits", "IBM 4,334 qubits", "Google quantum supremacy"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "H03",
+      "query": "What is the relationship between Meridian's Edge Compute Engine and its manufacturing IoT platform, and how does this integration create competitive advantage?",
+      "class": "multi_hop",
+      "supporting_docs": ["doc-02", "doc-03", "doc-06"],
+      "gold_facts": ["ECE edge computing", "SensorNet platform", "AutomaBot series", "Vertical integration advantage"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "H04",
+      "query": "How does the CyberShield AI acquisition impact Meridian's security capabilities across cloud, manufacturing, and research divisions?",
+      "class": "multi_hop",
+      "supporting_docs": ["doc-01", "doc-02", "doc-04"],
+      "gold_facts": ["$1.8 billion acquisition", "AI security enhancement", "Project Sentinel"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "C01",
+      "query": "What are the discrepancies between Meridian's reported employee count in different documents?",
+      "class": "conflict",
+      "supporting_docs": ["doc-01", "doc-05"],
+      "gold_facts": ["142,000 employees", "131,000 in FY2024", "26,800 manufacturing employees"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "C02",
+      "query": "Are there conflicting reports about Meridian's renewable energy progress?",
+      "class": "conflict",
+      "supporting_docs": ["doc-01", "doc-04"],
+      "gold_facts": ["67% renewable", "100% by 2028", "2.3 TWh energy consumption"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "C03",
+      "query": "How do the reported ROI figures from case studies compare to the actual financial performance of Meridian's manufacturing division?",
+      "class": "conflict",
+      "supporting_docs": ["doc-05", "doc-07"],
+      "gold_facts": ["340% ROI", "Manufacturing revenue $9.8B", "15.3% operating margin"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "E01",
+      "query": "What specific cybersecurity incidents has Meridian experienced in the past 2 years?",
+      "class": "incomplete_evidence",
+      "supporting_docs": ["doc-01", "doc-03", "doc-04"],
+      "gold_facts": ["847 security incidents", "MFG-07 cyber incident", "No details on specific attacks"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "E02",
+      "query": "What is the detailed customer breakdown by industry for Meridian's enterprise software division?",
+      "class": "incomplete_evidence",
+      "supporting_docs": ["doc-05", "doc-07"],
+      "gold_facts": ["8,400 enterprise customers", "HealthFirst hospitals", "GlobalBank", "No complete breakdown"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "E03",
+      "query": "What are the specific technical specifications of Meridian's quantum error correction system?",
+      "class": "incomplete_evidence",
+      "supporting_docs": ["doc-04"],
+      "gold_facts": ["100:1 physical-to-logical ratio", "No detailed specs available"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "F01",
+      "query": "What is Meridian's market share in the South American cloud market?",
+      "class": "absent_info",
+      "supporting_docs": [],
+      "gold_facts": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "F02",
+      "query": "What are the specific terms of Meridian's partnership with NVIDIA?",
+      "class": "absent_info",
+      "supporting_docs": [],
+      "gold_facts": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "F03",
+      "query": "What is the detailed carbon footprint breakdown for each of Meridian's data centers?",
+      "class": "absent_info",
+      "supporting_docs": [],
+      "gold_facts": [],
+      "difficulty": "hard"
+    },
+    {
+      "id": "F04",
+      "query": "What are the salary ranges for Meridian's research positions?",
+      "class": "absent_info",
+      "supporting_docs": [],
+      "gold_facts": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "D01",
+      "query": "How does Meridian's SensorNet platform compare to Siemens MindSphere in terms of sensor capacity and latency?",
+      "class": "distractor_heavy",
+      "supporting_docs": ["doc-03", "doc-06", "doc-08"],
+      "gold_facts": ["10M sensors", "sub-millisecond latency", "Siemens market share 14.2%"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "D02",
+      "query": "What is the performance difference between AutomaBot-200 and competing inspection robots from Fanuc?",
+      "class": "distractor_heavy",
+      "supporting_docs": ["doc-03", "doc-08"],
+      "gold_facts": ["120 units/hour", "99.7% accuracy", "Fanuc partnership mentioned"],
+      "difficulty": "medium"
+    },
+    {
+      "id": "D03",
+      "query": "How does Meridian's edge computing latency compare to AWS Outposts and Azure Edge Zones?",
+      "class": "distractor_heavy",
+      "supporting_docs": ["doc-02", "doc-06", "doc-08"],
+      "gold_facts": ["<10ms edge latency", "AWS Outposts mentioned", "Azure Edge Zones not mentioned"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "R01",
+      "query": "Provide a comprehensive analysis of Meridian's technology portfolio including cloud, manufacturing, research, and security capabilities, their interdependencies, and competitive positioning.",
+      "class": "hard_complex_research",
+      "supporting_docs": ["doc-01", "doc-02", "doc-03", "doc-04", "doc-06"],
+      "gold_facts": ["4 business segments", "MeridianOS", "SensorNet", "Project Catalyst", "Vertical integration"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "R02",
+      "query": "Evaluate Meridian's complete financial health including revenue trends, profitability, investment allocation, and shareholder returns across all business segments.",
+      "class": "hard_complex_research",
+      "supporting_docs": ["doc-01", "doc-05", "doc-06"],
+      "gold_facts": ["$47.2B revenue", "22.4% operating margin", "$4.2B R&D", "24.3% total shareholder return"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "R03",
+      "query": "Assess Meridian's complete supply chain resilience including supplier dependencies, manufacturing capacity, logistics networks, and risk mitigation strategies.",
+      "class": "hard_complex_research",
+      "supporting_docs": ["doc-03", "doc-05", "doc-06"],
+      "gold_facts": ["12 manufacturing plants", "6 distribution centers", "Dual sourcing", "90-day buffer inventory"],
+      "difficulty": "hard"
+    },
+    {
+      "id": "R04",
+      "query": "Analyze Meridian's competitive strategy across cloud infrastructure, enterprise software, and manufacturing IoT markets, including pricing, partnerships, and technological differentiation.",
+      "class": "hard_complex_research",
+      "supporting_docs": ["doc-02", "doc-05", "doc-06", "doc-08"],
+      "gold_facts": ["5.8% cloud market share", "Vertical integration", "MeridianOS differentiation", "Competitive pricing"],
+      "difficulty": "hard"
+    }
+  ]
+}

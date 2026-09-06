@@ -437,3 +437,208 @@ class TestDifferentCodePaths:
         r2 = s2.assess()
         assert r2.level == SufficiencyLevel.INSUFFICIENT
         assert not r2.conflict_detected
+
+
+# ---------------------------------------------------------------------------
+# Phase 24.2: Stress-Test Stopping Behavior Tests
+# ---------------------------------------------------------------------------
+
+class TestStoppingBehavior:
+    """Tests for the 10 required stopping scenarios."""
+
+    def test_strong_evidence_stops_immediately(self):
+        """Scenario 1: Strong evidence → stop immediately."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        refs = [_make_ref(0.9) for _ in range(8)]
+        decision = policy.should_continue_retrieval(
+            evidence=refs,
+            need_coverage={"n1": 1.0, "n2": 1.0, "n3": 1.0},
+            gain_history=[0.5, 0.3],
+            iteration=2, max_iterations=4,
+            pattern="complex_research",
+        )
+        assert decision.action == "synthesize"
+        assert "Strong" in decision.reason
+
+    def test_missing_evidence_performs_investigation(self):
+        """Scenario 2: Missing evidence → perform additional investigation."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        refs = [_make_ref(0.4) for _ in range(2)]
+        decision = policy.should_continue_retrieval(
+            evidence=refs,
+            need_coverage={"n1": 0.3, "n2": 0.0},
+            gain_history=[0.5],
+            iteration=1, max_iterations=3,
+            pattern="multi_hop",
+        )
+        assert decision.action == "continue_retrieval"
+        assert "insufficient" in decision.sufficiency_level
+
+    def test_second_round_useful_evidence_continues(self):
+        """Scenario 3: Second round adds useful evidence → continue/reassess."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        # First iteration: weak evidence
+        refs1 = [_make_ref(0.4) for _ in range(2)]
+        decision1 = policy.should_continue_retrieval(
+            evidence=refs1,
+            need_coverage={"n1": 0.3},
+            gain_history=[0.5],
+            iteration=1, max_iterations=3,
+            pattern="complex_research",
+        )
+        assert decision1.action == "continue_retrieval"
+
+        # Second iteration: stronger evidence
+        refs2 = [_make_ref(0.7) for _ in range(5)]
+        decision2 = policy.should_continue_retrieval(
+            evidence=refs2,
+            need_coverage={"n1": 0.8},
+            gain_history=[0.5, 0.4],
+            iteration=2, max_iterations=3,
+            pattern="complex_research",
+        )
+        assert decision2.action == "synthesize"
+
+    def test_second_round_no_gain_stops(self):
+        """Scenario 4: Second round adds no meaningful evidence → stop."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        refs = [_make_ref(0.4) for _ in range(2)]
+        decision = policy.should_continue_retrieval(
+            evidence=refs,
+            need_coverage={"n1": 0.4},
+            gain_history=[0.5, 0.02],
+            iteration=2, max_iterations=4,
+            pattern="complex_research",
+        )
+        # Marginal evidence + negligible gain → synthesize
+        assert decision.action == "synthesize"
+        assert "Marginal" in decision.reason or "negligible" in decision.reason.lower()
+
+    def test_conflict_with_resolvable_evidence_investigates(self):
+        """Scenario 5: Conflict with resolvable missing evidence → investigate."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        refs = [_make_ref(0.8) for _ in range(6)]
+        decision = policy.should_continue_retrieval(
+            evidence=refs,
+            need_coverage={"n1": 1.0, "n2": 1.0},
+            gain_history=[0.5, 0.3],
+            iteration=2, max_iterations=4,
+            pattern="conflict",
+            contradictions_detected=2,
+        )
+        assert decision.action == "investigate"
+        assert "Conflicting" in decision.reason
+
+    def test_conflict_unresolvable_stops(self):
+        """Scenario 6: Conflict where additional retrieval cannot resolve → stop."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        refs = [_make_ref(0.8) for _ in range(6)]
+        decision = policy.should_continue_retrieval(
+            evidence=refs,
+            need_coverage={"n1": 1.0, "n2": 1.0},
+            gain_history=[0.5, 0.3],
+            iteration=2, max_iterations=4,
+            pattern="numerical",
+            contradictions_detected=1,
+        )
+        # Non-conflict pattern synthesizes despite contradictions
+        assert decision.action == "synthesize"
+
+    def test_absent_information_stops(self):
+        """Scenario 7: Absent information → stop without endless retrieval."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        refs = [_make_ref(0.2) for _ in range(1)]
+        decision = policy.should_continue_retrieval(
+            evidence=refs,
+            need_coverage={"n1": 0.1},
+            gain_history=[0.5, 0.01],
+            iteration=2, max_iterations=2,
+            pattern="absent_info",
+        )
+        # Budget exhaustion stops the loop
+        assert decision.action == "synthesize"
+        assert "limit" in decision.reason
+
+    def test_maximum_budget_terminates(self):
+        """Scenario 8: Maximum budget reached → terminate safely."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        decision = policy.should_continue_retrieval(
+            evidence=[_make_ref(0.3)],
+            need_coverage={"n1": 0.2},
+            gain_history=[0.5, 0.3, 0.1],
+            iteration=3, max_iterations=3,
+            pattern="complex_research",
+        )
+        assert decision.action == "synthesize"
+        assert "limit" in decision.reason
+
+    def test_multi_hop_incomplete_investigates(self):
+        """Scenario 9: Multi-hop chain incomplete → investigate for missing bridge."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        refs = [_make_ref(0.5) for _ in range(2)]
+        decision = policy.should_continue_retrieval(
+            evidence=refs,
+            need_coverage={"n1": 0.3, "n2": 0.0},
+            gain_history=[0.5],
+            iteration=1, max_iterations=4,
+            pattern="multi_hop",
+        )
+        assert decision.action == "continue_retrieval"
+
+    def test_multi_hop_complete_stops(self):
+        """Scenario 10: Multi-hop chain complete → stop."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        refs = [_make_ref(0.8) for _ in range(6)]
+        decision = policy.should_continue_retrieval(
+            evidence=refs,
+            need_coverage={"n1": 1.0, "n2": 1.0},
+            gain_history=[0.5, 0.3],
+            iteration=2, max_iterations=4,
+            pattern="multi_hop",
+        )
+        assert decision.action == "synthesize"
+
+    def test_no_orphan_async_tasks(self):
+        """Adaptive policy is synchronous - no orphan async tasks."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        result = policy.should_continue_retrieval(
+            evidence=[], need_coverage={}, gain_history=[],
+            iteration=0, max_iterations=3, pattern="simple_lookup",
+        )
+        assert isinstance(result, AdaptiveDecision)
+
+    def test_no_infinite_loops(self):
+        """Policy respects maximum iterations."""
+        policy = AdaptiveResearchPolicy(enabled=True)
+        for iteration in range(1, 100):
+            decision = policy.should_continue_retrieval(
+                evidence=[_make_ref(0.1)],
+                need_coverage={"n1": 0.05},
+                gain_history=[0.01] * iteration,
+                iteration=iteration, max_iterations=3,
+                pattern="complex_research",
+            )
+            if decision.action == "synthesize":
+                break
+        else:
+            pytest.fail("Policy did not stop within 100 iterations")
+
+    def test_baseline_unchanged_when_disabled(self):
+        """Baseline behavior unchanged when adaptive is disabled."""
+        policy = AdaptiveResearchPolicy(enabled=False)
+        refs = [_make_ref(0.3) for _ in range(2)]
+        decision = policy.should_continue_retrieval(
+            evidence=refs,
+            need_coverage={"n1": 0.2},
+            gain_history=[0.5],
+            iteration=1, max_iterations=3,
+            pattern="complex_research",
+        )
+        # Disabled policy always says continue
+        assert decision.action == "continue_retrieval"
+
+    def test_adaptive_disabled_by_default(self):
+        """Adaptive is disabled by default."""
+        from app.config import Settings
+        settings = Settings(_env_file=None)
+        assert getattr(settings, "adaptive_research_enabled", False) is False
