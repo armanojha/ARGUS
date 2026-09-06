@@ -289,6 +289,16 @@ class Settings(BaseSettings):
         description="Max additional retrieval cycles (MVP: 1).",
     )
 
+    # --- Two-Pass Verified Synthesis (Phase 29) ---
+    verified_synthesis_enabled: bool = Field(
+        default=False,
+        description="When True, synthesis uses a two-pass approach: "
+        "Pass 1 generates structured claims tied to evidence, "
+        "deterministic verification filters unsupported claims, "
+        "Pass 2 renders only verified claims into the final answer. "
+        "Default False until benchmark validation is complete.",
+    )
+
     # --- Obsidian Ingestion (Phase 05) ---
     obsidian_enabled: bool = Field(
         default=False,

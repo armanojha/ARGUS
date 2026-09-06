@@ -47,6 +47,7 @@ from app.orchestration.models import (
     StopReason,
 )
 from app.orchestration.nodes import (
+    check_claim_grounding,
     extract_cited_indices,
     make_analyze_node,
     make_assess_node,
@@ -237,6 +238,49 @@ def build_graph(
         workflow.add_node("debate", partial(_debate_node, agent_coordinator=agent_coordinator))  # type: ignore
     workflow.add_node("synthesize", make_synthesize_node(router, settings, evidence_selector=evidence_selector))  # type: ignore
 
+    # Phase 29: Two-pass verified synthesis (feature-flagged, default off)
+    verified_synthesis_enabled = getattr(settings, "verified_synthesis_enabled", False)
+    if verified_synthesis_enabled:
+        from app.orchestration.two_pass_synthesis import two_pass_synthesize
+
+        async def _verified_synthesize_node(state: OrchestrationState) -> dict:
+            plan = state["plan"]
+            if plan is None:
+                return {}
+            evidence = state["evidence"]
+            warnings = list(state["warnings"])
+
+            if not evidence:
+                answer = (
+                    "No supporting evidence was retrieved for this question. "
+                    "I can't produce a cited answer without evidence to draw on."
+                )
+                return {"answer": answer, "warnings": warnings}
+
+            evidence_for_llm = evidence
+            if evidence_selector:
+                evidence_for_llm = evidence_selector.select(evidence)
+
+            contradiction_signals = state.get("contradiction_signals") or []
+            answer, synth_warnings, claim_set = await two_pass_synthesize(
+                plan,
+                evidence_for_llm,
+                router=router,
+                settings=settings,
+                request_id=state["request_id"],
+                contradiction_signals=contradiction_signals,
+            )
+            warnings.extend(synth_warnings)
+
+            # Deterministic claim grounding check
+            grounding_warnings = check_claim_grounding(answer, len(evidence_for_llm))
+            warnings.extend(grounding_warnings)
+
+            return {"answer": answer, "warnings": warnings}
+
+        workflow.add_node("verified_synthesize", _verified_synthesize_node)  # type: ignore
+        logger.info("verified_synthesis_enabled", request_id=None)
+
     workflow.add_conditional_edges(
         START,
         _route_entry,
@@ -249,10 +293,11 @@ def build_graph(
     else:
         workflow.add_edge("plan", "retrieve")
     # Fast-path queries skip the assess/stop_check loop entirely.
+    synthesize_target = "verified_synthesize" if verified_synthesis_enabled else "synthesize"
     workflow.add_conditional_edges(
         "retrieve",
         _route_after_retrieve,
-        {"assess": "assess", "synthesize": "synthesize"},
+        {"assess": "assess", "synthesize": synthesize_target},
     )
     workflow.add_edge("assess", "stop_check")
 
@@ -270,15 +315,15 @@ def build_graph(
 
     if agent_coordinator is not None:
         workflow.add_conditional_edges(
-            "stop_check", _route_after_stop_check, {"retrieve": "retrieve", "synthesize": "synthesize", "debate": "debate"}
+            "stop_check", _route_after_stop_check, {"retrieve": "retrieve", synthesize_target: synthesize_target, "debate": "debate"}
         )
-        workflow.add_edge("debate", "synthesize")
+        workflow.add_edge("debate", synthesize_target)
     else:
         workflow.add_conditional_edges(
-            "stop_check", _route_after_assess, {"retrieve": "retrieve", "synthesize": "synthesize"}
+            "stop_check", _route_after_assess, {"retrieve": "retrieve", synthesize_target: synthesize_target}
         )
 
-    workflow.add_edge("synthesize", END)
+    workflow.add_edge(synthesize_target, END)
 
     return workflow.compile()
 
