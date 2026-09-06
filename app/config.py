@@ -356,6 +356,11 @@ class Settings(BaseSettings):
         default=0.4,
         description="Top retrieved score below this flags an evidence-quality gap.",
     )
+    adaptive_research_enabled: bool = Field(
+        default=False,
+        description="Whether adaptive research orchestration (Phase 24) is enabled. "
+        "When False (default), the existing assess-node loop behavior is unchanged.",
+    )
 
     # --- Multi-Model Fabric (Phase 07) ---
     multimodel_enabled: bool = Field(
