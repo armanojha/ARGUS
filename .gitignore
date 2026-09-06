@@ -66,3 +66,13 @@ data/graph/*.pkl
 
 # User data (large binary documents)
 knowledge_base/*.pdf
+
+# Diagnostic/temporary scripts in benchmarks
+benchmarks/check_*.py
+benchmarks/diagnose_*.py
+benchmarks/examine_*.py
+benchmarks/forensics.py
+benchmarks/analyze_failures.py
+benchmarks/ablation_benchmark.py
+benchmarks/analyze_ablation.py
+benchmarks/latency_breakdown.py
