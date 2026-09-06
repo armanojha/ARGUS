@@ -97,8 +97,13 @@ call_types:
       - "zen/nemotron-3-ultra-free"
 
   synthesis:
-    primary: "groq/openai/gpt-oss-120b"
+    # NVIDIA NIM promoted to primary: 1M context window means synthesis can
+    # see ALL evidence at once (not just top-20 chunks). Nemotron 3 Ultra 550B
+    # with reasoning modes produces better-grounded answers. NIM is synthesis-only
+    # because it does NOT support response_format (structured output).
+    primary: "nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b"
     fallbacks:
+      - "groq/openai/gpt-oss-120b"
       - "gemini/gemini-3.5-flash-lite"
       - "cerebras/gpt-oss-120b"
       - "zai/glm-4.5-flash"
@@ -125,6 +130,7 @@ provider_fallbacks:
   - "gemini"
   - "cerebras"
   - "zai"
+  - "nvidia_nim"
   - "zen"
 
 # Quota tracking configuration (deterministic, configuration-driven)

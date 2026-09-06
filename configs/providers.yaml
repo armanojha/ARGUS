@@ -94,3 +94,21 @@ providers:
     timeout: 30.0
     max_retries: 2
     notes: "Z.ai (Zhipu AI) free GLM models. Verified 2026-09-06 via live API: glm-4.5-flash is free with tool calling + structured output (~5.5s avg). glm-4.6v-flash is free vision model (no tool calling, ~4.9s avg). glm-4.7-flash free but aggressive rate limits (~33s under load). Key from https://z.ai."
+
+  - name: nvidia_nim
+    enabled: true
+    api_key_env: NVIDIA_NIM_API_KEY
+    protocol: "openai-compatible"
+    base_url: "https://integrate.api.nvidia.com"
+    default_model: "nvidia/nemotron-3-ultra-550b-a55b"
+    fallback_models: ["nvidia/nemotron-3-super-120b-a12b"]
+    roles: [synthesis, general]
+    capabilities:
+      structured_output: false  # NIM does NOT support response_format
+      tool_calling: true
+      streaming: false
+      max_context_tokens: 1000000
+      max_output_tokens: 32768
+    timeout: 60.0
+    max_retries: 2
+    notes: "NVIDIA NIM free tier: 46+ models, no credit card. 1M context on Nemotron 3 Ultra. CRITICAL: no response_format support — synthesis-only (free text). Verified 2026-09-06. Key from https://build.nvidia.com."

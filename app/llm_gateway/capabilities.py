@@ -207,12 +207,39 @@ ZEN_CAPABILITIES = ProviderCapabilities(
     preferred_call_types=["query_analysis", "research_planning", "reasoning", "synthesis", "verification"],
 )
 
+ZAI_CAPABILITIES = ProviderCapabilities(
+    structured_output=True,
+    tool_calling=True,
+    streaming=False,
+    vision=False,
+    max_context_tokens=128_000,
+    max_output_tokens=4_096,
+    supports_parallel_tools=False,
+    requires_tool_choice_auto=False,
+    cost_per_1k_input_tokens=0.0,
+    cost_per_1k_output_tokens=0.0,
+    quota_remaining=None,
+    quota_reset_seconds=None,
+    supported_call_types=[
+        "general",
+        "query_analysis",
+        "research_planning",
+        "evidence_extraction",
+        "reasoning",
+        "synthesis",
+        "verification",
+        "revision",
+    ],
+    preferred_call_types=["verification", "revision", "evidence_extraction"],
+)
+
 # Capability registry for Phase 07 router
 CAPABILITY_REGISTRY: dict[str, ProviderCapabilities] = {
     "groq": GROQ_CAPABILITIES,
     "gemini": GEMINI_CAPABILITIES,
     "cerebras": CEREBRAS_CAPABILITIES,
     "zen": ZEN_CAPABILITIES,
+    "zai": ZAI_CAPABILITIES,
 }
 
 

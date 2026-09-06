@@ -65,7 +65,7 @@ def test_providers_config_loads_all_providers():
     data = load_providers_config(settings)
     assert isinstance(data, dict)
     providers = data.get("providers", [])
-    assert len(providers) == 4
+    assert len(providers) == 6
     
     # Check Groq
     groq = next(p for p in providers if p["name"] == "groq")
@@ -102,6 +102,21 @@ def test_providers_config_loads_all_providers():
     assert zen["fallback_models"] == ["big-pickle", "nemotron-3.5-lightning-free", "mimo-v2.5-free"]
     assert zen["capabilities"]["structured_output"] is True
     assert zen["capabilities"]["tool_calling"] is True
+
+    # Check Z.ai (Phase 21)
+    zai = next(p for p in providers if p["name"] == "zai")
+    assert zai["enabled"] is True
+    assert zai["api_key_env"] == "ZAI_API_KEY"
+    assert zai["base_url"] == "https://api.z.ai/api/paas/v4"
+    assert zai["default_model"] == "glm-4.5-flash"
+    assert zai["capabilities"]["structured_output"] is True
+    assert zai["capabilities"]["tool_calling"] is True
+
+    # Check NVIDIA NIM
+    nvidia = next(p for p in providers if p["name"] == "nvidia_nim")
+    assert nvidia["enabled"] is True
+    assert nvidia["base_url"] == "https://integrate.api.nvidia.com"
+    assert nvidia["default_model"] == "nvidia/nemotron-3-ultra-550b-a55b"
 
 
 def test_obsidian_config_loads_with_expected_fields():

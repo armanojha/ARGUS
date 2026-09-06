@@ -21,8 +21,11 @@ the `ZAI_API_KEY` environment variable (`api_key_env` in configs/providers.yaml)
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.llm_gateway.capabilities import ProviderCapabilities
 from app.llm_gateway.providers import register_provider
+from app.llm_gateway.providers.models import CompletionResponse, Usage
 from app.llm_gateway.providers.openai_compatible import OpenAICompatibleProvider
 
 ZAI_BASE_URL = "https://api.z.ai/api/paas/v4"
@@ -30,7 +33,13 @@ ZAI_DEFAULT_MODEL = "glm-4.5-flash"
 
 
 class ZAIProvider(OpenAICompatibleProvider):
-    """Z.ai (Zhipu AI): OpenAI-compatible API with GLM models."""
+    """Z.ai (Zhipu AI): OpenAI-compatible API with GLM models.
+
+    Overrides _parse_response to handle GLM-4.5-Flash's chain-of-thought
+    behavior: the model often returns empty ``content`` with reasoning in
+    ``reasoning_content``. When content is empty, we fall back to
+    ``reasoning_content`` so downstream consumers get actual text.
+    """
 
     def __init__(
         self,
@@ -54,10 +63,26 @@ class ZAIProvider(OpenAICompatibleProvider):
                 max_context_tokens=128_000,
                 max_output_tokens=4_096,
             ),
-            timeout=timeout,
+            timeout=max(timeout, 60.0),  # Z.ai can be slow (5-15s)
             max_retries=max_retries,
-            attempt_ceiling_s=attempt_ceiling_s,
+            attempt_ceiling_s=max(attempt_ceiling_s, 20.0),
         )
+
+    def _parse_response(
+        self,
+        data: dict[str, Any],
+        model: str,
+        headers: dict[str, str] | None = None,
+    ) -> CompletionResponse:
+        """Handle GLM CoT: if content is empty but reasoning_content exists, use it."""
+        result = super()._parse_response(data, model, headers)
+        if not result.content:
+            choice = data.get("choices", [{}])[0]
+            msg = choice.get("message", {})
+            reasoning = msg.get("reasoning_content", "")
+            if reasoning:
+                result = result.model_copy(update={"content": reasoning})
+        return result
 
 
 register_provider("zai", ZAIProvider)

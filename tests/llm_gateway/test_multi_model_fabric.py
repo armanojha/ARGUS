@@ -52,6 +52,7 @@ def mock_providers():
         "gemini": MockProvider(name="gemini", default_model="gemini-3.5-flash-lite"),
         "cerebras": MockProvider(name="cerebras", default_model="gpt-oss-120b"),
         "zen": MockProvider(name="zen", default_model="nemotron-3-ultra-free"),
+        "zai": MockProvider(name="zai", default_model="glm-4.5-flash"),
     }
 
 
@@ -432,14 +433,14 @@ class TestMultiModelRouter:
     @pytest.mark.asyncio
     async def test_cross_model_verification_preferred_order(self, router):
         """Verifier should prefer configured providers."""
-        # With synthesizer=groq, prefer zen then gemini then cerebras
+        # With synthesizer=groq, prefer zai then zen then gemini then cerebras
         response = await router.complete_for_verification(
             [Message(role=MessageRole.USER, content="Verify this")],
             synthesizer_provider="groq",
             synthesizer_model="openai/gpt-oss-120b",
         )
-        # Preferred verifiers: zen, gemini, groq, cerebras - groq excluded, so zen
-        assert response.provider == "zen"
+        # Preferred verifiers: zai, zen, gemini, groq, cerebras - groq excluded, so zai
+        assert response.provider == "zai"
 
 
 class TestTelemetry:
@@ -796,6 +797,7 @@ class TestCapabilities:
         assert "gemini" in CAPABILITY_REGISTRY
         assert "cerebras" in CAPABILITY_REGISTRY
         assert "zen" in CAPABILITY_REGISTRY
+        assert "zai" in CAPABILITY_REGISTRY
 
     def test_capabilities_have_phase07_fields(self):
         from app.llm_gateway.capabilities import CAPABILITY_REGISTRY
