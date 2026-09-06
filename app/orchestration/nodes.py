@@ -22,6 +22,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 from uuid import UUID
 
+import numpy as np
 from pydantic import BaseModel, ValidationError
 
 from app.config import Settings
@@ -202,6 +203,60 @@ def _merge_evidence(existing: list[EvidenceRef], new: list[EvidenceRef]) -> tupl
     return merged, new_count
 
 
+def _coverage_deduplicate(
+    evidence: list[EvidenceRef],
+    vector_store: Any,
+    threshold: float,
+) -> list[EvidenceRef]:
+    """Remove near-duplicate evidence chunks to maximize coverage of distinct claims.
+
+    Uses cosine similarity between chunk embeddings. Chunks with similarity
+    above ``threshold`` to an already-selected chunk are dropped (keeping the
+    higher-scored one). This ensures the LLM sees diverse evidence instead of
+    redundant copies of the same information.
+
+    Falls back to returning the original list if embeddings are unavailable.
+    """
+    if not evidence or threshold <= 0:
+        return evidence
+
+    # Gather embeddings for all evidence chunks
+    embeddings: list[np.ndarray | None] = []
+    for ref in evidence:
+        emb = vector_store.get_embedding(ref.chunk_id)
+        embeddings.append(emb)
+
+    # If any chunks lack embeddings, fall back to no dedup
+    if any(e is None for e in embeddings):
+        return evidence
+
+    selected: list[int] = []  # indices into evidence
+    selected_embs: list[np.ndarray] = []
+
+    for i, emb in enumerate(embeddings):
+        is_duplicate = False
+        for sel_emb in selected_embs:
+            # Cosine similarity (embeddings are already L2-normalized by FAISS)
+            sim = float(np.dot(emb, sel_emb))
+            if sim >= threshold:
+                is_duplicate = True
+                break
+        if not is_duplicate:
+            selected.append(i)
+            selected_embs.append(emb)
+
+    dropped = len(evidence) - len(selected)
+    if dropped:
+        logger.info(
+            "evidence_coverage_dedup",
+            dropped=dropped,
+            kept=len(selected),
+            threshold=threshold,
+        )
+
+    return [evidence[i] for i in selected]
+
+
 def make_retrieve_node(
     retriever: HybridRetriever,
     reranker: Reranker | NoOpReranker,
@@ -242,6 +297,14 @@ def make_retrieve_node(
             results = []
 
         merged_evidence, new_count = _merge_evidence(state["evidence"], results)
+
+        # Evidence coverage: drop near-duplicate chunks to maximize diversity
+        threshold = settings.evidence_coverage_similarity_threshold
+        if threshold > 0 and len(merged_evidence) > 1:
+            merged_evidence = _coverage_deduplicate(
+                merged_evidence, retriever.vector, threshold
+            )
+
         issued = list(state["issued_subqueries"]) + [subquery]
 
         tokens_used = state["tokens_used"] + sum(_estimate_tokens(r.text) for r in results)

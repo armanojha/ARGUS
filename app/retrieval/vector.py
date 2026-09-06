@@ -127,6 +127,18 @@ class FAISSVectorStore:
 
         return results
 
+    def get_embedding(self, chunk_id: UUID) -> np.ndarray | None:
+        """Return the embedding vector for a chunk, or None if not indexed."""
+        if self._index is None and not self.load_index():
+            return None
+        if self._index is None:
+            return None
+        try:
+            idx = self._chunk_ids.index(str(chunk_id))
+            return self._index.reconstruct(idx)
+        except (ValueError, RuntimeError):
+            return None
+
     def get_stats(self) -> dict:
         """Get index statistics."""
         return {

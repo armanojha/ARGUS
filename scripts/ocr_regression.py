@@ -46,7 +46,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
-PAGE_W, PAGE_H = 1240, 1754  # ~ letter at 150 dpi
+PAGE_W, PAGE_H = 620, 877  # letter at 75 dpi (halved to reduce test memory)
 
 
 # ---------------------------------------------------------------------------

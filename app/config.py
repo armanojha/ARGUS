@@ -223,6 +223,11 @@ class Settings(BaseSettings):
         default=120,
         description="Overall deadline (seconds) for a single end-to-end ARGUS run_query invocation.",
     )
+    evidence_coverage_similarity_threshold: float = Field(
+        default=0.85,
+        description="Cosine similarity threshold above which two evidence chunks are considered "
+        "near-duplicates and the less-scored one is dropped. 0 disables coverage dedup.",
+    )
 
     # --- Evidence Graph (Phase 03) ---
     graph_path: Path = Field(

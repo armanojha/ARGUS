@@ -497,7 +497,14 @@ def _pdf_page_to_image(page, dpi: int = 300) -> Image.Image:
     # pdfplumber page objects can be rendered to images
     # Use the page's to_image method with specified resolution
     im = page.to_image(resolution=dpi)
-    return im.original
+    img = im.original
+    # Cap longest side to prevent OOM on large pages (~25 MB at 300 DPI)
+    max_side = 2000
+    w, h = img.size
+    if max(w, h) > max_side:
+        ratio = max_side / max(w, h)
+        img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+    return img
 
 
 def _run_tesseract_ocr(image: Image.Image, languages: list[str]) -> tuple[str, float | None]:

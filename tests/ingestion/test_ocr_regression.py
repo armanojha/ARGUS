@@ -7,6 +7,7 @@ import importlib
 from pathlib import Path
 
 import pymupdf
+import pytest
 
 
 def _load_module():
@@ -24,6 +25,14 @@ def _hack_page_hash(pdf: Path) -> str:
 
 
 class TestCorpus:
+    @pytest.fixture(autouse=True, scope="class")
+    def _shared_corpus(self, tmp_path_factory):
+        """Build corpus once per test class to avoid redundant memory usage."""
+        mod = _load_module()
+        work = tmp_path_factory.mktemp("ocr_corpus")
+        docs = mod.build_corpus(work)
+        return work, docs
+
     def test_builds_nine_docs_deterministically(self, tmp_path: Path):
         mod = _load_module()
         c1 = mod.build_corpus(Path(tmp_path))
@@ -38,19 +47,17 @@ class TestCorpus:
         hashes2 = {d.name: _hack_page_hash(some_dir / f"{d.name}.pdf") for d in c2}
         assert hashes == hashes2
 
-    def test_text_layer_doc_has_extractable_text(self, tmp_path: Path):
-        mod = _load_module()
-        mod.build_corpus(Path(tmp_path))
-        pdf = Path(tmp_path) / "pngs" / "normal.pdf"
+    def test_text_layer_doc_has_extractable_text(self, _shared_corpus):
+        work, _ = _shared_corpus
+        pdf = work / "pngs" / "normal.pdf"
         with pymupdf.open(str(pdf)) as doc:
             assert len(doc) == 1
             text = doc[0].get_text()
         assert "ARGUS normal page line" in text
 
-    def test_scanned_doc_has_no_text_layer(self, tmp_path: Path):
-        mod = _load_module()
-        mod.build_corpus(Path(tmp_path))
-        pdf = Path(tmp_path) / "pngs" / "scanned.pdf"
+    def test_scanned_doc_has_no_text_layer(self, _shared_corpus):
+        work, _ = _shared_corpus
+        pdf = work / "pngs" / "scanned.pdf"
         with pymupdf.open(str(pdf)) as doc:
             text = doc[0].get_text()
         assert text.strip() == ""
