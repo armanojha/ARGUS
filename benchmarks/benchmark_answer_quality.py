@@ -172,7 +172,7 @@ def evaluate_questions_v1() -> dict[str, Any]:
 
         # Evaluate
         start = time.perf_counter()
-        result = evaluate_answer(gold_answer, citations, gold_facts=gold_facts)
+        result = evaluate_answer(answer, citations, gold_facts=gold_facts)
         latency_ms = (time.perf_counter() - start) * 1000
 
         item_result = {

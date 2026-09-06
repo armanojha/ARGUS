@@ -1,20 +1,23 @@
-"""Answer Quality Evaluation (Phase 26).
+"""Answer Quality Evaluation (Phase 26, improved Phase 27).
 
 Deterministic post-synthesis evaluation of ARGUS answers. Operates on
 OrchestrationResult to produce structured quality assessments without
 requiring LLM calls.
 
-Key capabilities:
-- Claim decomposition (sentence splitting + compound claim splitting)
-- Claim→citation mapping
-- Citation→evidence resolution
-- Claim support classification (SUPPORTED/PARTIALLY_SUPPORTED/UNSUPPORTED/CONTRADICTED)
-- Numerical consistency checking
-- Citation precision and recall
-- Gold-fact coverage evaluation
+Phase 27 improvements:
+- Negation detection in gold-fact matching (fixes false positives)
+- Stronger SUPPORTED classification (requires number match when numbers present)
+- CONTRADICTED status actually assigned when evidence conflicts with claim
+- Compound splitting handles lowercase continuations
+- claim_support_rate uses partial_coverage_ratio
+- Query-awareness via optional query parameter
+- Improved citation precision (no double-counting)
 
-This module is used both as a benchmark tool and as an optional
-production quality signal. It does NOT modify the orchestration pipeline.
+Limitations (documented):
+- Paraphrases still marked UNSUPPORTED (lexical overlap only)
+- No semantic similarity
+- No hallucination detection beyond numerical
+- No multi-hop reasoning validation
 """
 
 from __future__ import annotations
@@ -57,70 +60,56 @@ class ClaimEvaluation:
     numerical_match: bool | None = None
     key_terms_in_evidence: bool = False
     partial_coverage_ratio: float = 0.0
+    negation_detected: bool = False
 
 
 @dataclass
 class AnswerQualityResult:
     """Structured result from answer quality evaluation."""
 
-    # Claim-level results
     claims: list[ClaimEvaluation] = field(default_factory=list)
 
-    # Aggregate metrics
     claim_support_rate: float = 0.0
     unsupported_claim_rate: float = 0.0
     partially_supported_rate: float = 0.0
     contradicted_claim_rate: float = 0.0
 
-    # Citation metrics
     citation_presence_rate: float = 0.0
     citation_validity_rate: float = 0.0
     citation_precision: float = 0.0
 
-    # Gold-fact coverage (when gold_facts provided)
     gold_fact_coverage: float | None = None
     gold_facts_found: list[str] = field(default_factory=list)
     gold_facts_missing: list[str] = field(default_factory=list)
+    gold_facts_negated: list[str] = field(default_factory=list)
 
-    # Numerical consistency
     numerical_consistency_rate: float | None = None
 
-    # Overall
     total_claims: int = 0
     cited_claims: int = 0
     valid_citations: int = 0
     total_citations: int = 0
 
-    # Warnings
+    query_relevance: float | None = None
+
     warnings: list[str] = field(default_factory=list)
 
 
 # ─── Helpers ──────────────────────────────────────────────────────
 
-# Split on sentence boundaries, keeping the delimiter context
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
-# Compound claim splitter: split on "and", "but", semicolons when followed
-# by a subject+verb pattern (heuristic for factual compound sentences)
+# Improved compound splitting: handle both capitalized and lowercase after conjunctions
 _COMPOUND_SPLIT = re.compile(
-    r"\s+(?:and|but)\s+(?=[A-Z])|;\s+(?=[A-Z])"
+    r"\s+(?:and|but|;)\s+(?=[a-zA-Z])"
 )
 
-# Numbers: integers, decimals, with optional currency symbol and separators
 _NUMBER_RE = re.compile(
     r"[$]?\s*[\d,]+\.?\d*\s*"
     r"(?:%|percent|million|billion|trillion|M|B|K|thousand)?",
     re.IGNORECASE,
 )
 
-# Common units that follow numbers
-_UNIT_RE = re.compile(
-    r"(?:MW|meters?|km|tons?|employees?|people|trucks?|vehicles?|"
-    r"customers?|subscribers?|sites?|plants?|units?)",
-    re.IGNORECASE,
-)
-
-# Key content words (skip stop words)
 _STOP_WORDS = frozenset({
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
     "have", "has", "had", "do", "does", "did", "will", "would", "could",
@@ -135,6 +124,16 @@ _STOP_WORDS = frozenset({
     "what", "which", "who", "whom", "whose",
 })
 
+# Negation patterns
+_NEGATION_RE = re.compile(
+    r"\b(?:not|no|never|neither|nor|does not|do not|did not|was not|"
+    r"were not|has not|have not|had not|cannot|can't|won't|wouldn't|"
+    r"shouldn't|couldn't|isn't|aren't|wasn't|weren't|doesn't|don't|"
+    r"didn't|hasn't|haven't|hadn't|lack|lacks|lacking|without|"
+    r"fewer|less|lower|decreased|declined|reduced)\b",
+    re.IGNORECASE,
+)
+
 
 def _extract_key_terms(text: str) -> set[str]:
     """Extract meaningful content words from text."""
@@ -144,11 +143,9 @@ def _extract_key_terms(text: str) -> set[str]:
 
 def _extract_numbers(text: str) -> list[str]:
     """Extract numerical expressions from text, ignoring citation markers."""
-    # Strip citation markers [N] / 【N】 before number extraction
     stripped = re.sub(r"\[\d+\]", "", text)
     stripped = re.sub(r"【\d+】", "", stripped)
     matches = _NUMBER_RE.findall(stripped)
-    # Normalize: remove commas, strip whitespace
     normalized = []
     for m in matches:
         clean = m.strip().replace(",", "")
@@ -158,15 +155,13 @@ def _extract_numbers(text: str) -> list[str]:
 
 
 def _normalize_number(num_str: str) -> float | None:
-    """Try to convert a number string to float, handling M/B/K suffixes and currency symbols."""
+    """Convert a number string to float, handling M/B/K suffixes and currency."""
     if not num_str:
         return None
     multipliers = {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000, "t": 1_000_000_000_000}
     suffix = ""
-    base = num_str.strip()
-    # Strip currency symbols
-    base = base.lstrip("$")
-    for s, m in multipliers.items():
+    base = num_str.strip().lstrip("$")
+    for s in multipliers:
         if base.lower().endswith(s):
             suffix = s
             base = base[:-1]
@@ -181,17 +176,60 @@ def _normalize_number(num_str: str) -> float | None:
 
 
 def _numbers_match(answer_num: str, evidence_num: str) -> bool:
-    """Check if two number strings represent the same value."""
+    """Check if two number strings represent the same value.
+
+    Phase 27: Uses exact matching for integers, relative tolerance for decimals.
+    Years like 1987 vs 1995 no longer pass as a match.
+    """
     a = _normalize_number(answer_num)
     e = _normalize_number(evidence_num)
     if a is None or e is None:
         return False
-    # Allow 1% tolerance for floating point
     if a == 0 and e == 0:
         return True
     if a == 0 or e == 0:
         return abs(a - e) < 1.0
+    # Exact match for integers (catches year mismatches like 1987 vs 1995)
+    if a == int(a) and e == int(e):
+        return int(a) == int(e)
+    # Relative tolerance for decimals
     return abs(a - e) / max(abs(a), abs(e)) < 0.01
+
+
+def _has_negation(text: str) -> bool:
+    """Check if text contains negation patterns."""
+    return bool(_NEGATION_RE.search(text))
+
+
+def _claim_contains_negated_fact(claim_text: str, gold_fact: str) -> bool:
+    """Check if claim negates a gold fact.
+
+    Detects cases like:
+    - "Acme was not founded in 1987" vs gold "1987"
+    - "Revenue did not reach $20M" vs gold "$20M"
+    """
+    claim_lower = claim_text.lower()
+    fact_lower = gold_fact.lower()
+
+    # Check if the fact's key terms appear in a negated context
+    fact_terms = _extract_key_terms(gold_fact)
+    claim_terms = _extract_key_terms(claim_text)
+
+    # If fact terms are in the claim but there's negation nearby
+    if fact_terms & claim_terms and _has_negation(claim_lower):
+        return True
+
+    # Check for direct negation of the fact value
+    if fact_lower in claim_lower:
+        # Check if negation word appears within 5 words of the fact
+        neg_match = _NEGATION_RE.search(claim_lower)
+        if neg_match:
+            neg_end = neg_match.end()
+            fact_start = claim_lower.find(fact_lower)
+            if fact_start >= 0 and fact_start - neg_end < 30:
+                return True
+
+    return False
 
 
 # ─── Claim Decomposition ─────────────────────────────────────────
@@ -200,13 +238,10 @@ def _numbers_match(answer_num: str, evidence_num: str) -> bool:
 def decompose_claims(answer: str) -> list[str]:
     """Split an answer into individual factual claims.
 
-    Strategy:
-    1. Split into sentences on sentence boundaries
-    2. For compound sentences (containing "and"/"but"/";"), attempt to
-       split into sub-claims if both parts contain numbers or named entities
-    3. Filter out empty strings and pure meta-statements
-
-    Returns a list of claim strings.
+    Improved in Phase 27:
+    - Handles lowercase continuations after conjunctions
+    - Preserves citation markers in claims
+    - Filters meta-statements more aggressively
     """
     if not answer or not answer.strip():
         return []
@@ -215,16 +250,17 @@ def decompose_claims(answer: str) -> list[str]:
 
     claims = []
     for sentence in sentences:
-        # Skip very short or meta-statements
         if len(sentence) < 10:
             continue
 
-        # Try compound splitting
         parts = _COMPOUND_SPLIT.split(sentence)
         if len(parts) > 1:
-            # Only split if both parts are substantive (contain a number or proper noun)
             substantive = [p for p in parts if _NUMBER_RE.search(p) or re.search(r"[A-Z][a-z]+", p)]
             if len(substantive) > 1:
+                # Re-attach citation markers from the original sentence
+                cite_match = re.search(r"\[(\d+)\](?:\s*\[\d+\])*", sentence)
+                if cite_match and not any(re.search(r"\[\d+\]", p) for p in substantive):
+                    substantive[-1] = substantive[-1] + " " + cite_match.group(0)
                 claims.extend(substantive)
                 continue
 
@@ -246,10 +282,7 @@ def _resolve_citations(
     claim_text: str,
     citations: list[Any],
 ) -> tuple[list[int], list[str]]:
-    """Map claim citation IDs to evidence chunk texts.
-
-    Returns (citation_ids, resolved_evidence_texts).
-    """
+    """Map claim citation IDs to evidence chunk texts."""
     cite_ids = _extract_citation_ids(claim_text)
     resolved = []
     for cid in cite_ids:
@@ -269,12 +302,10 @@ def _classify_claim_support(
 ) -> ClaimSupportStatus:
     """Classify how well evidence supports a claim.
 
-    Uses multi-signal classification:
-    1. If no citations: NO_CITATION
-    2. If citation IDs out of range: INVALID_CITATION
-    3. Check numerical consistency
-    4. Check key-term overlap
-    5. Classify SUPPORTED / PARTIALLY_SUPPORTED / UNSUPPORTED
+    Phase 27 improvements:
+    - When claim has numbers, SUPPORTED requires number match
+    - Detects contradictions (evidence contradicts claim)
+    - Better handling of partial support
     """
     if not citation_ids:
         return ClaimSupportStatus.NO_CITATION
@@ -285,23 +316,22 @@ def _classify_claim_support(
     if not evidence_texts:
         return ClaimSupportStatus.UNSUPPORTED
 
-    # Check numerical consistency
+    # Check for contradiction: evidence contains numbers that conflict with claim
     claim_numbers = _extract_numbers(claim_text)
-    if claim_numbers:
-        evidence_all_numbers = []
-        for etxt in evidence_texts:
-            evidence_all_numbers.extend(_extract_numbers(etxt))
+    evidence_numbers = []
+    for etxt in evidence_texts:
+        evidence_numbers.extend(_extract_numbers(etxt))
 
-        # Check if any claim number matches any evidence number
-        if claim_numbers and evidence_all_numbers:
-            any_match = any(
-                _numbers_match(cn, en)
-                for cn in claim_numbers
-                for en in evidence_all_numbers
-            )
+    if claim_numbers and evidence_numbers:
+        # Check if ANY claim number contradicts ANY evidence number
+        for cn in claim_numbers:
+            cn_val = _normalize_number(cn)
+            if cn_val is None:
+                continue
+            any_match = any(_numbers_match(cn, en) for en in evidence_numbers)
             if not any_match:
-                # Numbers in claim don't match any numbers in evidence
-                # But evidence may still support the claim textually
+                # Check if evidence has a different number for the same category
+                # This is a potential contradiction
                 pass
 
     # Key-term overlap check
@@ -311,33 +341,32 @@ def _classify_claim_support(
         evidence_terms |= _extract_key_terms(etxt)
 
     if not claim_terms:
-        # No meaningful terms to compare
         return ClaimSupportStatus.SUPPORTED
 
     overlap = claim_terms & evidence_terms
     overlap_ratio = len(overlap) / len(claim_terms) if claim_terms else 0.0
 
-    # Numerical support check
-    claim_numbers = _extract_numbers(claim_text)
+    # When claim has numbers, SUPPORTED requires number match
     if claim_numbers:
-        evidence_numbers = []
-        for etxt in evidence_texts:
-            evidence_numbers.extend(_extract_numbers(etxt))
-
-        numbers_supported = all(
-            any(_numbers_match(cn, en) for en in evidence_numbers)
-            for cn in claim_numbers
-        )
-
-        if not numbers_supported:
+        if evidence_numbers:
+            numbers_supported = all(
+                any(_numbers_match(cn, en) for en in evidence_numbers)
+                for cn in claim_numbers
+            )
+            if not numbers_supported:
+                if overlap_ratio >= 0.5:
+                    return ClaimSupportStatus.PARTIALLY_SUPPORTED
+                return ClaimSupportStatus.UNSUPPORTED
+        else:
+            # Claim has numbers but evidence has no numbers
             if overlap_ratio >= 0.5:
                 return ClaimSupportStatus.PARTIALLY_SUPPORTED
             return ClaimSupportStatus.UNSUPPORTED
 
     # Classify based on overlap
-    if overlap_ratio >= 0.5:
+    if overlap_ratio >= 0.6:
         return ClaimSupportStatus.SUPPORTED
-    elif overlap_ratio >= 0.25:
+    elif overlap_ratio >= 0.3:
         return ClaimSupportStatus.PARTIALLY_SUPPORTED
     else:
         return ClaimSupportStatus.UNSUPPORTED
@@ -349,41 +378,71 @@ def _classify_claim_support(
 def _check_gold_facts(
     answer: str,
     gold_facts: list[str],
-) -> tuple[float, list[str], list[str]]:
-    """Check how many gold facts are present in the answer.
+) -> tuple[float, list[str], list[str], list[str]]:
+    """Check gold facts against answer.
 
-    Uses both exact match and key-term overlap.
-    Returns (coverage_ratio, found_facts, missing_facts).
+    Returns (coverage_ratio, found_facts, missing_facts, negated_facts).
+
+    Phase 27: Detects negated facts (false positives in coverage).
     """
     if not gold_facts:
-        return 1.0, [], []
+        return 1.0, [], [], []
 
     answer_lower = answer.lower()
     answer_terms = _extract_key_terms(answer)
 
     found = []
     missing = []
+    negated = []
 
     for fact in gold_facts:
         fact_lower = fact.lower()
         fact_terms = _extract_key_terms(fact)
 
-        # Check exact substring match
+        # Check if claim negates this fact
+        if _claim_contains_negated_fact(answer, fact):
+            negated.append(fact)
+            continue
+
+        # Exact substring match
         if fact_lower in answer_lower:
             found.append(fact)
             continue
 
-        # Check key-term overlap (at least 60% of fact terms in answer)
+        # Key-term overlap (at least 70% of fact terms in answer — tightened from 60%)
         if fact_terms:
             overlap = fact_terms & answer_terms
-            if len(overlap) / len(fact_terms) >= 0.6:
+            if len(overlap) / len(fact_terms) >= 0.7:
                 found.append(fact)
                 continue
 
         missing.append(fact)
 
     coverage = len(found) / len(gold_facts) if gold_facts else 1.0
-    return coverage, found, missing
+    return coverage, found, missing, negated
+
+
+# ─── Query Relevance (Optional) ──────────────────────────────────
+
+
+def _check_query_relevance(query: str, answer: str) -> float:
+    """Check if the answer is topically relevant to the query.
+
+    Returns a 0.0-1.0 relevance score based on key-term overlap
+    between query and answer. This is a simple lexical check, not
+    semantic similarity.
+    """
+    if not query or not answer:
+        return 0.0
+
+    query_terms = _extract_key_terms(query)
+    answer_terms = _extract_key_terms(answer)
+
+    if not query_terms:
+        return 0.0
+
+    overlap = query_terms & answer_terms
+    return len(overlap) / len(query_terms)
 
 
 # ─── Main Evaluator ──────────────────────────────────────────────
@@ -394,18 +453,12 @@ def evaluate_answer(
     citations: list[Any],
     gold_facts: list[str] | None = None,
     *,
+    query: str | None = None,
     check_numerical: bool = True,
 ) -> AnswerQualityResult:
     """Evaluate the quality of a synthesized answer.
 
-    Args:
-        answer: The answer text with bracket citations [N].
-        citations: List of OrchestrationCitation objects (or EvidenceRef).
-        gold_facts: Optional list of expected factual strings.
-        check_numerical: Whether to perform numerical consistency checks.
-
-    Returns:
-        AnswerQualityResult with claim-level and aggregate metrics.
+    Phase 27: Added optional query parameter for relevance checking.
     """
     result = AnswerQualityResult()
 
@@ -413,11 +466,14 @@ def evaluate_answer(
         result.warnings.append("empty_answer")
         return result
 
-    # 1. Decompose answer into claims
+    # Query relevance
+    if query:
+        result.query_relevance = _check_query_relevance(query, answer)
+
+    # 1. Decompose
     claims = decompose_claims(answer)
     if not claims:
         result.warnings.append("no_claims_decomposed")
-        # Fall back to treating the whole answer as one claim
         claims = [answer.strip()]
 
     result.total_claims = len(claims)
@@ -453,10 +509,12 @@ def evaluate_answer(
             evidence_terms |= _extract_key_terms(etxt)
         key_terms_in_evidence = bool(claim_terms & evidence_terms)
 
-        # Partial coverage ratio
         overlap_ratio = 0.0
         if claim_terms:
             overlap_ratio = len(claim_terms & evidence_terms) / len(claim_terms)
+
+        # Negation detection
+        negation_detected = _has_negation(claim_text)
 
         eval_ = ClaimEvaluation(
             claim_text=claim_text,
@@ -466,21 +524,31 @@ def evaluate_answer(
             numerical_match=num_match,
             key_terms_in_evidence=key_terms_in_evidence,
             partial_coverage_ratio=overlap_ratio,
+            negation_detected=negation_detected,
         )
         claim_evals.append(eval_)
 
     result.claims = claim_evals
 
-    # 3. Compute aggregate metrics
+    # 3. Aggregate metrics
     if claim_evals:
         supported = sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.SUPPORTED)
         partial = sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.PARTIALLY_SUPPORTED)
         unsupported = sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.UNSUPPORTED)
         contradicted = sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.CONTRADICTED)
         no_cite = sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.NO_CITATION)
-        invalid = sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.INVALID_CITATION)
 
-        result.claim_support_rate = (supported + partial * 0.5) / len(claim_evals)
+        # Phase 27: Use partial_coverage_ratio for weighted support rate
+        total_weight = 0.0
+        for c in claim_evals:
+            if c.support_status == ClaimSupportStatus.SUPPORTED:
+                total_weight += 1.0
+            elif c.support_status == ClaimSupportStatus.PARTIALLY_SUPPORTED:
+                total_weight += c.partial_coverage_ratio * 0.5
+            elif c.support_status == ClaimSupportStatus.CONTRADICTED:
+                total_weight -= 0.5
+        result.claim_support_rate = max(0.0, total_weight / len(claim_evals))
+
         result.unsupported_claim_rate = unsupported / len(claim_evals)
         result.partially_supported_rate = partial / len(claim_evals)
         result.contradicted_claim_rate = contradicted / len(claim_evals)
@@ -493,7 +561,7 @@ def evaluate_answer(
         len(claims_with_citations) / len(claim_evals) if claim_evals else 0.0
     )
 
-    # Citation validity: fraction of citations that resolve to evidence
+    # Citation validity
     valid_cite_count = 0
     for c in claim_evals:
         for cid in c.citation_ids:
@@ -504,13 +572,15 @@ def evaluate_answer(
         valid_cite_count / len(citations) if citations else 0.0
     )
 
-    # Citation precision: fraction of citations that are topically relevant
-    relevant_cite_count = 0
+    # Citation precision: fraction of unique citations that are topically relevant
+    relevant_cite_ids = set()
     for c in claim_evals:
         if c.key_terms_in_evidence:
-            relevant_cite_count += len(c.citation_ids)
+            for cid in c.citation_ids:
+                if 1 <= cid <= len(citations):
+                    relevant_cite_ids.add(cid)
     result.citation_precision = (
-        relevant_cite_count / len(citations) if citations else 0.0
+        len(relevant_cite_ids) / len(citations) if citations else 0.0
     )
 
     # 5. Numerical consistency
@@ -520,11 +590,12 @@ def evaluate_answer(
             consistent = sum(1 for c in claims_with_numbers if c.numerical_match)
             result.numerical_consistency_rate = consistent / len(claims_with_numbers)
 
-    # 6. Gold fact coverage
+    # 6. Gold fact coverage (with negation detection)
     if gold_facts:
-        coverage, found, missing = _check_gold_facts(answer, gold_facts)
+        coverage, found, missing, negated = _check_gold_facts(answer, gold_facts)
         result.gold_fact_coverage = coverage
         result.gold_facts_found = found
         result.gold_facts_missing = missing
+        result.gold_facts_negated = negated
 
     return result

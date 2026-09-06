@@ -7,7 +7,7 @@
     "avg_citation_presence_rate": 0.8947,
     "avg_citation_validity_rate": 0.7798,
     "avg_unsupported_claim_rate": 0.0,
-    "avg_latency_ms": 0.0664
+    "avg_latency_ms": 0.0603
   },
   "by_class": {
     "simple_lookup": {
@@ -15,70 +15,70 @@
       "avg_claim_support": 1.0,
       "avg_citation_presence": 1.0,
       "avg_gold_coverage": 1.0,
-      "avg_latency_ms": 0.1125
+      "avg_latency_ms": 0.0926
     },
     "normal_qa": {
       "count": 4,
       "avg_claim_support": 1.0,
       "avg_citation_presence": 1.0,
       "avg_gold_coverage": 1.0,
-      "avg_latency_ms": 0.0549
+      "avg_latency_ms": 0.0474
     },
     "technical_explanation": {
       "count": 3,
       "avg_claim_support": 1.0,
       "avg_citation_presence": 1.0,
       "avg_gold_coverage": 1.0,
-      "avg_latency_ms": 0.0675
+      "avg_latency_ms": 0.0678
     },
     "multi_doc_synthesis": {
       "count": 3,
       "avg_claim_support": 1.0,
       "avg_citation_presence": 1.0,
       "avg_gold_coverage": 1.0,
-      "avg_latency_ms": 0.0585
+      "avg_latency_ms": 0.0578
     },
     "multi_hop": {
       "count": 3,
       "avg_claim_support": 1.0,
       "avg_citation_presence": 1.0,
       "avg_gold_coverage": 1.0,
-      "avg_latency_ms": 0.0523
+      "avg_latency_ms": 0.0569
     },
     "conflict": {
       "count": 3,
       "avg_claim_support": 1.0,
       "avg_citation_presence": 1.0,
       "avg_gold_coverage": 1.0,
-      "avg_latency_ms": 0.0713
+      "avg_latency_ms": 0.0509
     },
     "absent_info": {
       "count": 4,
       "avg_claim_support": 0.0,
       "avg_citation_presence": 0.0,
       "avg_gold_coverage": 0.6667,
-      "avg_latency_ms": 0.0254
+      "avg_latency_ms": 0.0229
     },
     "numerical": {
       "count": 3,
       "avg_claim_support": 1.0,
       "avg_citation_presence": 1.0,
       "avg_gold_coverage": 1.0,
-      "avg_latency_ms": 0.0598
+      "avg_latency_ms": 0.0546
     },
     "complex_research": {
       "count": 3,
       "avg_claim_support": 1.0,
       "avg_citation_presence": 1.0,
       "avg_gold_coverage": 1.0,
-      "avg_latency_ms": 0.0857
+      "avg_latency_ms": 0.0847
     },
     "adversarial": {
       "count": 6,
       "avg_claim_support": 1.0,
       "avg_citation_presence": 1.0,
       "avg_gold_coverage": 1.0,
-      "avg_latency_ms": 0.0572
+      "avg_latency_ms": 0.0562
     }
   },
   "items": [
@@ -98,7 +98,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.248,
+      "latency_ms": 0.2339,
       "warnings": []
     },
     {
@@ -117,7 +117,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0607,
+      "latency_ms": 0.0584,
       "warnings": []
     },
     {
@@ -136,7 +136,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.0708,
+      "latency_ms": 0.0721,
       "warnings": [
         "no_claims_decomposed"
       ]
@@ -157,7 +157,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0402,
+      "latency_ms": 0.0416,
       "warnings": []
     },
     {
@@ -176,7 +176,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.1139,
+      "latency_ms": 0.0832,
       "warnings": []
     },
     {
@@ -195,7 +195,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.1413,
+      "latency_ms": 0.0663,
       "warnings": []
     },
     {
@@ -214,7 +214,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.0666,
+      "latency_ms": 0.0533,
       "warnings": []
     },
     {
@@ -233,7 +233,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.044,
+      "latency_ms": 0.0521,
       "warnings": [
         "no_claims_decomposed"
       ]
@@ -254,7 +254,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0591,
+      "latency_ms": 0.0432,
       "warnings": []
     },
     {
@@ -273,7 +273,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.05,
+      "latency_ms": 0.041,
       "warnings": []
     },
     {
@@ -292,7 +292,7 @@
       "gold_facts_found": 4,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.109,
+      "latency_ms": 0.1126,
       "warnings": []
     },
     {
@@ -311,7 +311,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0478,
+      "latency_ms": 0.0459,
       "warnings": []
     },
     {
@@ -330,7 +330,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0458,
+      "latency_ms": 0.0449,
       "warnings": []
     },
     {
@@ -349,7 +349,7 @@
       "gold_facts_found": 4,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0636,
+      "latency_ms": 0.0648,
       "warnings": []
     },
     {
@@ -368,7 +368,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.0576,
+      "latency_ms": 0.0553,
       "warnings": []
     },
     {
@@ -387,7 +387,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.0542,
+      "latency_ms": 0.0533,
       "warnings": []
     },
     {
@@ -406,7 +406,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0393,
+      "latency_ms": 0.0374,
       "warnings": []
     },
     {
@@ -425,7 +425,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0583,
+      "latency_ms": 0.0609,
       "warnings": []
     },
     {
@@ -444,7 +444,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0592,
+      "latency_ms": 0.0723,
       "warnings": []
     },
     {
@@ -463,7 +463,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0545,
+      "latency_ms": 0.0464,
       "warnings": []
     },
     {
@@ -482,7 +482,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.0906,
+      "latency_ms": 0.0532,
       "warnings": []
     },
     {
@@ -501,7 +501,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 0.0,
-      "latency_ms": 0.0688,
+      "latency_ms": 0.053,
       "warnings": [
         "no_claims_decomposed"
       ]
@@ -522,7 +522,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 1,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0319,
+      "latency_ms": 0.0298,
       "warnings": []
     },
     {
@@ -541,7 +541,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 1,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0286,
+      "latency_ms": 0.0238,
       "warnings": []
     },
     {
@@ -560,7 +560,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 1,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0195,
+      "latency_ms": 0.0196,
       "warnings": []
     },
     {
@@ -579,7 +579,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 1,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0216,
+      "latency_ms": 0.0185,
       "warnings": []
     },
     {
@@ -598,7 +598,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 0.0,
-      "latency_ms": 0.063,
+      "latency_ms": 0.0548,
       "warnings": []
     },
     {
@@ -617,7 +617,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.0632,
+      "latency_ms": 0.0582,
       "warnings": []
     },
     {
@@ -636,7 +636,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 0.0,
-      "latency_ms": 0.0533,
+      "latency_ms": 0.0509,
       "warnings": [
         "no_claims_decomposed"
       ]
@@ -657,7 +657,7 @@
       "gold_facts_found": 5,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.116,
+      "latency_ms": 0.1141,
       "warnings": []
     },
     {
@@ -676,7 +676,7 @@
       "gold_facts_found": 5,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0985,
+      "latency_ms": 0.0972,
       "warnings": []
     },
     {
@@ -695,7 +695,7 @@
       "gold_facts_found": 3,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0426,
+      "latency_ms": 0.0429,
       "warnings": []
     },
     {
@@ -714,7 +714,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.0677,
+      "latency_ms": 0.0682,
       "warnings": []
     },
     {
@@ -733,7 +733,7 @@
       "gold_facts_found": 1,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.0624,
+      "latency_ms": 0.063,
       "warnings": []
     },
     {
@@ -752,7 +752,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": 1.0,
-      "latency_ms": 0.0628,
+      "latency_ms": 0.0653,
       "warnings": []
     },
     {
@@ -771,7 +771,7 @@
       "gold_facts_found": 3,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0651,
+      "latency_ms": 0.0594,
       "warnings": []
     },
     {
@@ -790,7 +790,7 @@
       "gold_facts_found": 3,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0446,
+      "latency_ms": 0.0419,
       "warnings": []
     },
     {
@@ -809,7 +809,7 @@
       "gold_facts_found": 2,
       "gold_facts_missing": 0,
       "numerical_consistency_rate": null,
-      "latency_ms": 0.0406,
+      "latency_ms": 0.0393,
       "warnings": []
     }
   ]
