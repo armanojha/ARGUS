@@ -110,6 +110,10 @@ class Settings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         description="Local embedding model for vector retrieval.",
     )
+    embedding_dim: int = Field(
+        default=384,
+        description="Embedding dimension (must match model).",
+    )
     chunk_size: int = Field(
         default=512,
         description="Target chunk size in tokens for document chunking.",
@@ -227,6 +231,22 @@ class Settings(BaseSettings):
         default=0.85,
         description="Cosine similarity threshold above which two evidence chunks are considered "
         "near-duplicates and the less-scored one is dropped. 0 disables coverage dedup.",
+    )
+    evidence_selection_max_chunks: int = Field(
+        default=8,
+        description="Maximum number of evidence chunks sent to the LLM per call.",
+    )
+    evidence_selection_max_tokens: int = Field(
+        default=6000,
+        description="Maximum estimated tokens for evidence context sent to the LLM.",
+    )
+    evidence_selection_min_chunks: int = Field(
+        default=2,
+        description="Minimum evidence chunks to keep even when over token budget.",
+    )
+    evidence_selection_min_sources: int = Field(
+        default=2,
+        description="Minimum distinct source documents to represent in selected evidence.",
     )
 
     # --- Evidence Graph (Phase 03) ---

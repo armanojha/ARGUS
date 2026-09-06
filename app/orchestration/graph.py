@@ -62,6 +62,7 @@ from app.reranking.reranker import NoOpReranker, Reranker
 from app.retrieval.hybrid import HybridRetriever, get_hybrid_retriever
 from app.retrieval.router import get_retrieval_policy_router
 from app.retrieval.seeking import get_adaptive_gap_detector
+from app.retrieval.evidence_selector import EvidenceSelector
 
 logger = get_logger("argus.orchestration.graph")
 
@@ -207,11 +208,21 @@ def build_graph(
     if memory_store is not None:
         workflow.add_node("memory_enhance", partial(_memory_enhance_node, memory_store=memory_store))  # type: ignore
     workflow.add_node("retrieve", make_retrieve_node(retriever, reranker, settings, policy_router=policy_router))  # type: ignore
-    workflow.add_node("assess", make_assess_node(router, settings, gap_detector=gap_detector))  # type: ignore
+
+    # Evidence selector: minimal high-coverage subset for LLM context
+    evidence_selector = EvidenceSelector(
+        similarity_threshold=settings.evidence_coverage_similarity_threshold,
+        max_chunks=settings.evidence_selection_max_chunks,
+        max_tokens=settings.evidence_selection_max_tokens,
+        min_chunks=settings.evidence_selection_min_chunks,
+        min_sources=settings.evidence_selection_min_sources,
+    )
+
+    workflow.add_node("assess", make_assess_node(router, settings, gap_detector=gap_detector, evidence_selector=evidence_selector))  # type: ignore
     workflow.add_node("stop_check", make_stop_check_node(stopping_logic))  # type: ignore
     if agent_coordinator is not None:
         workflow.add_node("debate", partial(_debate_node, agent_coordinator=agent_coordinator))  # type: ignore
-    workflow.add_node("synthesize", make_synthesize_node(router, settings))  # type: ignore
+    workflow.add_node("synthesize", make_synthesize_node(router, settings, evidence_selector=evidence_selector))  # type: ignore
 
     workflow.add_conditional_edges(
         START,

@@ -22,7 +22,6 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 from uuid import UUID
 
-import numpy as np
 from pydantic import BaseModel, ValidationError
 
 from app.config import Settings
@@ -46,6 +45,7 @@ from app.orchestration.prompts import (
 from app.orchestration.state import OrchestrationState
 from app.orchestration.stopping import stop_condition_to_reason
 from app.reranking.reranker import NoOpReranker, Reranker
+from app.retrieval.evidence_selector import EvidenceSelector, SelectionMetrics
 from app.retrieval.hybrid import HybridRetriever
 
 logger = get_logger("argus.orchestration.nodes")
@@ -203,60 +203,6 @@ def _merge_evidence(existing: list[EvidenceRef], new: list[EvidenceRef]) -> tupl
     return merged, new_count
 
 
-def _coverage_deduplicate(
-    evidence: list[EvidenceRef],
-    vector_store: Any,
-    threshold: float,
-) -> list[EvidenceRef]:
-    """Remove near-duplicate evidence chunks to maximize coverage of distinct claims.
-
-    Uses cosine similarity between chunk embeddings. Chunks with similarity
-    above ``threshold`` to an already-selected chunk are dropped (keeping the
-    higher-scored one). This ensures the LLM sees diverse evidence instead of
-    redundant copies of the same information.
-
-    Falls back to returning the original list if embeddings are unavailable.
-    """
-    if not evidence or threshold <= 0:
-        return evidence
-
-    # Gather embeddings for all evidence chunks
-    embeddings: list[np.ndarray | None] = []
-    for ref in evidence:
-        emb = vector_store.get_embedding(ref.chunk_id)
-        embeddings.append(emb)
-
-    # If any chunks lack embeddings, fall back to no dedup
-    if any(e is None for e in embeddings):
-        return evidence
-
-    selected: list[int] = []  # indices into evidence
-    selected_embs: list[np.ndarray] = []
-
-    for i, emb in enumerate(embeddings):
-        is_duplicate = False
-        for sel_emb in selected_embs:
-            # Cosine similarity (embeddings are already L2-normalized by FAISS)
-            sim = float(np.dot(emb, sel_emb))
-            if sim >= threshold:
-                is_duplicate = True
-                break
-        if not is_duplicate:
-            selected.append(i)
-            selected_embs.append(emb)
-
-    dropped = len(evidence) - len(selected)
-    if dropped:
-        logger.info(
-            "evidence_coverage_dedup",
-            dropped=dropped,
-            kept=len(selected),
-            threshold=threshold,
-        )
-
-    return [evidence[i] for i in selected]
-
-
 def make_retrieve_node(
     retriever: HybridRetriever,
     reranker: Reranker | NoOpReranker,
@@ -298,13 +244,6 @@ def make_retrieve_node(
 
         merged_evidence, new_count = _merge_evidence(state["evidence"], results)
 
-        # Evidence coverage: drop near-duplicate chunks to maximize diversity
-        threshold = settings.evidence_coverage_similarity_threshold
-        if threshold > 0 and len(merged_evidence) > 1:
-            merged_evidence = _coverage_deduplicate(
-                merged_evidence, retriever.vector, threshold
-            )
-
         issued = list(state["issued_subqueries"]) + [subquery]
 
         tokens_used = state["tokens_used"] + sum(_estimate_tokens(r.text) for r in results)
@@ -343,6 +282,7 @@ def make_assess_node(
     router: LLMRouter,
     settings: Settings,
     gap_detector: Any | None = None,
+    evidence_selector: EvidenceSelector | None = None,
 ) -> NodeFn:
     async def assess_node(state: OrchestrationState) -> dict:
         plan = state["plan"]
@@ -357,8 +297,13 @@ def make_assess_node(
         if state["iteration"] >= state["max_iterations"] or state["tokens_used"] >= state["token_budget"]:
             return {"sufficient": True, "stop_reason": StopReason.BUDGET_EXHAUSTED.value}
 
+        # Evidence selection: pick minimal high-coverage subset for LLM context
+        evidence_for_llm = state["evidence"]
+        if evidence_selector and evidence_for_llm:
+            evidence_for_llm = evidence_selector.select(evidence_for_llm)
+
         messages = build_assessment_messages(
-            plan, state["evidence"], state["issued_subqueries"], state["pending_subquestions"]
+            plan, evidence_for_llm, state["issued_subqueries"], state["pending_subquestions"]
         )
         assessment, error = await _safe_structured_call(
             router,
@@ -517,7 +462,11 @@ def _normalize_citation_markers(answer: str) -> str:
     return answer
 
 
-def make_synthesize_node(router: LLMRouter, settings: Settings) -> NodeFn:
+def make_synthesize_node(
+    router: LLMRouter,
+    settings: Settings,
+    evidence_selector: EvidenceSelector | None = None,
+) -> NodeFn:
     async def synthesize_node(state: OrchestrationState) -> dict:
         plan = state["plan"]
         if plan is None:
@@ -532,7 +481,12 @@ def make_synthesize_node(router: LLMRouter, settings: Settings) -> NodeFn:
             )
             return {"answer": answer, "warnings": warnings}
 
-        messages = build_synthesis_messages(plan, evidence)
+        # Evidence selection: pick minimal high-coverage subset for LLM context
+        evidence_for_llm = evidence
+        if evidence_selector:
+            evidence_for_llm = evidence_selector.select(evidence)
+
+        messages = build_synthesis_messages(plan, evidence_for_llm)
         try:
             response = await router.complete(
                 messages,

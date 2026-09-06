@@ -26,13 +26,13 @@ class FAISSVectorStore:
         self,
         store: EvidenceStore | None = None,
         index_path: Path | None = None,
-        embedding_dim: int = 384,  # all-MiniLM-L6-v2 dimension
+        embedding_dim: int | None = None,
     ):
         self.store = store or get_evidence_store()
         self.settings = get_settings()
         self.index_path = index_path or self.settings.faiss_index_path
         self.index_path.parent.mkdir(parents=True, exist_ok=True)
-        self.embedding_dim = embedding_dim
+        self.embedding_dim = embedding_dim or self.settings.embedding_dim
 
         self._index: faiss.Index | None = None
         self._chunk_ids: list[str] = []  # chunk UUIDs as strings, aligned with index
