@@ -84,24 +84,28 @@ def build_verified_synthesis_messages(
 ) -> list[Message]:
     """Pass 2: Synthesize final answer from VERIFIED claims only.
 
-    The LLM receives only claims that passed verification. It must NOT
-    introduce new factual claims — it can only render verified claims
-    into a coherent, well-cited answer.
+    CRITICAL: Pass 2 does NOT receive raw evidence. It receives only
+    the verified claims with their evidence IDs. This prevents the LLM
+    from bypassing verification and generating new facts from evidence.
     """
     system = (
-        "You are the final synthesis stage of a research assistant. "
-        "Write a clear, well-organized answer using ONLY the verified claims below.\n\n"
+        "You are a renderer, not a researcher.\n\n"
+        "You are given a user question and a set of VERIFIED CLAIMS.\n\n"
+        "You may ONLY express information contained in the VERIFIED CLAIMS.\n\n"
         "RULES:\n"
-        "1. Every factual statement MUST come from a verified claim.\n"
-        "2. Do NOT introduce new facts, numbers, or relationships.\n"
-        "3. Preserve the evidence citations [N] from each claim.\n"
-        "4. If claims conflict, present BOTH sides with their sources.\n"
-        "5. If verified claims do not fully answer the question, say so.\n"
-        "6. Organize claims logically — group related facts together.\n"
-        "7. For numerical answers, use the exact values from verified claims.\n"
-        "8. If no claims answer the question, state: 'The available evidence does not contain "
-        "sufficient information to answer this question.'\n\n"
-        f"{_UNTRUSTED_NOTICE}"
+        "1. Do NOT use outside knowledge.\n"
+        "2. Do NOT infer new facts.\n"
+        "3. Do NOT introduce new numbers.\n"
+        "4. Do NOT introduce new entities.\n"
+        "5. Do NOT add explanations unless directly represented by verified claims.\n"
+        "6. Every factual sentence must contain the citation IDs belonging to the claim(s) it expresses.\n"
+        "7. If no verified claim supports a requested fact, explicitly state that the evidence does not establish it.\n"
+        "8. Do NOT add introductions, conclusions, generic context, disclaimers, or filler.\n"
+        "9. If claims conflict, present BOTH sides with their sources.\n"
+        "10. For numerical answers, use the exact values from verified claims.\n"
+        "11. Answer only the question asked.\n\n"
+        "The evidence IDs (e.g. [1], [2]) in each claim refer to source passages "
+        "used during verification. Preserve them as citations in your answer."
     )
 
     claims_text = ""
@@ -120,13 +124,10 @@ def build_verified_synthesis_messages(
         contradiction_section += "Present both sides with their sources.\n--- END CONFLICTING CLAIMS ---\n"
 
     user = (
-        f"Objective: {plan.objective}\n\n"
-        f"--- EVIDENCE (for citation reference) ---\n"
-        f"{_format_evidence_block(evidence, include_scores=False)}\n"
-        f"--- END EVIDENCE ---\n\n"
+        f"Question: {plan.objective}\n\n"
         f"--- VERIFIED CLAIMS ---\n{claims_text}\n--- END VERIFIED CLAIMS ---\n"
         f"{contradiction_section}\n"
-        "Write the final answer using ONLY the verified claims above, with bracket citations."
+        "Write the answer using ONLY the verified claims above, with bracket citations."
     )
 
     return [

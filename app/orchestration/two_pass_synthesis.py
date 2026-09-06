@@ -10,8 +10,10 @@ Replaces the single-pass free-form synthesis with a controlled two-pass approach
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
+import time
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -179,18 +181,21 @@ async def two_pass_synthesize(
     settings: Settings,
     request_id: str | None = None,
     contradiction_signals: list[dict] | None = None,
-) -> tuple[str, list[str], ClaimSet | None]:
+) -> tuple[str, list[str], ClaimSet | None, SynthesisMetrics]:
     """Two-pass verified synthesis.
 
-    Returns: (answer, warnings, claim_set)
+    Returns: (answer, warnings, claim_set, metrics)
     """
     warnings: list[str] = []
+    metrics = SynthesisMetrics()
+    t_total = time.time()
 
     # --- Pass 1: Generate structured claims ---
     claim_messages = build_claim_generation_messages(
         plan, evidence, contradiction_signals=contradiction_signals
     )
 
+    t_pass1 = time.time()
     try:
         response = await router.complete(
             claim_messages,
@@ -202,32 +207,46 @@ async def two_pass_synthesize(
             query=plan.objective,
             tier="strong",
         )
+        metrics.pass1_latency_ms = (time.time() - t_pass1) * 1000
+        if hasattr(response, "usage") and response.usage:
+            metrics.pass1_tokens_in = getattr(response.usage, "prompt_tokens", 0) or 0
+            metrics.pass1_tokens_out = getattr(response.usage, "completion_tokens", 0) or 0
         if not response.content:
             warnings.append("pass1_empty_response")
-            return "", warnings, None
+            metrics.total_latency_ms = (time.time() - t_total) * 1000
+            return "", warnings, None, metrics
 
         parsed = ClaimGenerationOutput.model_validate(json.loads(response.content))
         claims = parsed.claims
     except (LLMProviderError, json.JSONDecodeError, ValidationError) as exc:
+        metrics.pass1_latency_ms = (time.time() - t_pass1) * 1000
         logger.warning("pass1_failed", error=str(exc))
         warnings.append(f"pass1_fallback: {exc}")
-        # Fallback: return empty claims
-        return "", warnings, None
+        metrics.total_latency_ms = (time.time() - t_total) * 1000
+        return "", warnings, None, metrics
+
+    metrics.pass1_claims_generated = len(claims)
 
     if not claims:
         warnings.append("pass1_no_claims")
-        # Check if this was an "absent" answer
+        metrics.pass2_method = "absent"
+        metrics.total_latency_ms = (time.time() - t_total) * 1000
         return (
             "The available evidence does not contain sufficient information to answer this question.",
             warnings,
             ClaimSet(claims=[]),
+            metrics,
         )
 
     # --- Deterministic claim verification ---
+    t_verify = time.time()
     claim_set = verify_claims(claims, evidence)
+    metrics.verification_latency_ms = (time.time() - t_verify) * 1000
 
     supported = claim_set.supported_claims
     rejected = claim_set.rejected_claims
+    metrics.verified_claims_count = len(supported)
+    metrics.rejected_claims_count = len(rejected)
 
     logger.info(
         "claim_verification",
@@ -243,23 +262,44 @@ async def two_pass_synthesize(
 
     # --- Pass 2: Final synthesis from verified claims ---
     if not supported:
-        # No supported claims — check for absence claim
         for v in claim_set.verified:
             if v.claim.claim_type == ClaimType.ABSENT:
-                return v.claim.claim, warnings, claim_set
+                metrics.pass2_method = "absent"
+                metrics.total_latency_ms = (time.time() - t_total) * 1000
+                return v.claim.claim, warnings, claim_set, metrics
+        metrics.pass2_method = "no_support"
+        metrics.total_latency_ms = (time.time() - t_total) * 1000
         return (
             "The available evidence does not contain sufficient information to answer this question.",
             warnings,
             claim_set,
+            metrics,
         )
 
     verified_for_pass2 = _build_claim_evidence_map(claim_set.verified)
+    metrics.pass2_claims_rendered = len(verified_for_pass2)
     contradictions = claim_set.contradictions_found or None
 
+    # Detect pattern for routing
+    pattern = _detect_question_pattern(plan.objective)
+    metrics.pattern = pattern
+
+    # Check early exit
+    if _should_early_exit(claim_set, pattern):
+        t_pass2 = time.time()
+        answer = _render_verified_claims(claim_set.verified, plan.objective)
+        metrics.pass2_latency_ms = (time.time() - t_pass2) * 1000
+        metrics.pass2_method = f"deterministic_{pattern}"
+        metrics.citations_in_answer = len(_extract_evidence_ids_from_text(answer))
+        metrics.total_latency_ms = (time.time() - t_total) * 1000
+        return answer, warnings, claim_set, metrics
+
+    # Full LLM Pass 2
     synth_messages = build_verified_synthesis_messages(
         plan, evidence, verified_for_pass2, contradictions=contradictions
     )
 
+    t_pass2 = time.time()
     try:
         response = await router.complete(
             synth_messages,
@@ -271,24 +311,142 @@ async def two_pass_synthesize(
             tier="strong",
         )
         answer = response.content or ""
+        metrics.pass2_latency_ms = (time.time() - t_pass2) * 1000
+        if hasattr(response, "usage") and response.usage:
+            metrics.pass2_tokens_in = getattr(response.usage, "prompt_tokens", 0) or 0
+            metrics.pass2_tokens_out = getattr(response.usage, "completion_tokens", 0) or 0
     except LLMProviderError as exc:
+        metrics.pass2_latency_ms = (time.time() - t_pass2) * 1000
         logger.warning("pass2_failed", error=str(exc))
         warnings.append(f"pass2_fallback: {exc}")
-        # Degraded: render verified claims directly
         bullets = []
         for i, vc in enumerate(verified_for_pass2, 1):
             citations = "".join(f"[{eid}]" for eid in vc["evidence_ids"])
             bullets.append(f"- {vc['claim']} {citations}")
         answer = "Synthesis degraded. Here are the verified claims:\n" + "\n".join(bullets)
         warnings.append("synthesis_degraded_to_verified_claims")
+        metrics.pass2_method = "deterministic_fallback"
+    else:
+        metrics.pass2_method = "llm_restricted"
 
     if not answer.strip():
-        # Degraded: render verified claims directly
         bullets = []
         for i, vc in enumerate(verified_for_pass2, 1):
             citations = "".join(f"[{eid}]" for eid in vc["evidence_ids"])
             bullets.append(f"- {vc['claim']} {citations}")
         answer = "Synthesis degraded. Here are the verified claims:\n" + "\n".join(bullets)
         warnings.append("synthesis_degraded_to_verified_claims")
+        metrics.pass2_method = "deterministic_fallback"
 
-    return answer, warnings, claim_set
+    metrics.citations_in_answer = len(_extract_evidence_ids_from_text(answer))
+    metrics.total_latency_ms = (time.time() - t_total) * 1000
+    return answer, warnings, claim_set, metrics
+
+
+# --- Deterministic renderer (no LLM call) ---
+
+def _render_verified_claims(
+    verified: list[ClaimVerificationResult],
+    objective: str,
+) -> str:
+    """Render verified claims into a natural answer without an LLM call.
+
+    Groups claims by type, preserves citations, handles contradictions.
+    Never introduces new facts.
+    """
+    supported = [v for v in verified if v.status in (ClaimSupportStatus.SUPPORTED, ClaimSupportStatus.PARTIALLY_SUPPORTED)]
+    contradictions = [v for v in verified if v.status == ClaimSupportStatus.CONTRADICTED]
+
+    if not supported and not contradictions:
+        return "The available evidence does not contain sufficient information to answer this question."
+
+    parts = []
+
+    # Handle contradictions first
+    if contradictions:
+        parts.append("The evidence contains conflicting information:")
+        for v in contradictions:
+            citations = "".join(f"[{eid}]" for eid in v.claim.evidence_ids if 1 <= eid <= 99)
+            parts.append(f"- {v.claim.claim} {citations}")
+        parts.append("")
+
+    # Group supported claims by type
+    factual = [v for v in supported if v.claim.claim_type == ClaimType.FACTUAL]
+    numerical = [v for v in supported if v.claim.claim_type == ClaimType.NUMERICAL]
+    comparison = [v for v in supported if v.claim.claim_type == ClaimType.COMPARISON]
+    relationship = [v for v in supported if v.claim.claim_type == ClaimType.RELATIONSHIP]
+    absent = [v for v in supported if v.claim.claim_type == ClaimType.ABSENT]
+
+    if absent:
+        return absent[0].claim.claim
+
+    for group in [factual, numerical, comparison, relationship]:
+        for v in group:
+            citations = "".join(f"[{eid}]" for eid in v.claim.evidence_ids if 1 <= eid <= 99)
+            parts.append(f"{v.claim.claim} {citations}")
+
+    if not parts:
+        return "The available evidence does not contain sufficient information to answer this question."
+
+    return " ".join(parts)
+
+
+def _detect_question_pattern(query: str) -> str:
+    """Simple heuristic question-pattern detection for early-exit routing."""
+    q = query.lower()
+    if any(w in q for w in ["where is", "what is the name", "who is", "when was", "how many employees"]):
+        return "simple_lookup"
+    if any(w in q for w in ["latency", "p99", "revenue growth rate", "percentage", "ratio"]):
+        return "numerical"
+    if any(w in q for w in ["conflict", "different sources", "disagreement", "discrepancies"]):
+        return "conflict"
+    if any(w in q for w in ["not contain", "not available", "no information", "undisclosed"]):
+        return "absent_info"
+    return "general"
+
+
+def _should_early_exit(
+    claim_set: ClaimSet,
+    pattern: str,
+    max_claims: int = 10,
+) -> bool:
+    """Determine if we can skip LLM Pass 2 and use deterministic rendering."""
+    supported = claim_set.supported_claims
+    rejected = claim_set.rejected_claims
+
+    if rejected:
+        return False
+
+    if len(supported) > max_claims:
+        return False
+
+    if pattern in ("simple_lookup", "numerical", "absent_info"):
+        return True
+
+    if pattern == "conflict" and len(supported) <= 5:
+        return True
+
+    return False
+
+
+# --- Instrumented two-pass synthesis ---
+
+@dataclasses.dataclass
+class SynthesisMetrics:
+    """Detailed metrics for the two-pass synthesis pipeline."""
+    pass1_latency_ms: float = 0.0
+    pass1_tokens_in: int = 0
+    pass1_tokens_out: int = 0
+    verification_latency_ms: float = 0.0
+    pass2_latency_ms: float = 0.0
+    pass2_tokens_in: int = 0
+    pass2_tokens_out: int = 0
+    total_latency_ms: float = 0.0
+    pass1_claims_generated: int = 0
+    verified_claims_count: int = 0
+    rejected_claims_count: int = 0
+    pass2_method: str = ""  # "llm" | "deterministic" | "early_exit" | "absent"
+    pass2_filler_sentences: int = 0
+    pass2_claims_rendered: int = 0
+    citations_in_answer: int = 0
+    pattern: str = ""

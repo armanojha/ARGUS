@@ -241,7 +241,12 @@ def build_graph(
     # Phase 29: Two-pass verified synthesis (feature-flagged, default off)
     verified_synthesis_enabled = getattr(settings, "verified_synthesis_enabled", False)
     if verified_synthesis_enabled:
-        from app.orchestration.two_pass_synthesis import two_pass_synthesize
+        from app.orchestration.two_pass_synthesis import (
+            two_pass_synthesize,
+            _render_verified_claims,
+            _detect_question_pattern,
+            _should_early_exit,
+        )
 
         async def _verified_synthesize_node(state: OrchestrationState) -> dict:
             plan = state["plan"]
@@ -262,7 +267,7 @@ def build_graph(
                 evidence_for_llm = evidence_selector.select(evidence)
 
             contradiction_signals = state.get("contradiction_signals") or []
-            answer, synth_warnings, claim_set = await two_pass_synthesize(
+            answer, synth_warnings, claim_set, synth_metrics = await two_pass_synthesize(
                 plan,
                 evidence_for_llm,
                 router=router,
@@ -276,7 +281,11 @@ def build_graph(
             grounding_warnings = check_claim_grounding(answer, len(evidence_for_llm))
             warnings.extend(grounding_warnings)
 
-            return {"answer": answer, "warnings": warnings}
+            # Expose metrics in state for downstream consumers
+            result = {"answer": answer, "warnings": warnings}
+            if synth_metrics:
+                result["synthesis_metrics"] = synth_metrics
+            return result
 
         workflow.add_node("verified_synthesize", _verified_synthesize_node)  # type: ignore
         logger.info("verified_synthesis_enabled", request_id=None)
