@@ -163,9 +163,9 @@ def test_variants_build_and_run_single_item(tmp_path: Path, provider: ScriptedPr
             cast(Coroutine[Any, Any, BenchmarkRunOutput], pipeline(item, corpus))
         )
 
-    # Verification-based variants reported a supported status.
-    assert outputs["full_argus"].verification_status == "supported"
-    assert outputs["argus_without_obsidian"].verification_status == "supported"
+    # Verification-based variants: both skip verification for low-risk simple queries.
+    assert outputs["full_argus"].verification_status is None  # low-risk query, verification skipped
+    assert outputs["argus_without_obsidian"].verification_status is None  # also low-risk, skipped
     assert outputs["argus_without_verifier"].verification_status is None
     # Single-shot variants record no loop iterations.
     for vid in ("baseline_rag", "hybrid_rag", "graphrag_variant"):
