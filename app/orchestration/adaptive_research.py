@@ -1,13 +1,14 @@
-"""Adaptive Research Orchestration (Phase 24).
+"""Adaptive Research Orchestration (Phase 24.1).
 
 Provides deterministic, zero-LLM research sufficiency assessment that
-replaces the LLM-based assess node for simple and moderate queries. The
-system decides how much research is necessary before producing an answer,
-avoiding both premature stopping and unnecessary research loops.
+supplements the LLM-based assess node. The system decides how much
+research is necessary before producing an answer, avoiding both premature
+stopping and unnecessary research loops.
 
 Components:
-    ResearchSufficiency — deterministic sufficiency model
-    AdaptiveResearchPolicy — decides whether to loop, synthesize, or skip
+    ResearchSufficiency — deterministic sufficiency model (separates
+        evidence gaps from contradictions)
+    AdaptiveResearchPolicy — decides whether to loop, synthesize, or investigate
     MarginalGainCalculator — detects diminishing returns
     PatternSpecificPolicies — query-pattern-specific research behaviors
     SynthesisGate — pre-synthesis quality gate
@@ -17,13 +18,12 @@ False) and must not change behavior when disabled.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
 from app.evidence.models import EvidenceRef
 from app.logging_config import get_logger
-from app.retrieval.planner import QueryPlan
 
 logger = get_logger("argus.orchestration.adaptive_research")
 
@@ -33,21 +33,42 @@ logger = get_logger("argus.orchestration.adaptive_research")
 # ---------------------------------------------------------------------------
 
 class SufficiencyLevel(Enum):
+    """Evidence sufficiency classification.
+
+    Key distinction: CONFLICTED is NOT the same as INSUFFICIENT.
+    - INSUFFICIENT: evidence does not adequately cover the required needs.
+    - CONFLICTED: evidence covers the needs but contains contradictions.
+    - SUFFICIENT: evidence adequately covers needs with no conflicts.
+    - STRONG: evidence exceeds minimum thresholds across all signals.
+    """
     INSUFFICIENT = "insufficient"
     MARGINAL = "marginal"
     SUFFICIENT = "sufficient"
     STRONG = "strong"
+    CONFLICTED = "conflicted"
+
+
+@dataclass
+class SufficiencyResult:
+    """Rich result from sufficiency assessment."""
+    level: SufficiencyLevel
+    coverage_ok: bool
+    conflict_detected: bool
+    conflict_count: int
+    reason: str
 
 
 @dataclass
 class ResearchSufficiency:
     """Deterministic evidence sufficiency assessment (no LLM).
 
-    Combines four signals into a single sufficiency level:
-      1. Evidence count — enough chunks to ground an answer
-      2. Coverage score — evidence needs are met
-      3. Source diversity — multiple documents support the answer
-      4. Score quality — top evidence is high-confidence
+    Separates two distinct concerns:
+      1. Evidence coverage: do we have enough evidence to answer?
+      2. Evidence conflict: does the evidence contradict itself?
+
+    A contradiction does NOT automatically mean evidence is insufficient.
+    If two high-quality sources disagree, the correct state is CONFLICTED,
+    not INSUFFICIENT.
     """
 
     evidence_count: int = 0
@@ -67,19 +88,73 @@ class ResearchSufficiency:
     _GOOD_SCORE = 0.5
     _STRONG_SCORE = 0.7
 
-    def assess(self) -> SufficiencyLevel:
-        """Classify overall sufficiency from multiple evidence signals."""
-        level = self._assess_base()
+    def assess(self) -> SufficiencyResult:
+        """Assess evidence sufficiency and conflict status independently."""
+        coverage_ok = self._check_coverage()
+        conflict_detected = self.contradictions_detected > 0
 
-        if self.contradictions_detected > 0:
-            level = self._downgrade_for_contradictions(level)
+        if not coverage_ok:
+            if conflict_detected:
+                reason = (f"Coverage insufficient ({self.coverage_score:.2f}) "
+                          f"with {self.contradictions_detected} conflict(s)")
+            else:
+                reason = f"Coverage insufficient ({self.coverage_score:.2f})"
+            return SufficiencyResult(
+                level=SufficiencyLevel.INSUFFICIENT,
+                coverage_ok=False,
+                conflict_detected=conflict_detected,
+                conflict_count=self.contradictions_detected,
+                reason=reason,
+            )
 
-        if self.need_count > 3 and level == SufficiencyLevel.SUFFICIENT:
-            level = self._adjust_for_complex_needs(level)
+        base_level = self._assess_evidence_quality()
 
-        return level
+        if conflict_detected:
+            if base_level in (SufficiencyLevel.STRONG, SufficiencyLevel.SUFFICIENT):
+                reason = (f"Coverage sufficient but {self.contradictions_detected} "
+                          f"contradiction(s) detected")
+                return SufficiencyResult(
+                    level=SufficiencyLevel.CONFLICTED,
+                    coverage_ok=True,
+                    conflict_detected=True,
+                    conflict_count=self.contradictions_detected,
+                    reason=reason,
+                )
+            return SufficiencyResult(
+                level=SufficiencyLevel.MARGINAL,
+                coverage_ok=True,
+                conflict_detected=True,
+                conflict_count=self.contradictions_detected,
+                reason=f"Marginal evidence with {self.contradictions_detected} conflict(s)",
+            )
 
-    def _assess_base(self) -> SufficiencyLevel:
+        reasons = []
+        if base_level == SufficiencyLevel.STRONG:
+            reasons.append("strong evidence quality")
+        elif base_level == SufficiencyLevel.SUFFICIENT:
+            reasons.append("sufficient evidence quality")
+        elif base_level == SufficiencyLevel.MARGINAL:
+            reasons.append("marginal evidence quality")
+
+        if self.need_count > 3 and base_level == SufficiencyLevel.SUFFICIENT:
+            if self.coverage_score < 0.5:
+                base_level = SufficiencyLevel.MARGINAL
+                reasons.append(f"complex needs with low coverage ({self.coverage_score:.2f})")
+
+        return SufficiencyResult(
+            level=base_level,
+            coverage_ok=True,
+            conflict_detected=False,
+            conflict_count=0,
+            reason="; ".join(reasons) if reasons else "assessment complete",
+        )
+
+    def _check_coverage(self) -> bool:
+        """Check whether evidence coverage meets minimum thresholds."""
+        return self.coverage_score >= 0.3 or self.evidence_count >= 2
+
+    def _assess_evidence_quality(self) -> SufficiencyLevel:
+        """Assess evidence quality from count, diversity, and scores."""
         score = 0
 
         if self.evidence_count >= self._STRONG_EVIDENCE:
@@ -117,20 +192,6 @@ class ResearchSufficiency:
         if score >= 4:
             return SufficiencyLevel.MARGINAL
         return SufficiencyLevel.INSUFFICIENT
-
-    def _downgrade_for_contradictions(self, level: SufficiencyLevel) -> SufficiencyLevel:
-        if self.contradictions_detected >= 2:
-            return SufficiencyLevel.INSUFFICIENT
-        if level == SufficiencyLevel.STRONG:
-            return SufficiencyLevel.SUFFICIENT
-        if level == SufficiencyLevel.SUFFICIENT:
-            return SufficiencyLevel.MARGINAL
-        return level
-
-    def _adjust_for_complex_needs(self, level: SufficiencyLevel) -> SufficiencyLevel:
-        if self.coverage_score < 0.5:
-            return SufficiencyLevel.MARGINAL
-        return level
 
     @classmethod
     def from_state(
@@ -198,16 +259,6 @@ class MarginalGainCalculator:
                 threshold=self.threshold,
                 reason=f"Negligible gain ({last_gain:.4f} <= {self.threshold})",
             )
-
-        if len(gain_history) >= 3:
-            recent_avg = sum(gain_history[-2:]) / 2
-            if recent_avg <= self.threshold * 0.5:
-                return MarginalGainResult(
-                    should_stop=True,
-                    gain_ratio=recent_avg,
-                    threshold=self.threshold,
-                    reason=f"Sustained low gain (avg {recent_avg:.4f})",
-                )
 
         return MarginalGainResult(
             should_stop=False,
@@ -356,7 +407,7 @@ class SynthesisGate:
 
 @dataclass
 class AdaptiveDecision:
-    action: str  # "continue_retrieval", "synthesize", "skip_to_synthesis", "force_synthesis"
+    action: str  # "continue_retrieval", "synthesize", "investigate"
     reason: str
     sufficiency_level: str
     iteration: int
@@ -366,11 +417,11 @@ class AdaptiveDecision:
 class AdaptiveResearchPolicy:
     """Decides whether to continue retrieval or synthesize.
 
-    Combines:
-      - ResearchSufficiency assessment
-      - MarginalGainCalculator
-      - PatternSpecificPolicies
-      - SynthesisGate
+    When the adaptive policy is enabled, it provides a deterministic
+    pre-check before the LLM assess node. If the policy determines
+    evidence is clearly sufficient, it short-circuits the LLM call.
+    If evidence is clearly insufficient and more iterations are
+    available, it allows the LLM to propose next subqueries.
     """
 
     def __init__(
@@ -427,22 +478,13 @@ class AdaptiveResearchPolicy:
         sufficiency = ResearchSufficiency.from_state(
             evidence, need_coverage, contradictions_detected, pattern
         )
-        level = sufficiency.assess()
+        result = sufficiency.assess()
+        level = result.level
 
         if iteration < policy.min_iterations:
             return AdaptiveDecision(
                 action="continue_retrieval",
                 reason=f"Pattern '{pattern}' requires min {policy.min_iterations} iterations",
-                sufficiency_level=level.value,
-                iteration=iteration,
-                max_iterations=max_iterations,
-            )
-
-        gain_result = self.gain_calculator.evaluate(gain_history)
-        if gain_result.should_stop and level in (SufficiencyLevel.SUFFICIENT, SufficiencyLevel.STRONG):
-            return AdaptiveDecision(
-                action="synthesize",
-                reason=f"Sufficient evidence + {gain_result.reason}",
                 sufficiency_level=level.value,
                 iteration=iteration,
                 max_iterations=max_iterations,
@@ -461,24 +503,43 @@ class AdaptiveResearchPolicy:
         if level == SufficiencyLevel.SUFFICIENT and not pending_subquestions:
             return AdaptiveDecision(
                 action="synthesize",
-                reason=f"Sufficient evidence, no pending work",
+                reason="Sufficient evidence, no pending work",
+                sufficiency_level=level.value,
+                iteration=iteration,
+                max_iterations=max_iterations,
+            )
+
+        if level == SufficiencyLevel.CONFLICTED:
+            if policy.require_contradiction_resolution:
+                return AdaptiveDecision(
+                    action="investigate",
+                    reason=f"Conflicting evidence ({contradictions_detected} contradictions); "
+                           f"investigation required by pattern '{pattern}'",
+                    sufficiency_level=level.value,
+                    iteration=iteration,
+                    max_iterations=max_iterations,
+                )
+            return AdaptiveDecision(
+                action="synthesize",
+                reason=f"Conflicting evidence but pattern '{pattern}' does not require resolution",
                 sufficiency_level=level.value,
                 iteration=iteration,
                 max_iterations=max_iterations,
             )
 
         if level == SufficiencyLevel.MARGINAL:
+            gain_result = self.gain_calculator.evaluate(gain_history)
             if gain_result.should_stop:
                 return AdaptiveDecision(
-                    action="force_synthesis",
-                    reason=f"Marginal evidence but {gain_result.reason}; forcing synthesis",
+                    action="synthesize",
+                    reason=f"Marginal evidence but {gain_result.reason}; synthesizing with available evidence",
                     sufficiency_level=level.value,
                     iteration=iteration,
                     max_iterations=max_iterations,
                 )
             return AdaptiveDecision(
                 action="continue_retrieval",
-                reason=f"Marginal evidence, gain still meaningful",
+                reason="Marginal evidence, gain still meaningful",
                 sufficiency_level=level.value,
                 iteration=iteration,
                 max_iterations=max_iterations,
