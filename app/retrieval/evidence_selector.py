@@ -30,7 +30,7 @@ Architecture:
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -39,6 +39,8 @@ from app.evidence.models import EvidenceRef
 from app.logging_config import get_logger
 
 logger = get_logger("argus.retrieval.evidence_selector")
+
+_SENTINEL = object()  # sentinel for "use instance default"
 
 
 @dataclass
@@ -88,25 +90,27 @@ class EvidenceSelector:
         max_tokens: int = 6000,
         min_chunks: int = 2,
         min_sources: int = 2,
+        vector_store: Any | None = None,
     ) -> None:
         self.similarity_threshold = similarity_threshold
         self.max_chunks = max_chunks
         self.max_tokens = max_tokens
         self.min_chunks = min_chunks
         self.min_sources = min_sources
+        self.vector_store = vector_store
 
     def select(
         self,
         evidence: list[EvidenceRef],
-        vector_store: Any | None = None,
+        vector_store: Any | None = _SENTINEL,
         metrics: SelectionMetrics | None = None,
     ) -> list[EvidenceRef]:
         """Select a minimal, high-coverage evidence subset.
 
         Args:
             evidence: Full accumulated evidence (score-sorted, deduped by chunk_id).
-            vector_store: FAISSVectorStore for embedding lookups. If None or
-                embeddings unavailable, semantic dedup is skipped.
+            vector_store: FAISSVectorStore for embedding lookups. If _SENTINEL,
+                uses the instance's vector_store. If None, semantic dedup is skipped.
             metrics: Optional mutable metrics object to populate.
 
         Returns:
@@ -119,12 +123,15 @@ class EvidenceSelector:
                 metrics.selection_latency_ms = (time.perf_counter() - t0) * 1000
             return []
 
+        # Resolve vector store: parameter overrides instance default
+        vs = self.vector_store if vector_store is _SENTINEL else vector_store
+
         # --- Pass 1: semantic dedup ---
-        deduped = self._semantic_dedup(evidence, vector_store)
+        deduped = self._semantic_dedup(evidence, vs)
         redundancy_removed = len(evidence) - len(deduped)
 
         # --- Pass 2: source-diversity-aware greedy selection ---
-        selected = self._diversity_select(deduped, vector_store)
+        selected = self._diversity_select(deduped)
 
         # --- Pass 3: enforce token budget ---
         selected = self._enforce_token_budget(selected)
@@ -213,7 +220,6 @@ class EvidenceSelector:
     def _diversity_select(
         self,
         evidence: list[EvidenceRef],
-        vector_store: Any | None,
     ) -> list[EvidenceRef]:
         """Greedy selection that balances relevance, diversity, and budget.
 

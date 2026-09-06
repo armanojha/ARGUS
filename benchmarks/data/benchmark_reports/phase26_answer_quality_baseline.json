@@ -1,0 +1,157 @@
+{
+  "phase": 26,
+  "title": "Answer Quality Evaluation Baseline",
+  "timestamp": "2026-09-07T00:20:08",
+  "datasets": {
+    "eval_plan_v1": {
+      "total_queries": 38,
+      "avg_claim_support_rate": 0.8947,
+      "avg_citation_presence_rate": 0.8947,
+      "avg_citation_validity_rate": 0.7798,
+      "avg_unsupported_claim_rate": 0.0,
+      "avg_latency_ms": 0.0664
+    },
+    "questions_v1": {
+      "total_queries": 110,
+      "avg_claim_support_rate": 0.0,
+      "avg_citation_presence_rate": 0.0,
+      "avg_latency_ms": 0.069
+    }
+  },
+  "by_category": {
+    "eval_plan_by_class": {
+      "simple_lookup": {
+        "count": 6,
+        "avg_claim_support": 1.0,
+        "avg_citation_presence": 1.0,
+        "avg_gold_coverage": 1.0,
+        "avg_latency_ms": 0.1125
+      },
+      "normal_qa": {
+        "count": 4,
+        "avg_claim_support": 1.0,
+        "avg_citation_presence": 1.0,
+        "avg_gold_coverage": 1.0,
+        "avg_latency_ms": 0.0549
+      },
+      "technical_explanation": {
+        "count": 3,
+        "avg_claim_support": 1.0,
+        "avg_citation_presence": 1.0,
+        "avg_gold_coverage": 1.0,
+        "avg_latency_ms": 0.0675
+      },
+      "multi_doc_synthesis": {
+        "count": 3,
+        "avg_claim_support": 1.0,
+        "avg_citation_presence": 1.0,
+        "avg_gold_coverage": 1.0,
+        "avg_latency_ms": 0.0585
+      },
+      "multi_hop": {
+        "count": 3,
+        "avg_claim_support": 1.0,
+        "avg_citation_presence": 1.0,
+        "avg_gold_coverage": 1.0,
+        "avg_latency_ms": 0.0523
+      },
+      "conflict": {
+        "count": 3,
+        "avg_claim_support": 1.0,
+        "avg_citation_presence": 1.0,
+        "avg_gold_coverage": 1.0,
+        "avg_latency_ms": 0.0713
+      },
+      "absent_info": {
+        "count": 4,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_gold_coverage": 0.6667,
+        "avg_latency_ms": 0.0254
+      },
+      "numerical": {
+        "count": 3,
+        "avg_claim_support": 1.0,
+        "avg_citation_presence": 1.0,
+        "avg_gold_coverage": 1.0,
+        "avg_latency_ms": 0.0598
+      },
+      "complex_research": {
+        "count": 3,
+        "avg_claim_support": 1.0,
+        "avg_citation_presence": 1.0,
+        "avg_gold_coverage": 1.0,
+        "avg_latency_ms": 0.0857
+      },
+      "adversarial": {
+        "count": 6,
+        "avg_claim_support": 1.0,
+        "avg_citation_presence": 1.0,
+        "avg_gold_coverage": 1.0,
+        "avg_latency_ms": 0.0572
+      }
+    },
+    "questions_by_type": {
+      "easy_factual": {
+        "count": 20,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_latency_ms": 0.0468
+      },
+      "multi_hop": {
+        "count": 20,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_latency_ms": 0.0546
+      },
+      "temporal": {
+        "count": 20,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_latency_ms": 0.052
+      },
+      "contradiction": {
+        "count": 20,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_latency_ms": 0.0858
+      },
+      "synthesis": {
+        "count": 20,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_latency_ms": 0.1009
+      },
+      "near_duplicate_incorrect": {
+        "count": 2,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_latency_ms": 0.115
+      },
+      "revised_facts": {
+        "count": 2,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_latency_ms": 0.0705
+      },
+      "differing_metric_definitions": {
+        "count": 2,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_latency_ms": 0.0732
+      },
+      "ambiguous_entity_names": {
+        "count": 2,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_latency_ms": 0.0475
+      },
+      "incomplete_evidence": {
+        "count": 2,
+        "avg_claim_support": 0.0,
+        "avg_citation_presence": 0.0,
+        "avg_latency_ms": 0.0899
+      }
+    }
+  }
+}

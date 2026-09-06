@@ -1,1 +1,1 @@
-"""Tests for Phase 12 evaluation (benchmark + ablation harness)."""
+"""ARGUS evaluation tests."""

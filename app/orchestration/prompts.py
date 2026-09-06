@@ -62,7 +62,11 @@ def build_planning_messages(query: str, analysis: QueryAnalysis) -> list[Message
     ]
 
 
-def _format_evidence_block(evidence: list[EvidenceRef]) -> str:
+def _format_evidence_block(
+    evidence: list[EvidenceRef],
+    *,
+    include_scores: bool = False,
+) -> str:
     if not evidence:
         return "(no evidence retrieved yet)"
     lines = []
@@ -70,7 +74,10 @@ def _format_evidence_block(evidence: list[EvidenceRef]) -> str:
         snippet = ref.text.strip().replace("\n", " ")
         if len(snippet) > 800:
             snippet = snippet[:800] + "..."
-        lines.append(f"[{i}] (source: {ref.source_path}) {snippet}")
+        if include_scores and ref.score is not None:
+            lines.append(f"[{i}] (score: {ref.score:.2f}, source: {ref.source_path}) {snippet}")
+        else:
+            lines.append(f"[{i}] (source: {ref.source_path}) {snippet}")
     return "\n".join(lines)
 
 
@@ -104,7 +111,12 @@ def build_assessment_messages(
     ]
 
 
-def build_synthesis_messages(plan: ResearchPlan, evidence: list[EvidenceRef]) -> list[Message]:
+def build_synthesis_messages(
+    plan: ResearchPlan,
+    evidence: list[EvidenceRef],
+    *,
+    contradiction_signals: list[dict] | None = None,
+) -> list[Message]:
     system = (
         "You are the synthesis stage of a research assistant. Write a direct, "
         "well-organized answer to the objective using ONLY the numbered evidence "
@@ -114,11 +126,35 @@ def build_synthesis_messages(plan: ResearchPlan, evidence: list[EvidenceRef]) ->
         "explicitly rather than filling gaps with assumptions. "
         "Before writing the final answer, briefly identify which evidence passages "
         "support each key claim — then write the answer citing those passages. "
+        "Evidence scores indicate retrieval confidence — higher scores mean the "
+        "evidence is more topically relevant to the query. "
         f"{_UNTRUSTED_NOTICE}"
     )
+
+    contradiction_section = ""
+    if contradiction_signals:
+        items = []
+        for sig in contradiction_signals:
+            severity = sig.get("severity", "unknown")
+            desc = sig.get("description", "")
+            items.append(f"- Severity {severity}: {desc}" if desc else f"- Severity {severity}")
+        contradiction_section = (
+            "\n--- CONTRADICTION ALERT ---\n"
+            "The retrieved evidence contains contradictions. When synthesizing:\n"
+            "1. Acknowledge the conflict explicitly in your answer\n"
+            "2. Present both sides with their respective sources\n"
+            "3. If one source is more authoritative or recent, note that\n"
+            "4. Do NOT present contradictory claims as settled fact\n"
+            + "\n".join(items)
+            + "\n--- END CONTRADICTION ALERT ---\n"
+        )
+
     user = (
-        f"Objective: {plan.objective}\n\n"
-        f"--- NUMBERED EVIDENCE ---\n{_format_evidence_block(evidence)}\n--- END EVIDENCE ---\n\n"
+        f"Objective: {plan.objective}\n"
+        f"{contradiction_section}\n"
+        f"--- NUMBERED EVIDENCE (scores show retrieval confidence) ---\n"
+        f"{_format_evidence_block(evidence, include_scores=True)}\n"
+        f"--- END EVIDENCE ---\n\n"
         "Write the answer now, with bracket citations."
     )
     return [

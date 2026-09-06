@@ -517,7 +517,10 @@ def make_synthesize_node(
         if evidence_selector:
             evidence_for_llm = evidence_selector.select(evidence)
 
-        messages = build_synthesis_messages(plan, evidence_for_llm)
+        contradiction_signals = state.get("contradiction_signals") or []
+        messages = build_synthesis_messages(
+            plan, evidence_for_llm, contradiction_signals=contradiction_signals
+        )
         try:
             response = await router.complete(
                 messages,
@@ -549,6 +552,10 @@ def make_synthesize_node(
             )
             warnings.append("synthesis_degraded_to_raw_evidence")
 
+        # Phase 25: deterministic claim grounding check
+        grounding_warnings = check_claim_grounding(answer, len(evidence_for_llm))
+        warnings.extend(grounding_warnings)
+
         return {"answer": answer, "warnings": warnings}
 
     return synthesize_node
@@ -569,3 +576,30 @@ def extract_cited_indices(answer: str, evidence_count: int) -> list[int]:
         if 1 <= idx <= evidence_count and idx not in seen:
             seen.append(idx)
     return seen
+
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def check_claim_grounding(
+    answer: str,
+    evidence_count: int,
+) -> list[str]:
+    """Deterministic post-synthesis check: verify each answer sentence has a citation.
+
+    Returns a list of warning strings for sentences that lack any bracket citation.
+    Empty list means all sentences are grounded. This is a lightweight check — it
+    does not verify semantic alignment, only structural citation presence.
+    """
+    if not answer.strip() or evidence_count == 0:
+        return []
+
+    normalized = _normalize_citation_markers(answer)
+    sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(normalized) if s.strip()]
+    warnings = []
+    for sentence in sentences:
+        has_citation = bool(_CITATION_MARKER_RE.search(sentence))
+        if not has_citation:
+            preview = sentence[:120] + ("..." if len(sentence) > 120 else "")
+            warnings.append(f"unsupported_claim: {preview}")
+    return warnings

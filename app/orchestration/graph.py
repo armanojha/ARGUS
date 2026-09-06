@@ -216,6 +216,7 @@ def build_graph(
         max_tokens=settings.evidence_selection_max_tokens,
         min_chunks=settings.evidence_selection_min_chunks,
         min_sources=settings.evidence_selection_min_sources,
+        vector_store=retriever.vector,
     )
 
     # Phase 24.1: Adaptive research policy (optional, feature-flagged).
@@ -375,13 +376,20 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
     assert plan is not None
     evidence = final_state["evidence"]
     answer = final_state["answer"] or ""
+    warnings = list(final_state["warnings"])
 
     cited_indices = extract_cited_indices(answer, len(evidence))
+    citation_fallback_used = False
     if not cited_indices and evidence:
         # Model produced no bracket citations (or synthesis degraded) —
         # never silently drop provenance: fall back to surfacing the
         # top evidence actually used to ground the answer.
         cited_indices = list(range(1, min(3, len(evidence)) + 1))
+        citation_fallback_used = True
+        warnings.append(
+            "citation_fallback: LLM produced no bracket citations; "
+            "top evidence auto-attached as citations"
+        )
 
     citations = [
         OrchestrationCitation(
@@ -414,7 +422,7 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
         outcome=_derive_outcome(final_state),
         token_usage_estimate=final_state["tokens_used"],
         request_id=final_state["request_id"],
-        warnings=final_state["warnings"],
+        warnings=warnings,
         question_pattern=final_state.get("question_pattern"),
         stop_condition=final_state.get("stop_condition_fired"),
         stop_decisions=final_state.get("stop_conditions_checked") or [],

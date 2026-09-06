@@ -1,0 +1,79 @@
+{
+  "phase": 25,
+  "title": "Synthesis Quality Gate Evaluation",
+  "timestamp": "2026-09-06T23:20:16",
+  "results": {
+    "grounding_check": {
+      "test_cases": [
+        {
+          "name": "all_cited",
+          "warnings_found": 0,
+          "expected_warnings": 0,
+          "pass": true,
+          "avg_latency_ms": 0.0066
+        },
+        {
+          "name": "half_cited",
+          "warnings_found": 2,
+          "expected_warnings": 2,
+          "pass": true,
+          "avg_latency_ms": 0.007
+        },
+        {
+          "name": "none_cited",
+          "warnings_found": 2,
+          "expected_warnings": 2,
+          "pass": true,
+          "avg_latency_ms": 0.0073
+        },
+        {
+          "name": "fullwidth_citations",
+          "warnings_found": 0,
+          "expected_warnings": 0,
+          "pass": true,
+          "avg_latency_ms": 0.0052
+        },
+        {
+          "name": "empty_answer",
+          "warnings_found": 0,
+          "expected_warnings": 0,
+          "pass": true,
+          "avg_latency_ms": 0.0001
+        },
+        {
+          "name": "long_answer_mixed",
+          "warnings_found": 2,
+          "expected_warnings": 2,
+          "pass": true,
+          "avg_latency_ms": 0.0185
+        }
+      ],
+      "all_pass": true,
+      "avg_latency_ms": 0.0074
+    },
+    "contradiction_prompt": {
+      "baseline_prompt_ms": 0.0043,
+      "with_contradictions_prompt_ms": 0.0062,
+      "overhead_ms": 0.0019,
+      "contradiction_alert_present": true,
+      "synthesis_instructions_present": true,
+      "severity_info_present": true
+    },
+    "evidence_annotations": {
+      "baseline_no_scores_ms": 0.0027,
+      "with_scores_ms": 0.0044,
+      "overhead_ms": 0.0018,
+      "scores_present_in_baseline": false,
+      "scores_present_with_flag": true
+    },
+    "citation_fallback": {
+      "cited_answer_indices": [
+        1,
+        2
+      ],
+      "uncited_answer_indices": [],
+      "fallback_triggered_correctly": true
+    }
+  },
+  "overall_pass": true
+}
