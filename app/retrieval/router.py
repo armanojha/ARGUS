@@ -388,47 +388,11 @@ class RetrievalPolicyRouter(RetrievalPolicyInterface):
             # Planner decided not to decompose; use standard path
             return await self.execute_retrieval(query, pattern, retriever, top_k, reranker)
 
-        # Phase 20: Entity-linking expansion as additional evidence needs
-        entity_linker = _get_entity_linker()
-        if entity_linker and entity_linker.index.entities:
-            from app.retrieval.entity_linking import detect_query_entities, generate_expansions
-            detected = detect_query_entities(query, entity_linker.index, 0.8)
-            if detected:
-                expansions = generate_expansions(
-                    query, detected, entity_linker.index,
-                    max_expansions=entity_linker.max_expansions,
-                    min_score=entity_linker.min_expansion_score,
-                )
-                # Filter: only add expansions with direct high-confidence relationships
-                # to entities detected in the original query
-                direct_expansions = []
-                for exp in expansions:
-                    for entity, _ in detected:
-                        for rel in entity_linker.index.relationships:
-                            if ((rel.source_entity == entity.id and rel.target_entity == exp.entity.id)
-                                    or (rel.target_entity == entity.id and rel.source_entity == exp.entity.id)):
-                                if rel.confidence >= 0.8:
-                                    direct_expansions.append(exp)
-                                break
-                        if len(direct_expansions) >= entity_linker.max_expansions:
-                            break
-                    if len(direct_expansions) >= entity_linker.max_expansions:
-                        break
-
-                if direct_expansions:
-                    expansion_terms = " ".join(e.entity.canonical_name for e in direct_expansions[:entity_linker.max_expansions])
-                    expansion_query = query + " " + expansion_terms
-                    # Add as an additional evidence need (CONTEXTUAL type)
-                    from app.retrieval.planner import EvidenceNeed, ClaimType, NeedPriority
-                    expansion_need = EvidenceNeed(
-                        topic="entity_expansion",
-                        entities=[e.entity.canonical_name for e in direct_expansions],
-                        claim_type=ClaimType.CONTEXTUAL,
-                        search_query=expansion_query,
-                        priority=NeedPriority.LOW,
-                        original_need="Entity-linked expansion",
-                    )
-                    plan.evidence_needs.append(expansion_need)
+        # Phase 20: Entity-linking expansion (disabled - see Phase 20 report)
+        # Entity expansion as additional search variants was found to degrade
+        # retrieval quality in benchmarks. The planner sub-queries are already
+        # well-targeted. Entity expansion adds noise that displaces relevant chunks.
+        # See data/benchmark_reports/phase20_comparison.json for details.
 
         logger.info(
             "planner_activated",
