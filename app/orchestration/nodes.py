@@ -283,6 +283,7 @@ def make_assess_node(
     settings: Settings,
     gap_detector: Any | None = None,
     evidence_selector: EvidenceSelector | None = None,
+    adaptive_research_policy: Any | None = None,
 ) -> NodeFn:
     async def assess_node(state: OrchestrationState) -> dict:
         plan = state["plan"]
@@ -296,6 +297,36 @@ def make_assess_node(
 
         if state["iteration"] >= state["max_iterations"] or state["tokens_used"] >= state["token_budget"]:
             return {"sufficient": True, "stop_reason": StopReason.BUDGET_EXHAUSTED.value}
+
+        # Phase 24.1: Adaptive research policy pre-check.
+        # When enabled, the deterministic policy can short-circuit the LLM
+        # assess call if evidence is clearly sufficient or clearly needs
+        # investigation. This preserves the existing LLM-based assessment
+        # as a fallback for ambiguous cases.
+        if adaptive_research_policy is not None:
+            from app.orchestration.adaptive_research import AdaptiveDecision
+            decision = adaptive_research_policy.should_continue_retrieval(
+                evidence=state["evidence"],
+                need_coverage={},  # computed from plan needs below
+                gain_history=state.get("retrieval_gain_history") or [],
+                iteration=state["iteration"],
+                max_iterations=state["max_iterations"],
+                pattern=state.get("question_pattern") or "",
+                contradictions_detected=len(state.get("contradiction_signals") or []),
+                pending_subquestions=state.get("pending_subquestions") or [],
+            )
+            if decision.action == "synthesize":
+                logger.info(
+                    "adaptive_synthesize",
+                    reason=decision.reason,
+                    level=decision.sufficiency_level,
+                    request_id=state["request_id"],
+                )
+                return {
+                    "sufficient": True,
+                    "stop_reason": StopReason.SUFFICIENT_EVIDENCE.value,
+                    "warnings": list(state["warnings"]) + [f"adaptive_synthesize: {decision.reason}"],
+                }
 
         # Evidence selection: pick minimal high-coverage subset for LLM context
         evidence_for_llm = state["evidence"]

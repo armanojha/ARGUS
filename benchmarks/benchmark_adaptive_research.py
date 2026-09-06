@@ -1,8 +1,8 @@
-"""Phase 24 Proper Ablation: Adaptive Research Orchestration.
+"""Phase 24.1 Proper Ablation: Adaptive Research Orchestration.
 
-Simulates multi-iteration retrieval to measure what the adaptive policy
-would actually do if controlling the research loop. Unlike the previous
-flawed benchmark, this measures real iteration-by-iteration behavior.
+Compares two genuinely different code paths:
+  - BASELINE: Always runs max iterations (no adaptive stopping)
+  - ADAPTIVE: AdaptiveResearchPolicy decides per-iteration whether to stop
 
 Usage:
     python benchmarks/benchmark_adaptive_research.py
@@ -25,8 +25,6 @@ from app.retrieval.hybrid import HybridRetriever
 from app.retrieval.router import RetrievalPolicyRouter
 from app.retrieval.planner import EvidenceNeedPlanner, QueryPlan
 from app.retrieval.policy import QuestionPattern
-from app.retrieval.multi_query import MultiQueryRetriever
-from app.retrieval.evidence_selector import EvidenceSelector
 from app.orchestration.adaptive_research import (
     AdaptiveResearchPolicy,
     ResearchSufficiency,
@@ -64,26 +62,45 @@ def _merge_evidence(existing: list[EvidenceRef], new: list[EvidenceRef]) -> tupl
     return merged, new_count
 
 
-def simulate_multi_iteration(
+def _compute_need_coverage(
+    plan: QueryPlan, all_evidence: list[EvidenceRef]
+) -> dict[str, float]:
+    if not plan.is_planned or not plan.evidence_needs:
+        return {"_unplanned": 1.0}
+    need_coverage = {}
+    for need in plan.evidence_needs:
+        need_lower = need.topic.lower()
+        entities = [e.lower() for e in need.entities]
+        covered = any(
+            need_lower in r.text.lower() or
+            all(e in r.text.lower() for e in entities if len(e) > 2)
+            for r in all_evidence
+        )
+        need_coverage[need.id] = 1.0 if covered else 0.0
+    return need_coverage
+
+
+def run_baseline(
     query_text: str,
     plan: QueryPlan,
     pattern_value: str,
     retriever: HybridRetriever,
-    router: RetrievalPolicyRouter,
     settings: Settings,
     gold_ids: set,
-    max_iterations: int = 3,
+    max_iterations: int,
 ) -> dict:
-    """Simulate the retrieval loop with adaptive policy decisions."""
+    """Baseline: always iterate to max iterations (no adaptive stopping)."""
     all_evidence: list[EvidenceRef] = []
     gain_history: list[float] = []
     iteration_trace: list[dict] = []
+    contradictions_detected = 0
+
     pending = list(plan.search_variants) if plan.is_planned else [query_text]
     issued = set()
-    contradictions_detected = 0
 
     for iteration in range(1, max_iterations + 1):
         if not pending:
+            # Baseline: even with no pending queries, still counts as used iteration
             break
 
         subquery = pending.pop(0)
@@ -94,18 +111,7 @@ def simulate_multi_iteration(
         issued.add(subquery.lower())
 
         t0 = time.time()
-        if plan.is_planned and plan.evidence_needs:
-            single_plan = QueryPlan(
-                original_query=subquery,
-                pattern=pattern_value,
-                evidence_needs=plan.evidence_needs[:2] if len(plan.evidence_needs) > 2 else plan.evidence_needs,
-                search_variants=[subquery],
-                is_planned=False,
-            )
-            refs = retriever.search(subquery, top_k=settings.orchestration_retrieval_top_k)
-        else:
-            refs = retriever.search(subquery, top_k=settings.orchestration_retrieval_top_k)
-
+        refs = retriever.search(subquery, top_k=settings.orchestration_retrieval_top_k)
         elapsed = time.time() - t0
 
         merged, new_count = _merge_evidence(all_evidence, refs)
@@ -119,19 +125,7 @@ def simulate_multi_iteration(
         contradictions = detector.detect_contradictions(all_evidence)
         contradictions_detected = len(contradictions)
 
-        need_coverage = {}
-        if plan.is_planned and plan.evidence_needs:
-            for need in plan.evidence_needs:
-                need_lower = need.topic.lower()
-                entities = [e.lower() for e in need.entities]
-                covered = any(
-                    need_lower in r.text.lower() or
-                    all(e in r.text.lower() for e in entities if len(e) > 2)
-                    for r in all_evidence
-                )
-                need_coverage[need.id] = 1.0 if covered else 0.0
-        else:
-            need_coverage = {"_unplanned": 1.0}
+        need_coverage = _compute_need_coverage(plan, all_evidence)
 
         retrieved_ids = [str(r.chunk_id) for r in all_evidence]
         r5 = len(set(retrieved_ids[:5]) & gold_ids) / len(gold_ids) if gold_ids else 0
@@ -158,31 +152,142 @@ def simulate_multi_iteration(
             "latency_ms": round(elapsed * 1000, 1),
         })
 
-    # Final assessment
     sufficiency = ResearchSufficiency.from_state(
         all_evidence, need_coverage, contradictions_detected, pattern_value
     )
-    level = sufficiency.assess()
+    result = sufficiency.assess()
 
     gate = SynthesisGate()
     gate_result = gate.check(all_evidence, need_coverage)
 
-    gain_calc = MarginalGainCalculator(threshold=settings.stopping_evidence_gain_threshold)
-    gain_result = gain_calc.evaluate(gain_history) if gain_history else None
+    return {
+        "iterations_used": len(iteration_trace),
+        "total_evidence": len(all_evidence),
+        "sufficiency_level": result.level.value,
+        "synthesis_gate_passes": gate_result.should_synthesize,
+        "synthesis_gate_reason": gate_result.reason,
+        "contradictions_detected": contradictions_detected,
+        "trace": iteration_trace,
+        "final_r5": iteration_trace[-1]["recall_5"] if iteration_trace else 0,
+        "final_r10": iteration_trace[-1]["recall_10"] if iteration_trace else 0,
+        "final_coverage": iteration_trace[-1]["avg_need_coverage"] if iteration_trace else 0,
+        "final_top3": iteration_trace[-1]["avg_top3_score"] if iteration_trace else 0,
+        "final_diversity": iteration_trace[-1]["source_diversity"] if iteration_trace else 0,
+        "total_latency_ms": sum(t["latency_ms"] for t in iteration_trace),
+    }
 
-    policy = PatternSpecificPolicies.get_policy(pattern_value)
+
+def run_adaptive(
+    query_text: str,
+    plan: QueryPlan,
+    pattern_value: str,
+    retriever: HybridRetriever,
+    settings: Settings,
+    gold_ids: set,
+    max_iterations: int,
+) -> dict:
+    """Adaptive: policy decides per-iteration whether to continue or stop."""
+    policy = AdaptiveResearchPolicy(enabled=True)
+    all_evidence: list[EvidenceRef] = []
+    gain_history: list[float] = []
+    iteration_trace: list[dict] = []
+    contradictions_detected = 0
+    stopped_early = False
+    stop_reason = None
+
+    pending = list(plan.search_variants) if plan.is_planned else [query_text]
+    issued = set()
+
+    for iteration in range(1, max_iterations + 1):
+        if not pending:
+            break
+
+        subquery = pending.pop(0)
+        if subquery.lower() in issued:
+            if not pending:
+                break
+            subquery = pending.pop(0)
+        issued.add(subquery.lower())
+
+        t0 = time.time()
+        refs = retriever.search(subquery, top_k=settings.orchestration_retrieval_top_k)
+        elapsed = time.time() - t0
+
+        merged, new_count = _merge_evidence(all_evidence, refs)
+        prev_total = len(all_evidence)
+        gain = (new_count / prev_total) if prev_total else (1.0 if new_count else 0.0)
+        gain_history.append(round(gain, 4))
+        all_evidence = merged
+
+        from app.verification.deterministic import TextContradictionDetector
+        detector = TextContradictionDetector()
+        contradictions = detector.detect_contradictions(all_evidence)
+        contradictions_detected = len(contradictions)
+
+        need_coverage = _compute_need_coverage(plan, all_evidence)
+
+        retrieved_ids = [str(r.chunk_id) for r in all_evidence]
+        r5 = len(set(retrieved_ids[:5]) & gold_ids) / len(gold_ids) if gold_ids else 0
+        r10 = len(set(retrieved_ids[:10]) & gold_ids) / len(gold_ids) if gold_ids else 0
+        avg_coverage = sum(need_coverage.values()) / len(need_coverage) if need_coverage else 0
+
+        avg_top3 = 0
+        if all_evidence:
+            top = sorted(all_evidence, key=lambda r: r.score, reverse=True)[:3]
+            avg_top3 = sum(r.score for r in top) / len(top)
+
+        # *** THIS IS THE KEY DIFFERENCE: adaptive policy decides ***
+        decision = policy.should_continue_retrieval(
+            evidence=all_evidence,
+            need_coverage=need_coverage,
+            gain_history=gain_history,
+            iteration=iteration,
+            max_iterations=max_iterations,
+            pattern=pattern_value,
+            contradictions_detected=contradictions_detected,
+            pending_subquestions=pending,
+        )
+
+        iteration_trace.append({
+            "iteration": iteration,
+            "subquery": subquery[:100],
+            "new_evidence": new_count,
+            "total_evidence": len(all_evidence),
+            "gain": round(gain, 4),
+            "recall_5": round(r5, 4),
+            "recall_10": round(r10, 4),
+            "avg_need_coverage": round(avg_coverage, 4),
+            "avg_top3_score": round(avg_top3, 4),
+            "source_diversity": len({r.document_id for r in all_evidence}),
+            "contradictions": contradictions_detected,
+            "latency_ms": round(elapsed * 1000, 1),
+            "policy_action": decision.action,
+            "policy_reason": decision.reason,
+            "policy_sufficiency": decision.sufficiency_level,
+        })
+
+        if decision.action in ("synthesize", "investigate"):
+            stopped_early = True
+            stop_reason = decision.action
+            break
+
+    sufficiency = ResearchSufficiency.from_state(
+        all_evidence, need_coverage, contradictions_detected, pattern_value
+    )
+    result = sufficiency.assess()
+
+    gate = SynthesisGate()
+    gate_result = gate.check(all_evidence, need_coverage)
 
     return {
         "iterations_used": len(iteration_trace),
         "total_evidence": len(all_evidence),
-        "sufficiency_level": level.value,
+        "sufficiency_level": result.level.value,
         "synthesis_gate_passes": gate_result.should_synthesize,
         "synthesis_gate_reason": gate_result.reason,
-        "gain_stop": gain_result.should_stop if gain_result else False,
-        "gain_reason": gain_result.reason if gain_result else "no history",
-        "pattern_min_iterations": policy.min_iterations,
-        "pattern_max_iterations": policy.max_iterations,
         "contradictions_detected": contradictions_detected,
+        "stopped_early": stopped_early,
+        "stop_reason": stop_reason,
         "trace": iteration_trace,
         "final_r5": iteration_trace[-1]["recall_5"] if iteration_trace else 0,
         "final_r10": iteration_trace[-1]["recall_10"] if iteration_trace else 0,
@@ -195,12 +300,12 @@ def simulate_multi_iteration(
 
 def run_ablation():
     print("=" * 70)
-    print("Phase 24 Proper Ablation: Adaptive Research Orchestration")
+    print("Phase 24.1 Proper Ablation: Baseline vs Adaptive Orchestration")
     print("=" * 70)
 
     settings = get_settings()
-    router = RetrievalPolicyRouter()
     planner = EvidenceNeedPlanner()
+    router = RetrievalPolicyRouter()
 
     print("\n[1/3] Building evaluation corpus...")
     t0 = time.time()
@@ -215,9 +320,9 @@ def run_ablation():
 
     max_iter = settings.orchestration_max_iterations
 
-    print(f"\n[2/3] Simulating {max_iter}-iteration retrieval for each query...")
-    results = []
-    total_latency = 0
+    print(f"\n[2/3] Running {max_iter}-iteration ablation (baseline vs adaptive)...")
+    baseline_results = []
+    adaptive_results = []
 
     for q in queries:
         query_text = q["query"]
@@ -231,160 +336,177 @@ def run_ablation():
         plan = planner.plan(query_text, pattern)
         pattern_value = pattern.value
 
-        sim = simulate_multi_iteration(
-            query_text, plan, pattern_value, retriever, router, settings,
+        # Baseline: always runs max iterations
+        base = run_baseline(
+            query_text, plan, pattern_value, retriever, settings,
             gold_ids, max_iterations=max_iter,
         )
-        total_latency += sim["total_latency_ms"]
+        base["id"] = q["id"]
+        base["query"] = query_text
+        base["eval_class"] = eval_class
+        base["pattern"] = pattern_value
+        baseline_results.append(base)
 
-        results.append({
-            "id": q["id"],
-            "query": query_text,
-            "eval_class": eval_class,
-            "pattern": pattern_value,
-            **sim,
-        })
+        # Adaptive: policy controls stopping
+        adapt = run_adaptive(
+            query_text, plan, pattern_value, retriever, settings,
+            gold_ids, max_iterations=max_iter,
+        )
+        adapt["id"] = q["id"]
+        adapt["query"] = query_text
+        adapt["eval_class"] = eval_class
+        adapt["pattern"] = pattern_value
+        adaptive_results.append(adapt)
 
-        print(f"  [{q['id']}] {eval_class:<25} iters={sim['iterations_used']} "
-              f"ev={sim['total_evidence']} R@5={sim['final_r5']:.2f} "
-              f"R@10={sim['final_r10']:.2f} cov={sim['final_coverage']:.2f} "
-              f"lvl={sim['sufficiency_level']:<12} "
-              f"gate={'PASS' if sim['synthesis_gate_passes'] else 'BLOCK'} "
-              f"{sim['total_latency_ms']:.0f}ms")
+        iters_saved = base["iterations_used"] - adapt["iterations_used"]
+        print(f"  [{q['id']}] {eval_class:<25} "
+              f"base={base['iterations_used']} adapt={adapt['iterations_used']} "
+              f"saved={iters_saved} "
+              f"R@10 base={base['final_r10']:.2f} adapt={adapt['final_r10']:.2f} "
+              f"{'EARLY' if adapt['stopped_early'] else 'FULL'}")
 
     print(f"\n[3/3] Aggregating results...")
 
-    total = len(results)
-    avg_latency = total_latency / total
-    avg_iters = mean(r["iterations_used"] for r in results)
-    avg_evidence = mean(r["total_evidence"] for r in results)
-    avg_r5 = mean(r["final_r5"] for r in results)
-    avg_r10 = mean(r["final_r10"] for r in results)
-    avg_cov = mean(r["final_coverage"] for r in results)
-    avg_top3 = mean(r["final_top3"] for r in results)
-    avg_diversity = mean(r["final_diversity"] for r in results)
+    total = len(queries)
 
-    # Decision distribution
-    decisions = {}
-    for r in results:
-        lvl = r["sufficiency_level"]
-        decisions[lvl] = decisions.get(lvl, 0) + 1
+    # Baseline stats
+    b_avg_iters = mean(r["iterations_used"] for r in baseline_results)
+    b_avg_r10 = mean(r["final_r10"] for r in baseline_results)
+    b_avg_cov = mean(r["final_coverage"] for r in baseline_results)
+    b_avg_top3 = mean(r["final_top3"] for r in baseline_results)
+    b_avg_evidence = mean(r["total_evidence"] for r in baseline_results)
+    b_avg_latency = mean(r["total_latency_ms"] for r in baseline_results)
 
-    # Gate analysis
-    gate_passes = sum(1 for r in results if r["synthesis_gate_passes"])
-    gate_blocks = total - gate_passes
-
-    # Gain stop analysis
-    gain_stops = sum(1 for r in results if r["gain_stop"])
+    # Adaptive stats
+    a_avg_iters = mean(r["iterations_used"] for r in adaptive_results)
+    a_avg_r10 = mean(r["final_r10"] for r in adaptive_results)
+    a_avg_cov = mean(r["final_coverage"] for r in adaptive_results)
+    a_avg_top3 = mean(r["final_top3"] for r in adaptive_results)
+    a_avg_evidence = mean(r["total_evidence"] for r in adaptive_results)
+    a_avg_latency = mean(r["total_latency_ms"] for r in adaptive_results)
+    a_early_stops = sum(1 for r in adaptive_results if r["stopped_early"])
 
     # Iteration distribution
-    iter_dist = {}
-    for r in results:
+    b_iter_dist = {}
+    for r in baseline_results:
         iters = r["iterations_used"]
-        iter_dist[iters] = iter_dist.get(iters, 0) + 1
+        b_iter_dist[iters] = b_iter_dist.get(iters, 0) + 1
 
-    # Per-class breakdown
-    classes = sorted(set(r["eval_class"] for r in results))
+    a_iter_dist = {}
+    for r in adaptive_results:
+        iters = r["iterations_used"]
+        a_iter_dist[iters] = a_iter_dist.get(iters, 0) + 1
+
+    # Sufficiency distribution
+    a_suff_dist = {}
+    for r in adaptive_results:
+        lvl = r["sufficiency_level"]
+        a_suff_dist[lvl] = a_suff_dist.get(lvl, 0) + 1
+
+    # Adaptive policy stop reasons
+    a_stop_reasons = {}
+    for r in adaptive_results:
+        if r["stopped_early"]:
+            reason = r["stop_reason"]
+            a_stop_reasons[reason] = a_stop_reasons.get(reason, 0) + 1
 
     print(f"\n{'='*70}")
-    print(f"ABLATION RESULTS ({max_iter}-iteration simulation)")
+    print(f"ABLATION RESULTS ({max_iter}-iteration max)")
     print(f"{'='*70}")
-    print(f"\nOverall Metrics:")
-    print(f"  Avg iterations:     {avg_iters:.2f}")
-    print(f"  Avg evidence:       {avg_evidence:.1f}")
-    print(f"  Avg Recall@5:       {avg_r5:.4f}")
-    print(f"  Avg Recall@10:      {avg_r10:.4f}")
-    print(f"  Avg need coverage:  {avg_cov:.4f}")
-    print(f"  Avg top-3 score:    {avg_top3:.4f}")
-    print(f"  Avg source diversity: {avg_diversity:.1f}")
-    print(f"  Avg latency:        {avg_latency:.0f}ms")
 
-    print(f"\nSufficiency Distribution:")
-    for lvl, count in sorted(decisions.items()):
-        print(f"  {lvl:<20} {count:>3} ({count/total:.1%})")
+    print(f"\n{'Metric':<30} {'Baseline':>12} {'Adaptive':>12} {'Delta':>10}")
+    print(f"{'-'*64}")
+    print(f"{'Avg iterations':<30} {b_avg_iters:>12.2f} {a_avg_iters:>12.2f} {a_avg_iters-b_avg_iters:>+10.2f}")
+    print(f"{'Avg evidence':<30} {b_avg_evidence:>12.1f} {a_avg_evidence:>12.1f} {a_avg_evidence-b_avg_evidence:>+10.1f}")
+    print(f"{'Avg Recall@10':<30} {b_avg_r10:>12.4f} {a_avg_r10:>12.4f} {a_avg_r10-b_avg_r10:>+10.4f}")
+    print(f"{'Avg need coverage':<30} {b_avg_cov:>12.4f} {a_avg_cov:>12.4f} {a_avg_cov-b_avg_cov:>+10.4f}")
+    print(f"{'Avg top-3 score':<30} {b_avg_top3:>12.4f} {a_avg_top3:>12.4f} {a_avg_top3-b_avg_top3:>+10.4f}")
+    print(f"{'Avg latency (ms)':<30} {b_avg_latency:>12.0f} {a_avg_latency:>12.0f} {a_avg_latency-b_avg_latency:>+10.0f}")
 
-    print(f"\nSynthesis Gate:")
-    print(f"  Pass: {gate_passes} ({gate_passes/total:.1%})")
-    print(f"  Block: {gate_blocks} ({gate_blocks/total:.1%})")
-
-    print(f"\nGain Stop:")
-    print(f"  Stopped: {gain_stops} ({gain_stops/total:.1%})")
+    print(f"\nAdaptive Early Stops: {a_early_stops}/{total} ({a_early_stops/total:.1%})")
 
     print(f"\nIteration Distribution:")
-    for iters, count in sorted(iter_dist.items()):
-        print(f"  {iters} iterations: {count} queries ({count/total:.1%})")
+    print(f"  {'Iters':<8} {'Baseline':>12} {'Adaptive':>12}")
+    for iters in range(1, max_iter + 1):
+        bc = b_iter_dist.get(iters, 0)
+        ac = a_iter_dist.get(iters, 0)
+        print(f"  {iters:<8} {bc:>12} {ac:>12}")
 
+    print(f"\nAdaptive Sufficiency Distribution:")
+    for lvl, count in sorted(a_suff_dist.items()):
+        print(f"  {lvl:<20} {count:>3} ({count/total:.1%})")
+
+    print(f"\nAdaptive Stop Reasons:")
+    for reason, count in sorted(a_stop_reasons.items()):
+        print(f"  {reason:<20} {count:>3} ({count/total:.1%})")
+
+    # Per-class breakdown
+    classes = sorted(set(r["eval_class"] for r in baseline_results))
     print(f"\nPer-Class Breakdown:")
-    print(f"  {'Class':<25} {'N':>3} {'Iters':>5} {'R@5':>6} {'R@10':>6} {'Cov':>6} {'S3':>6} {'Lvl':<15} {'Gate':>6}")
-    print(f"  {'-'*82}")
+    print(f"  {'Class':<25} {'N':>3} {'B-It':>5} {'A-It':>5} {'B-R@10':>7} {'A-R@10':>7} {'A-Early':>8}")
+    print(f"  {'-'*65}")
     for cls in classes:
-        cls_results = [r for r in results if r["eval_class"] == cls]
-        n = len(cls_results)
-        iters = mean(r["iterations_used"] for r in cls_results)
-        r5 = mean(r["final_r5"] for r in cls_results)
-        r10 = mean(r["final_r10"] for r in cls_results)
-        cov = mean(r["final_coverage"] for r in cls_results)
-        s3 = mean(r["final_top3"] for r in cls_results)
-        # Most common level
-        lvl_counts = {}
-        for r in cls_results:
-            lvl_counts[r["sufficiency_level"]] = lvl_counts.get(r["sufficiency_level"], 0) + 1
-        top_lvl = max(lvl_counts, key=lvl_counts.get)
-        gate_p = sum(1 for r in cls_results if r["synthesis_gate_passes"])
-        print(f"  {cls:<25} {n:>3} {iters:>5.1f} {r5:>6.3f} {r10:>6.3f} {cov:>6.3f} {s3:>6.3f} {top_lvl:<15} {gate_p:>3}/{n}")
-
-    # Marginal gain analysis
-    print(f"\nMarginal Gain Analysis:")
-    for iter_num in range(1, max_iter):
-        gains_at_iter = []
-        for r in results:
-            for t in r["trace"]:
-                if t["iteration"] == iter_num:
-                    gains_at_iter.append(t["gain"])
-        if gains_at_iter:
-            print(f"  Iteration {iter_num}: avg_gain={mean(gains_at_iter):.4f}, "
-                  f"min={min(gains_at_iter):.4f}, max={max(gains_at_iter):.4f}, "
-                  f"n={len(gains_at_iter)}")
+        b_cls = [r for r in baseline_results if r["eval_class"] == cls]
+        a_cls = [r for r in adaptive_results if r["eval_class"] == cls]
+        n = len(b_cls)
+        b_it = mean(r["iterations_used"] for r in b_cls)
+        a_it = mean(r["iterations_used"] for r in a_cls)
+        b_r10 = mean(r["final_r10"] for r in b_cls)
+        a_r10 = mean(r["final_r10"] for r in a_cls)
+        a_early = sum(1 for r in a_cls if r["stopped_early"])
+        print(f"  {cls:<25} {n:>3} {b_it:>5.1f} {a_it:>5.1f} {b_r10:>7.3f} {a_r10:>7.3f} {a_early:>5}/{n}")
 
     # Build report
     report = {
-        "ablation": "phase24_proper_ablation",
+        "ablation": "phase24_1_proper_ablation",
         "max_iterations": max_iter,
         "summary": {
             "total_queries": total,
-            "avg_iterations": avg_iters,
-            "avg_evidence": avg_evidence,
-            "avg_recall_5": avg_r5,
-            "avg_recall_10": avg_r10,
-            "avg_need_coverage": avg_cov,
-            "avg_top3_score": avg_top3,
-            "avg_source_diversity": avg_diversity,
-            "avg_latency_ms": avg_latency,
-            "sufficiency_distribution": decisions,
-            "gate_passes": gate_passes,
-            "gate_blocks": gate_blocks,
-            "gain_stops": gain_stops,
-            "iteration_distribution": iter_dist,
+            "baseline": {
+                "avg_iterations": b_avg_iters,
+                "avg_evidence": b_avg_evidence,
+                "avg_recall_10": b_avg_r10,
+                "avg_need_coverage": b_avg_cov,
+                "avg_top3_score": b_avg_top3,
+                "avg_latency_ms": b_avg_latency,
+                "iteration_distribution": b_iter_dist,
+            },
+            "adaptive": {
+                "avg_iterations": a_avg_iters,
+                "avg_evidence": a_avg_evidence,
+                "avg_recall_10": a_avg_r10,
+                "avg_need_coverage": a_avg_cov,
+                "avg_top3_score": a_avg_top3,
+                "avg_latency_ms": a_avg_latency,
+                "early_stops": a_early_stops,
+                "iteration_distribution": a_iter_dist,
+                "sufficiency_distribution": a_suff_dist,
+                "stop_reasons": a_stop_reasons,
+            },
+            "delta_iterations": a_avg_iters - b_avg_iters,
+            "delta_latency_ms": a_avg_latency - b_avg_latency,
         },
         "per_class": {},
-        "results": results,
+        "baseline_results": baseline_results,
+        "adaptive_results": adaptive_results,
     }
     for cls in classes:
-        cls_results = [r for r in results if r["eval_class"] == cls]
+        b_cls = [r for r in baseline_results if r["eval_class"] == cls]
+        a_cls = [r for r in adaptive_results if r["eval_class"] == cls]
         report["per_class"][cls] = {
-            "count": len(cls_results),
-            "avg_iterations": mean(r["iterations_used"] for r in cls_results),
-            "avg_recall_5": mean(r["final_r5"] for r in cls_results),
-            "avg_recall_10": mean(r["final_r10"] for r in cls_results),
-            "avg_need_coverage": mean(r["final_coverage"] for r in cls_results),
-            "avg_top3_score": mean(r["final_top3"] for r in cls_results),
+            "count": len(b_cls),
+            "baseline_avg_iterations": mean(r["iterations_used"] for r in b_cls),
+            "adaptive_avg_iterations": mean(r["iterations_used"] for r in a_cls),
+            "baseline_avg_recall_10": mean(r["final_r10"] for r in b_cls),
+            "adaptive_avg_recall_10": mean(r["final_r10"] for r in a_cls),
+            "adaptive_early_stops": sum(1 for r in a_cls if r["stopped_early"]),
         }
 
     report_dir = Path("data/benchmark_reports")
     report_dir.mkdir(parents=True, exist_ok=True)
-    with (report_dir / "phase24_ablation.json").open("w", encoding="utf-8") as f:
+    with (report_dir / "phase24_1_ablation.json").open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, default=str)
-    print(f"\nReport saved to data/benchmark_reports/phase24_ablation.json")
+    print(f"\nReport saved to data/benchmark_reports/phase24_1_ablation.json")
 
     return report
 

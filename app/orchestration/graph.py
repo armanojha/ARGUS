@@ -218,7 +218,19 @@ def build_graph(
         min_sources=settings.evidence_selection_min_sources,
     )
 
-    workflow.add_node("assess", make_assess_node(router, settings, gap_detector=gap_detector, evidence_selector=evidence_selector))  # type: ignore
+    # Phase 24.1: Adaptive research policy (optional, feature-flagged).
+    adaptive_policy = None
+    if getattr(settings, "adaptive_research_enabled", False):
+        from app.orchestration.adaptive_research import create_adaptive_research_policy
+        adaptive_policy = create_adaptive_research_policy(settings)
+        logger.info("adaptive_research_enabled", request_id=None)
+
+    workflow.add_node("assess", make_assess_node(  # type: ignore
+        router, settings,
+        gap_detector=gap_detector,
+        evidence_selector=evidence_selector,
+        adaptive_research_policy=adaptive_policy,
+    ))
     workflow.add_node("stop_check", make_stop_check_node(stopping_logic))  # type: ignore
     if agent_coordinator is not None:
         workflow.add_node("debate", partial(_debate_node, agent_coordinator=agent_coordinator))  # type: ignore
