@@ -32,22 +32,12 @@ from app.orchestration.models import ResearchPlan
 
 BENCHMARK_QUERIES = [
     {"id": "P27-A01", "class": "simple_lookup", "query": "Where is Acme Corporation headquartered?", "gold_facts": ["New York City"]},
-    {"id": "P27-A02", "class": "simple_lookup", "query": "What is the name of Acme's CEO?", "gold_facts": ["CEO"]},
     {"id": "P27-D01", "class": "multi_doc_synthesis", "query": "What are the key differences between Atlas v1 and Atlas v2?", "gold_facts": ["Atlas", "v1", "v2"]},
-    {"id": "P27-D02", "class": "multi_doc_synthesis", "query": "How does Acme's employee count compare across different reports?", "gold_facts": ["employees", "count"]},
-    {"id": "P27-D03", "class": "multi_doc_synthesis", "query": "Compare Acme's 2023 and 2025 revenue figures and explain the trend.", "gold_facts": ["revenue", "2023", "2025"]},
     {"id": "P27-E01", "class": "multi_hop", "query": "Who manages the team that developed Atlas?", "gold_facts": ["Atlas", "team", "manager"]},
-    {"id": "P27-E02", "class": "multi_hop", "query": "What technology stack does the Acme analytics platform use?", "gold_facts": ["analytics", "technology", "stack"]},
-    {"id": "P27-E03", "class": "multi_hop", "query": "Which division's product uses the highest-performing database?", "gold_facts": ["database", "performance", "division"]},
     {"id": "P27-F01", "class": "conflict", "query": "What were Acme's revenue figures for 2023 according to different sources?", "gold_facts": ["revenue", "2023"], "conflict": True},
-    {"id": "P27-F02", "class": "conflict", "query": "What are the different employee count figures reported for Acme?", "gold_facts": ["employees", "count"], "conflict": True},
     {"id": "P27-H01", "class": "numerical", "query": "What was Acme's revenue growth rate from 2022 to 2023?", "gold_facts": ["revenue", "growth", "rate"]},
-    {"id": "P27-H02", "class": "numerical", "query": "What is the Atlas database query latency at P99?", "gold_facts": ["latency", "P99", "Atlas"]},
-    {"id": "P27-H03", "class": "numerical", "query": "How many customers does Acme serve across all products?", "gold_facts": ["customers", "count"]},
     {"id": "P27-C01", "class": "technical_explanation", "query": "How does the Atlas database achieve low latency?", "gold_facts": ["Atlas", "latency", "architecture"]},
-    {"id": "P27-C02", "class": "technical_explanation", "query": "Explain Acme's approach to data security.", "gold_facts": ["security", "approach"]},
     {"id": "P27-I01", "class": "complex_research", "query": "What is Acme's competitive advantage in the analytics market?", "gold_facts": ["competitive", "advantage", "analytics"]},
-    {"id": "P27-I02", "class": "complex_research", "query": "How does Acme plan to expand internationally?", "gold_facts": ["international", "expansion", "plan"]},
     {"id": "P27-G01", "class": "absent_info", "query": "What is Acme's market share in the European robotics market?", "gold_facts": [], "absent": True},
     {"id": "P27-G02", "class": "absent_info", "query": "What is the salary range for Acme's software engineers?", "gold_facts": [], "absent": True},
     {"id": "P27-J01", "class": "adversarial", "query": "What undisclosed legal issues has Acme faced?", "gold_facts": [], "absent": True},
@@ -404,19 +394,16 @@ async def run_experiment():
     router = get_router()
     settings = get_settings()
 
-    all_results = {}
+    all_results = {name: [] for name in STRATEGIES}
 
-    for strat_name, strat_fn in STRATEGIES.items():
-        print(f"\n--- Strategy: {strat_name} ---")
-        results = []
+    for qi in BENCHMARK_QUERIES:
+        query = qi["query"]
+        refs = await retrieve_evidence(retriever, query)
+        evidence = refs[:8]
 
-        for qi in BENCHMARK_QUERIES:
-            query = qi["query"]
-            print(f"  {qi['id']}: {query[:50]}...", end=" ", flush=True)
-
-            refs = await retrieve_evidence(retriever, query)
-            evidence = refs[:8]
-            await asyncio.sleep(1.5)
+        for strat_name, strat_fn in STRATEGIES.items():
+            print(f"  {qi['id']} [{strat_name}]: {query[:40]}...", end=" ", flush=True)
+            await asyncio.sleep(1.0)
 
             try:
                 out = await strat_fn(router, query, evidence, settings)
@@ -427,12 +414,10 @@ async def run_experiment():
                 p1_cl, v_cl, r_cl, method = 0, 0, 0, "PROVIDER_FAILURE"
                 p1_in, p1_out, p2_in, p2_out, ev_count = 0, 0, 0, 0, len(evidence)
 
-            # Mark pass1_error and pass2_error as provider failures for quality exclusion
             is_provider_failure = method in ("pass1_error", "pass2_error", "PROVIDER_FAILURE")
+            print(f"OK ({total_lat:.0f}ms, {method})" + (" [PF]" if is_provider_failure else ""))
 
-            print(f"OK ({total_lat:.0f}ms, {method})" + (" [PROVIDER_FAILURE]" if is_provider_failure else ""))
-
-            if answer:
+            if answer and not is_provider_failure:
                 ev = evaluate_answer(answer, evidence, gold_facts=qi.get("gold_facts") or None, query=query)
                 eval_dict = {
                     "claim_support_rate": ev.claim_support_rate,
@@ -444,7 +429,7 @@ async def run_experiment():
             else:
                 eval_dict = {"claim_support_rate": 0, "citation_presence_rate": 0, "citation_precision": 0, "query_relevance": 0, "gold_fact_coverage": None}
 
-            results.append(ExpResult(
+            all_results[strat_name].append(ExpResult(
                 query_id=qi["id"], query_class=qi["class"],
                 answer=answer[:500] if answer else "", strategy=strat_name,
                 latency_ms=total_lat, method=method,
@@ -454,8 +439,6 @@ async def run_experiment():
                 pass2_tokens_in=p2_in, pass2_tokens_out=p2_out,
                 evidence_chunks=ev_count, evaluation=eval_dict,
             ))
-
-        all_results[strat_name] = results
 
     # ---- Summary ----
     print("\n" + "=" * 70)

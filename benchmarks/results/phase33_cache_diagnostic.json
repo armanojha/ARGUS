@@ -1,0 +1,29 @@
+{
+  "test": "cache_bypass_and_duplicates",
+  "search_async_cache_bypass": {
+    "call_1_ms": 262.77,
+    "call_2_ms": 223.55,
+    "cache_entries": 2,
+    "finding": "search_async() does NOT check or populate _result_cache"
+  },
+  "search_sync_cache": {
+    "call_1_ms": 210.31,
+    "call_2_ms": 0.04,
+    "cache_entries": 2,
+    "speedup": 5378.9,
+    "finding": "search() DOES use cache \u2014 second call is instant"
+  },
+  "evidence_selector": {
+    "call_1_ms": 0.76,
+    "call_2_ms": 0.55,
+    "input_size": 10,
+    "output_size": 8,
+    "finding": "select() is pure function, no caching needed at 0.85ms avg"
+  },
+  "repeated_query": {
+    "query_1_fresh_ms": 209.9,
+    "query_2_different_ms": 255.15,
+    "query_1_cached_ms": 0.04,
+    "finding": "sync search() caches correctly for repeated queries"
+  }
+}
