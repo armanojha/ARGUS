@@ -337,7 +337,7 @@
   /* ------- View routing ------- */
   .view { display: none; flex: 1; min-height: 0; position: relative; }
   .view.active { display: flex; flex-direction: column; }
-  #main[data-view]:not([data-view="brain"]) #searchwrap[data-brain-only] { display: none; }
+  #main[data-view]:not([data-view="pipeline"]):not([data-view="graph"]) #searchwrap[data-brain-only] { display: none; }
 
   .view-scroll {
     flex: 1; overflow-y: auto; padding: 26px 30px 40px; max-width: 960px; width: 100%; margin: 0 auto;
@@ -567,8 +567,8 @@
       </div>
     </div>
 
-    <!-- BRAIN: knowledge graph -->
-    <section id="view-brain" class="view active" data-view="brain">
+    <!-- GRAPH: knowledge graph -->
+    <section id="view-graph" class="view" data-view="graph">
       <div id="filters"></div>
       <div class="canvas-wrap">
         <canvas id="graph"></canvas>
@@ -603,12 +603,16 @@
     <section id="view-pipeline" class="view" data-view="pipeline">
       <div class="pipeline-wrap">
         <canvas id="pipeline-canvas"></canvas>
+        <div id="pipeline-demo-banner" style="display:none;position:absolute;top:14px;left:14px;z-index:12;padding:6px 14px;border-radius:8px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);color:var(--warn);font-size:11px;font-weight:600;letter-spacing:.5px">DEMO MODE — Pre-recorded data</div>
         <div id="pipeline-empty">
           <div class="pe-icon">◉</div>
           <div class="pe-title">ARGUS Brain</div>
           <div class="pe-sub">Evidence-grounded research intelligence. Ask a question to see how ARGUS thinks, retrieves, verifies, and constructs an answer.</div>
           <div class="pe-examples" id="pipeline-examples"></div>
-          <div style="margin-top:12px;font-size:11px;color:var(--text-faint)">Or type a question in the Research tab</div>
+          <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+            <button class="d-btn" id="pipeline-demo-btn" style="max-width:200px">Load Demo</button>
+            <span style="font-size:11px;color:var(--text-faint)">See a pre-recorded research result</span>
+          </div>
         </div>
         <div id="pipeline-status"><div class="ps-dot"></div><span id="pipeline-status-text">Processing…</span></div>
         <div id="pipeline-controls">
@@ -2295,6 +2299,1339 @@ window.addEventListener("resize", resize);
 resize();
 document.getElementById("loading").style.display = "none";
 fetchGraph();
+
+/* ============================================================
+   PIPELINE VIEW — Research Flow Visualization
+   ============================================================ */
+
+const PIPELINE_API = API_BASE;
+const PIPELINE_EXAMPLES = [
+  "Compare revenue growth of Acme and Globex in 2024 vs 2025",
+  "What evidence supports the claim that AI adoption is accelerating?",
+  "Find conflicting information about climate change impacts",
+  "Summarize the key findings from the Q3 financial reports",
+  "What are the risks and benefits of quantum computing?",
+];
+
+const PIPELINE_COLORS = {
+  query:      "#6ea8fe",
+  analysis:   "#8b9cf9",
+  plan:       "#a78bfa",
+  subquery:   "#c4b5fd",
+  evidence:   "#34d399",
+  verification:"#fbbf24",
+  conflict:   "#f87171",
+  synthesis:  "#f472b6",
+  answer:     "#6ea8fe",
+};
+
+const PIPELINE_ICONS = {
+  query:      "🔍",
+  analysis:   "📊",
+  plan:       "📋",
+  subquery:   "🔎",
+  evidence:   "📄",
+  verification:"✅",
+  conflict:   "⚠️",
+  synthesis:  "🧠",
+  answer:     "💬",
+};
+
+const PIPELINE_LABELS = {
+  query:      "Query",
+  analysis:   "Analysis",
+  plan:       "Research Plan",
+  subquery:   "Sub-query",
+  evidence:   "Evidence",
+  verification:"Verification",
+  conflict:   "Conflict Detection",
+  synthesis:  "Synthesis",
+  answer:     "Answer",
+};
+
+const PIPELINE_EXPLANATIONS = {
+  query: {
+    what: "The user's research question, parsed and ready for processing.",
+    why: "ARGUS analyzes the question before retrieval so it can choose an appropriate research strategy instead of treating every query as a simple vector search.",
+    input: "Raw user text from the Research chat.",
+    output: "Normalized query string passed to analysis.",
+    impact: "The query determines what evidence ARGUS seeks and how it evaluates completeness.",
+  },
+  analysis: {
+    what: "ARGUS breaks down the query to understand its structure, entities, time references, and research complexity.",
+    why: "Without analysis, ARGUS would not know whether to search for comparisons, facts, conflicts, or summaries. Analysis drives the research strategy.",
+    input: "User query text.",
+    output: "Question pattern, entities, time window, risk level, and evidence type requirements.",
+    impact: "Analysis determines which retrieval methods ARGUS uses and how many sub-queries to generate.",
+  },
+  plan: {
+    what: "A structured research plan that specifies what evidence to find, how many searches to run, and when to stop.",
+    why: "Planning prevents wasted API calls. Instead of blind retrieval, ARGUS plans targeted searches based on the analysis.",
+    input: "Query analysis results.",
+    output: "Sub-queries, retrieval strategy, iteration budget, token budget, and stopping condition.",
+    impact: "The plan controls how thorough ARGUS is. More complex queries get more iterations and sub-queries.",
+  },
+  subquery: {
+    what: "Individual search queries derived from the research plan, each targeting specific evidence needs.",
+    why: "Breaking a complex question into sub-queries allows ARGUS to find evidence for each aspect separately, then combine them.",
+    input: "Research plan with sub-questions.",
+    output: "Individual search queries passed to retrieval.",
+    impact: "Each sub-query retrieves evidence for one aspect of the answer. More sub-queries = more comprehensive coverage.",
+  },
+  evidence: {
+    what: "Relevant text chunks retrieved from the knowledge base, ranked by relevance and reranked for quality.",
+    why: "Evidence is the foundation of ARGUS's answers. Without retrieved evidence, ARGUS would rely on model knowledge alone.",
+    input: "Sub-queries sent to BM25 + dense retrieval, then reranked.",
+    output: "Ranked evidence chunks with source paths, scores, and metadata.",
+    impact: "Evidence quality directly determines answer quality. ARGUS only synthesizes from verified evidence.",
+  },
+  verification: {
+    what: "ARGUS checks whether the retrieved evidence actually supports the claims it will make in the answer.",
+    why: "Unverified evidence could be irrelevant, outdated, or contradictory. Verification ensures the answer is grounded.",
+    input: "Evidence chunks and planned claims.",
+    output: "Verification status (supported/partial/contradicted), confidence scores, and reasoning.",
+    impact: "Verification prevents ARGUS from making claims that aren't backed by evidence. It's a quality gate.",
+  },
+  conflict: {
+    what: "Detection of contradictory information across evidence sources, with query-aware filtering to reduce false positives.",
+    why: "Conflicts between sources must be acknowledged, not hidden. ARGUS distinguishes genuine contradictions from differences in timeframe, scope, or definition.",
+    input: "Evidence chunks with contradictory claims.",
+    output: "Conflict signals with type, confidence, relevance, and safe resolution rules.",
+    impact: "Conflicts affect how ARGUS presents information. Genuine conflicts are acknowledged; false conflicts are filtered out.",
+  },
+  synthesis: {
+    what: "ARGUS generates the final response by combining verified evidence, respecting conflicts, and grounding every claim in citations.",
+    why: "Synthesis is where evidence becomes an answer. Grounded synthesis ensures the answer reflects what the evidence says, not what the model thinks.",
+    input: "Verified evidence, conflict signals, and the research plan.",
+    output: "Final answer text with inline citations and grounding status.",
+    impact: "Synthesis quality determines whether the answer is useful. Poor synthesis wastes good evidence.",
+  },
+  answer: {
+    what: "The final research response with inline citations, source references, and confidence indicators.",
+    why: "The answer is the end product. Every previous step exists to make this answer accurate, grounded, and traceable.",
+    input: "Synthesized text with citations.",
+    output: "Formatted answer with citations, source trail, verification status, and telemetry.",
+    impact: "The answer is what the user sees. Its quality reflects the entire pipeline.",
+  },
+};
+
+/* Pipeline state */
+let pipelineData = null;
+let pipelineNodes = [];
+let pipelineEdges = [];
+let pipelineSelected = null;
+let pipelineHover = null;
+let pipelineView = { x: 0, y: 0, k: 1 };
+let pipelineCanvas, pipelineCtx;
+let pipelineWidth = 0, pipelineHeight = 0, pipelineDpr = 1;
+let pipelineBusy = false;
+
+/* Initialize pipeline canvas */
+function initPipelineCanvas() {
+  pipelineCanvas = document.getElementById("pipeline-canvas");
+  if (!pipelineCanvas) return;
+  pipelineCtx = pipelineCanvas.getContext("2d");
+
+  pipelineCanvas.addEventListener("pointerdown", pipelinePointerDown);
+  pipelineCanvas.addEventListener("pointermove", pipelinePointerMove);
+  pipelineCanvas.addEventListener("pointerup", pipelinePointerUp);
+  pipelineCanvas.addEventListener("wheel", pipelineWheel, { passive: false });
+  pipelineCanvas.addEventListener("dblclick", pipelineDblClick);
+
+  document.getElementById("pipeline-zoom-in").addEventListener("click", () => pipelineZoomBy(1.3));
+  document.getElementById("pipeline-zoom-out").addEventListener("click", () => pipelineZoomBy(1/1.3));
+  document.getElementById("pipeline-zoom-fit").addEventListener("click", pipelineFitView);
+  document.querySelector("#pipeline-inspector .pi-close").addEventListener("click", closePipelineInspector);
+  document.getElementById("pipeline-demo-btn").addEventListener("click", loadDemoMode);
+
+  renderPipelineExamples();
+}
+
+function renderPipelineExamples() {
+  const el = document.getElementById("pipeline-examples");
+  if (!el) return;
+  el.innerHTML = PIPELINE_EXAMPLES.map(q =>
+    `<div class="pe-example" data-query="${escapeAttr(q)}">${escapeHtml(q)}</div>`
+  ).join("");
+  el.querySelectorAll(".pe-example").forEach(ex => {
+    ex.addEventListener("click", () => {
+      const q = ex.dataset.query;
+      switchView("research");
+      setTimeout(() => {
+        researchInput.value = q;
+        sendResearch();
+      }, 100);
+    });
+  });
+}
+
+/* Demo mode */
+let demoModeActive = false;
+function loadDemoMode() {
+  demoModeActive = true;
+  buildPipeline(DEMO_RESULT);
+  document.getElementById("pipeline-demo-banner").style.display = "block";
+  showToast("Demo mode: showing pre-recorded research result");
+}
+
+  /* Pipeline empty state */
+function renderPipelineEmpty() {
+  demoModeActive = false;
+  const empty = document.getElementById("pipeline-empty");
+  if (empty) empty.style.display = "flex";
+  const status = document.getElementById("pipeline-status");
+  if (status) status.classList.remove("active");
+  const banner = document.getElementById("pipeline-demo-banner");
+  if (banner) banner.style.display = "none";
+  pipelineData = null;
+  pipelineNodes = [];
+  pipelineEdges = [];
+  pipelineSelected = null;
+  pipelineHover = null;
+}
+
+/* Demo mode data */
+const DEMO_RESULT = {
+  query: "Compare revenue growth of Acme Corporation and Globex International in 2024 vs 2025",
+  question_pattern: "comparison",
+  plan: {
+    objective: "Compare revenue growth rates of two companies across two fiscal years",
+    entities: ["Acme Corporation", "Globex International"],
+    time_window: "2024-2025",
+    subquestions: [
+      "What was Acme Corporation's revenue in 2024 and 2025?",
+      "What was Globex International's revenue in 2024 and 2025?",
+      "How do the growth rates compare?"
+    ],
+    evidence_type: "financial",
+    preferred_retrieval_methods: ["hybrid", "bm25", "vector"],
+    required_sources: [],
+    risk_level: "medium",
+    token_budget: 8000,
+    iteration_budget: 3,
+    stopping_condition: "sufficient_evidence",
+  },
+  sub_queries_issued: [
+    "Acme Corporation revenue 2024 2025 annual report",
+    "Globex International revenue 2024 2025 financial results",
+    "Acme vs Globex revenue comparison growth rate"
+  ],
+  citations: [
+    {
+      ref_id: 1,
+      chunk_id: "demo-chunk-001",
+      document_id: "demo-doc-001",
+      source_id: "demo-source-001",
+      source_path: "acme-corporation-annual-report-2025.md",
+      source_type: "markdown",
+      text: "Acme Corporation reported total revenue of $45.2 billion for fiscal year 2024, representing a 12.3% increase from the prior year. In 2025, revenue grew to $52.1 billion, a 15.3% year-over-year increase driven by strong performance in the enterprise software division.",
+      page_start: null,
+      page_end: null,
+      section_path: "Financial Performance > Revenue",
+      score: 0.94,
+      metadata: {},
+    },
+    {
+      ref_id: 2,
+      chunk_id: "demo-chunk-002",
+      document_id: "demo-doc-002",
+      source_id: "demo-source-001",
+      source_path: "acme-corporation-annual-report-2025.md",
+      source_type: "markdown",
+      text: "The enterprise software division contributed $28.3 billion in 2025, up from $23.1 billion in 2024. Cloud services revenue grew 42% year-over-year to $15.8 billion.",
+      page_start: null,
+      page_end: null,
+      section_path: "Financial Performance > Division Breakdown",
+      score: 0.87,
+      metadata: {},
+    },
+    {
+      ref_id: 3,
+      chunk_id: "demo-chunk-003",
+      document_id: "demo-doc-003",
+      source_id: "demo-source-002",
+      source_path: "globex-international-earnings-q4-2025.md",
+      source_type: "markdown",
+      text: "Globex International reported revenue of $12.4 billion for fiscal year 2024 and $14.1 billion for 2025, representing growth of 13.7% year-over-year. The company attributed growth to expansion in Asian markets.",
+      page_start: null,
+      page_end: null,
+      section_path: "Earnings Summary > Revenue",
+      score: 0.91,
+      metadata: {},
+    },
+    {
+      ref_id: 4,
+      chunk_id: "demo-chunk-004",
+      document_id: "demo-doc-004",
+      source_id: "demo-source-003",
+      source_path: "industry-analysis-tech-sector-2025.md",
+      source_type: "markdown",
+      text: "Both Acme Corporation and Globex International outperformed the industry average growth rate of 9.2% in 2025. Acme's 15.3% growth exceeded Globex's 13.7%, though Globex showed stronger international expansion.",
+      page_start: null,
+      page_end: null,
+      section_path: "Competitive Analysis > Growth Comparison",
+      score: 0.82,
+      metadata: {},
+    },
+  ],
+  iterations_used: 2,
+  stop_reason: "sufficient_evidence",
+  outcome: "answered",
+  token_usage_estimate: 3200,
+  request_id: "demo-run-001",
+  telemetry: {
+    total_calls: 4,
+    failed_calls: 0,
+    total_tokens: 3200,
+    duration_ms: 8500,
+  },
+  warnings: [],
+  question_pattern: "comparison",
+  stop_condition: "sufficient_evidence",
+  stop_decisions: [],
+  evidence_tasks: [],
+  agent_round: 2,
+  agent_messages: [],
+  disagreement_detected: false,
+  memory_consulted: [],
+  contradiction_signals: [
+    {
+      type: "DIFFERENT_TIMEFRAME",
+      confidence: 0.72,
+      entity: ["Acme Corporation", "revenue"],
+      metrics: ["revenue"],
+      description: "Revenue figures reported at different time periods",
+    },
+  ],
+  verification: {
+    triggered: true,
+    skipped_reason: null,
+    status: "supported",
+    confidence: 0.88,
+    contradiction_detected: false,
+    reasoning: "All claims are supported by multiple sources with consistent financial data. Cross-source agreement is strong.",
+    error: null,
+    evidence_coverage: 0.92,
+    source_quality: 0.89,
+    cross_source_agreement: 0.85,
+    temporal_relevance: 0.94,
+    retrieval_rank: 0.91,
+    verifier_judgment: 0.88,
+  },
+  answer: "Acme Corporation reported revenue of $45.2B in 2024 and $52.1B in 2025, representing 15.3% year-over-year growth [1][2]. Globex International reported $12.4B in 2024 and $14.1B in 2025, with 13.7% growth [3]. While both companies outperformed the industry average of 9.2%, Acme's growth rate exceeded Globex's by 1.6 percentage points [4]. However, Globex demonstrated stronger international expansion, particularly in Asian markets [3].",
+};
+
+/* Pipeline resize */
+function resizePipeline() {
+  if (!pipelineCanvas) return;
+  const wrap = pipelineCanvas.parentElement;
+  if (!wrap) return;
+  pipelineDpr = window.devicePixelRatio || 1;
+  pipelineWidth = wrap.clientWidth;
+  pipelineHeight = wrap.clientHeight;
+  pipelineCanvas.width = pipelineWidth * pipelineDpr;
+  pipelineCanvas.height = pipelineHeight * pipelineDpr;
+  pipelineCanvas.style.width = pipelineWidth + "px";
+  pipelineCanvas.style.height = pipelineHeight + "px";
+  pipelineCtx.setTransform(pipelineDpr, 0, 0, pipelineDpr, 0, 0);
+}
+
+/* Build pipeline from OrchestrationResult */
+function buildPipeline(result) {
+  pipelineData = result;
+  pipelineNodes = [];
+  pipelineEdges = [];
+  pipelineSelected = null;
+  pipelineHover = null;
+
+  const cx = pipelineWidth / 2;
+  const stageH = 90;
+  const evidenceSpacing = 140;
+  let y = 60;
+
+  /* Query */
+  const queryNode = {
+    id: "pipeline-query", type: "query", label: result.query || "Query",
+    x: cx, y: y, w: 320, h: 56, status: "complete",
+    data: { query: result.query },
+  };
+  pipelineNodes.push(queryNode);
+  y += stageH;
+
+  /* Analysis */
+  const analysisNode = {
+    id: "pipeline-analysis", type: "analysis", label: "Query Analysis",
+    x: cx, y: y, w: 280, h: 50, status: "complete",
+    data: {
+      pattern: result.question_pattern || "—",
+      entities: result.plan?.entities || [],
+      timeWindow: result.plan?.time_window,
+      riskLevel: result.plan?.risk_level,
+    },
+  };
+  pipelineNodes.push(analysisNode);
+  pipelineEdges.push({ from: queryNode.id, to: analysisNode.id, type: "flow" });
+  y += stageH;
+
+  /* Plan */
+  const planNode = {
+    id: "pipeline-plan", type: "plan", label: "Research Plan",
+    x: cx, y: y, w: 280, h: 50, status: "complete",
+    data: {
+      objective: result.plan?.objective,
+      subqueries: result.plan?.subquestions || [],
+      strategy: result.plan?.preferred_retrieval_methods || [],
+      iterations: result.iterations_used,
+      tokenBudget: result.plan?.token_budget,
+      stoppingCondition: result.plan?.stopping_condition,
+    },
+  };
+  pipelineNodes.push(planNode);
+  pipelineEdges.push({ from: analysisNode.id, to: planNode.id, type: "flow" });
+  y += stageH;
+
+  /* Sub-queries */
+  const subQueries = result.sub_queries_issued || [];
+  const subqueryNodes = [];
+  subQueries.forEach((sq, i) => {
+    const sx = cx + (i - (subQueries.length - 1) / 2) * evidenceSpacing;
+    const sqNode = {
+      id: `pipeline-subquery-${i}`, type: "subquery", label: `Sub-query ${i + 1}`,
+      x: sx, y: y, w: 180, h: 44, status: "complete",
+      data: { query: sq, index: i },
+    };
+    pipelineNodes.push(sqNode);
+    subqueryNodes.push(sqNode);
+    pipelineEdges.push({ from: planNode.id, to: sqNode.id, type: "flow" });
+  });
+  y += stageH;
+
+  /* Evidence */
+  const citations = result.citations || [];
+  const evidenceNodes = [];
+  citations.forEach((cit, i) => {
+    const ex = cx + (i - (citations.length - 1) / 2) * evidenceSpacing;
+    const eNode = {
+      id: `pipeline-evidence-${i}`, type: "evidence", label: `Evidence ${i + 1}`,
+      x: ex, y: y, w: 180, h: 56, status: "complete",
+      data: {
+        citation: cit,
+        source: cit.source_path || "—",
+        text: cit.text || "",
+        score: cit.score,
+        refId: cit.ref_id,
+        sectionPath: cit.section_path,
+        pageStart: cit.page_start,
+      },
+    };
+    pipelineNodes.push(eNode);
+    evidenceNodes.push(eNode);
+    /* Connect to nearest sub-query or plan */
+    const fromNode = subqueryNodes.length ? subqueryNodes[Math.min(i, subqueryNodes.length - 1)] : planNode;
+    pipelineEdges.push({ from: fromNode.id, to: eNode.id, type: "retrieval" });
+  });
+  if (!citations.length && subqueryNodes.length) {
+    /* No evidence retrieved — still show connection from plan */
+  }
+  y += stageH;
+
+  /* Verification */
+  const ver = result.verification;
+  const verNode = {
+    id: "pipeline-verification", type: "verification", label: "Verification",
+    x: cx, y: y, w: 280, h: 50, status: ver?.triggered ? "complete" : "skipped",
+    data: {
+      triggered: ver?.triggered || false,
+      status: ver?.status,
+      confidence: ver?.confidence,
+      reasoning: ver?.reasoning,
+      skippedReason: ver?.skipped_reason,
+      evidenceCoverage: ver?.evidence_coverage,
+      sourceQuality: ver?.source_quality,
+      crossSourceAgreement: ver?.cross_source_agreement,
+      temporalRelevance: ver?.temporal_relevance,
+    },
+  };
+  pipelineNodes.push(verNode);
+  evidenceNodes.forEach(e => pipelineEdges.push({ from: e.id, to: verNode.id, type: "verification" }));
+  y += stageH;
+
+  /* Conflict Detection */
+  const conflicts = result.contradiction_signals || [];
+  const conflictNodes = [];
+  if (conflicts.length) {
+    conflicts.forEach((conf, i) => {
+      const konf = cx + (i - (conflicts.length - 1) / 2) * evidenceSpacing;
+      const cNode = {
+        id: `pipeline-conflict-${i}`, type: "conflict", label: `Conflict ${i + 1}`,
+        x: konf, y: y, w: 200, h: 50, status: "complete",
+        data: {
+          conflict: conf,
+          type: conf.type || conf.conflict_type || "—",
+          confidence: conf.confidence,
+          entity: conf.entity || [],
+          metrics: conf.metrics || [],
+          resolution: conf.resolution_suggestion,
+        },
+      };
+      pipelineNodes.push(cNode);
+      conflictNodes.push(cNode);
+      pipelineEdges.push({ from: verNode.id, to: cNode.id, type: "conflict" });
+    });
+  }
+  y += stageH;
+
+  /* Synthesis */
+  const synNode = {
+    id: "pipeline-synthesis", type: "synthesis", label: "Synthesis",
+    x: cx, y: y, w: 280, h: 50, status: "complete",
+    data: {
+      outcome: result.outcome,
+      stopReason: result.stop_reason,
+      iterationsUsed: result.iterations_used,
+      tokenEstimate: result.token_usage_estimate,
+      memoryConsulted: result.memory_consulted || [],
+      warnings: result.warnings || [],
+    },
+  };
+  pipelineNodes.push(synNode);
+  const synSources = conflictNodes.length ? conflictNodes : [verNode];
+  synSources.forEach(s => pipelineEdges.push({ from: s.id, to: synNode.id, type: "synthesis" }));
+  y += stageH;
+
+  /* Answer */
+  const ansNode = {
+    id: "pipeline-answer", type: "answer", label: "Final Answer",
+    x: cx, y: y, w: 360, h: 70, status: "complete",
+    data: {
+      answer: result.answer,
+      citations: citations,
+      outcome: result.outcome,
+      telemetry: result.telemetry,
+      warnings: result.warnings || [],
+    },
+  };
+  pipelineNodes.push(ansNode);
+  pipelineEdges.push({ from: synNode.id, to: ansNode.id, type: "flow" });
+
+  /* Hide empty state, show status */
+  const empty = document.getElementById("pipeline-empty");
+  if (empty) empty.style.display = "none";
+
+  pipelineFitView();
+}
+
+/* Pipeline rendering */
+function drawPipeline() {
+  if (!pipelineCtx) return;
+  pipelineCtx.clearRect(0, 0, pipelineWidth, pipelineHeight);
+  pipelineCtx.save();
+  pipelineCtx.translate(pipelineView.x, pipelineView.y);
+  pipelineCtx.scale(pipelineView.k, pipelineView.k);
+
+  /* Draw edges */
+  for (const edge of pipelineEdges) {
+    const from = pipelineNodes.find(n => n.id === edge.from);
+    const to = pipelineNodes.find(n => n.id === edge.to);
+    if (!from || !to) continue;
+
+    const isActive = pipelineSelected && (pipelineSelected.id === from.id || pipelineSelected.id === to.id);
+    const isDimmed = pipelineSelected && !isActive;
+
+    pipelineCtx.beginPath();
+    pipelineCtx.moveTo(from.x, from.y + from.h / 2);
+    /* Bezier curve for smooth flow */
+    const midY = (from.y + from.h / 2 + to.y - to.h / 2) / 2;
+    pipelineCtx.bezierCurveTo(
+      from.x, midY,
+      to.x, midY,
+      to.x, to.y - to.h / 2
+    );
+
+    let color = "rgba(143,152,166,.35)";
+    if (edge.type === "retrieval") color = "rgba(52,211,153,.4)";
+    else if (edge.type === "verification") color = "rgba(251,191,36,.4)";
+    else if (edge.type === "conflict") color = "rgba(248,113,113,.4)";
+    else if (edge.type === "synthesis") color = "rgba(244,114,182,.4)";
+
+    if (isDimmed) color = "rgba(80,90,108,.10)";
+    else if (isActive) color = color.replace(/[\d.]+\)$/, "0.8)");
+
+    pipelineCtx.strokeStyle = color;
+    pipelineCtx.lineWidth = isActive ? 2 : 1.2;
+    pipelineCtx.stroke();
+
+    /* Arrow */
+    const arrowSize = 5;
+    const angle = Math.atan2(to.y - to.h / 2 - midY, to.x - from.x);
+    const ax = to.x;
+    const ay = to.y - to.h / 2;
+    pipelineCtx.beginPath();
+    pipelineCtx.moveTo(ax - arrowSize * Math.cos(angle - 0.5), ay - arrowSize * Math.sin(angle - 0.5));
+    pipelineCtx.lineTo(ax, ay);
+    pipelineCtx.lineTo(ax - arrowSize * Math.cos(angle + 0.5), ay - arrowSize * Math.sin(angle + 0.5));
+    pipelineCtx.strokeStyle = isDimmed ? "rgba(80,90,108,.10)" : "rgba(143,152,166,.55)";
+    pipelineCtx.lineWidth = 1;
+    pipelineCtx.stroke();
+  }
+
+  /* Draw nodes */
+  for (const node of pipelineNodes) {
+    drawPipelineNode(node);
+  }
+
+  pipelineCtx.restore();
+}
+
+function drawPipelineNode(node) {
+  const isSel = pipelineSelected && pipelineSelected.id === node.id;
+  const isHov = pipelineHover && pipelineHover.id === node.id;
+  const isDimmed = pipelineSelected && !isSel && !pipelineEdges.some(e =>
+    (e.from === pipelineSelected.id && e.to === node.id) ||
+    (e.to === pipelineSelected.id && e.from === node.id)
+  );
+
+  const color = PIPELINE_COLORS[node.type] || "#94a3b8";
+  const x = node.x - node.w / 2;
+  const y = node.y - node.h / 2;
+  const r = 10;
+
+  pipelineCtx.save();
+  pipelineCtx.globalAlpha = isDimmed ? 0.3 : 1;
+
+  /* Background */
+  pipelineCtx.beginPath();
+  pipelineCtx.roundRect(x, y, node.w, node.h, r);
+  pipelineCtx.fillStyle = isSel ? hexA(color, 0.2) : "rgba(19,24,32,.88)";
+  pipelineCtx.fill();
+  pipelineCtx.strokeStyle = isSel ? color : isHov ? hexA(color, 0.6) : "rgba(35,43,56,.8)";
+  pipelineCtx.lineWidth = isSel ? 2 : 1;
+  pipelineCtx.stroke();
+
+  /* Status indicator */
+  if (node.status === "complete") {
+    pipelineCtx.beginPath();
+    pipelineCtx.arc(x + node.w - 14, y + 14, 4, 0, Math.PI * 2);
+    pipelineCtx.fillStyle = "var(--good)";
+    pipelineCtx.fill();
+  } else if (node.status === "processing") {
+    pipelineCtx.beginPath();
+    pipelineCtx.arc(x + node.w - 14, y + 14, 4, 0, Math.PI * 2);
+    pipelineCtx.fillStyle = "var(--accent-2)";
+    pipelineCtx.fill();
+  } else if (node.status === "skipped") {
+    pipelineCtx.beginPath();
+    pipelineCtx.arc(x + node.w - 14, y + 14, 4, 0, Math.PI * 2);
+    pipelineCtx.fillStyle = "var(--text-faint)";
+    pipelineCtx.fill();
+  }
+
+  /* Icon */
+  const icon = PIPELINE_ICONS[node.type] || "●";
+  pipelineCtx.font = "14px sans-serif";
+  pipelineCtx.fillStyle = color;
+  pipelineCtx.textAlign = "left";
+  pipelineCtx.textBaseline = "middle";
+  pipelineCtx.fillText(icon, x + 12, node.y);
+
+  /* Label */
+  pipelineCtx.font = (isSel || isHov ? "600 " : "500 ") + "13px " + localFont;
+  pipelineCtx.fillStyle = isSel ? "#ffffff" : "#cfd8e6";
+  pipelineCtx.textAlign = "left";
+  pipelineCtx.fillText(truncate(node.label, 28), x + 32, node.y);
+
+  /* Sub-label for answer */
+  if (node.type === "answer" && node.data?.answer) {
+    pipelineCtx.font = "11px " + localFont;
+    pipelineCtx.fillStyle = "#8b96a8";
+    pipelineCtx.fillText(truncate(node.data.answer, 44), x + 12, node.y + 16);
+  }
+
+  /* Sub-label for evidence */
+  if (node.type === "evidence" && node.data?.source) {
+    pipelineCtx.font = "10px " + localFont;
+    pipelineCtx.fillStyle = "#8b96a8";
+    pipelineCtx.fillText(truncate(node.data.source, 22), x + 12, node.y + 14);
+    if (node.data.score != null) {
+      pipelineCtx.fillText("Score: " + Math.round(node.data.score * 100), x + 12, node.y + 26);
+    }
+  }
+
+  pipelineCtx.restore();
+}
+
+/* Pipeline viewport */
+function pipelineWorldToScreen(p) {
+  return { x: p.x * pipelineView.k + pipelineView.x, y: p.y * pipelineView.k + pipelineView.y };
+}
+function pipelineScreenToWorld(p) {
+  return { x: (p.x - pipelineView.x) / pipelineView.k, y: (p.y - pipelineView.y) / pipelineView.k };
+}
+
+function pipelineFitView() {
+  if (!pipelineNodes.length) { pipelineView = { x: 0, y: 0, k: 1 }; drawPipeline(); return; }
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  pipelineNodes.forEach(n => {
+    minX = Math.min(minX, n.x - n.w / 2);
+    maxX = Math.max(maxX, n.x + n.w / 2);
+    minY = Math.min(minY, n.y - n.h / 2);
+    maxY = Math.max(maxY, n.y + n.h / 2);
+  });
+  const pad = 80;
+  const bw = Math.max(maxX - minX, 1);
+  const bh = Math.max(maxY - minY, 1);
+  const k = Math.min((pipelineWidth - pad * 2) / bw, (pipelineHeight - pad * 2) / bh, 1.8);
+  const kk = Math.max(k, 0.15);
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  pipelineView = { x: pipelineWidth / 2 - cx * kk, y: pipelineHeight / 2 - cy * kk, k: kk };
+  drawPipeline();
+}
+
+function pipelineZoomBy(factor, cx, cy) {
+  const px = cx != null ? cx : pipelineWidth / 2;
+  const py = cy != null ? cy : pipelineHeight / 2;
+  const k1 = clamp(pipelineView.k * factor, 0.05, 6);
+  const w = pipelineScreenToWorld({ x: px, y: py });
+  pipelineView.k = k1;
+  pipelineView.x = px - w.x * k1;
+  pipelineView.y = py - w.y * k1;
+  drawPipeline();
+}
+
+/* Pipeline interaction */
+let pipelineDrag = null;
+let pipelinePan = null;
+let pipelinePointer = { x: 0, y: 0 };
+
+function pipelineNodeAt(x, y) {
+  const w = pipelineScreenToWorld({ x, y });
+  for (const n of pipelineNodes) {
+    if (w.x >= n.x - n.w / 2 && w.x <= n.x + n.w / 2 &&
+        w.y >= n.y - n.h / 2 && w.y <= n.y + n.h / 2) {
+      return n;
+    }
+  }
+  return null;
+}
+
+function pipelinePointerDown(ev) {
+  const p = { x: ev.offsetX, y: ev.offsetY };
+  const hit = pipelineNodeAt(p.x, p.y);
+  if (hit) {
+    pipelineDrag = { node: hit, x: ev.offsetX, y: ev.offsetY, moved: false };
+  } else {
+    pipelinePan = { startX: ev.offsetX, startY: ev.offsetY, vx: pipelineView.x, vy: pipelineView.y };
+  }
+  pipelineCanvas.setPointerCapture(ev.pointerId);
+}
+
+function pipelinePointerMove(ev) {
+  const p = { x: ev.offsetX, y: ev.offsetY };
+  pipelinePointer = p;
+
+  if (pipelineDrag) {
+    if (Math.hypot(p.x - pipelineDrag.x, p.y - pipelineDrag.y) > 3) pipelineDrag.moved = true;
+    if (pipelineDrag.moved) {
+      const w = pipelineScreenToWorld(p);
+      pipelineDrag.node.x = w.x;
+      pipelineDrag.node.y = w.y;
+      drawPipeline();
+    }
+    pipelineCanvas.style.cursor = "grabbing";
+    return;
+  }
+  if (pipelinePan) {
+    pipelineView.x = pipelinePan.vx + (p.x - pipelinePan.startX);
+    pipelineView.y = pipelinePan.vy + (p.y - pipelinePan.startY);
+    drawPipeline();
+    return;
+  }
+
+  const hit = pipelineNodeAt(p.x, p.y);
+  if (hit !== pipelineHover) {
+    pipelineHover = hit;
+    updatePipelineTooltip();
+    pipelineCanvas.style.cursor = hit ? "pointer" : "grab";
+    drawPipeline();
+  }
+}
+
+function pipelinePointerUp(ev) {
+  const p = { x: ev.offsetX, y: ev.offsetY };
+  let emptyClick = false;
+  if (pipelineDrag) {
+    if (!pipelineDrag.moved) {
+      selectPipelineNode(pipelineDrag.node);
+    }
+    pipelineDrag = null;
+  } else if (pipelinePan) {
+    if (Math.hypot(p.x - pipelinePan.startX, p.y - pipelinePan.startY) < 4) emptyClick = true;
+  }
+  pipelinePan = null;
+  if (emptyClick && pipelineSelected) clearPipelineSelection();
+  pipelineCanvas.style.cursor = pipelineHover ? "pointer" : "grab";
+}
+
+function pipelineDblClick(ev) {
+  const p = { x: ev.offsetX, y: ev.offsetY };
+  const hit = pipelineNodeAt(p.x, p.y);
+  if (hit && hit.data?.citation) {
+    openDocument({ id: hit.data.citation.chunk_id, type: "chunk", label: hit.data.source, metadata: hit.data.citation });
+  }
+}
+
+function pipelineWheel(ev) {
+  ev.preventDefault();
+  const rect = pipelineCanvas.getBoundingClientRect();
+  const px = ev.clientX - rect.left;
+  const py = ev.clientY - rect.top;
+  pipelineZoomBy(ev.deltaY < 0 ? 1.14 : 1 / 1.14, px, py);
+}
+
+/* Pipeline tooltip */
+function updatePipelineTooltip() {
+  const tt = document.getElementById("pipeline-tooltip");
+  if (!pipelineHover) { tt.style.display = "none"; return; }
+  const n = pipelineHover;
+  tt.innerHTML = `
+    <div class="ptt-label">${escapeHtml(n.label)}</div>
+    <div class="ptt-type">${PIPELINE_LABELS[n.type] || n.type}</div>
+    <div class="ptt-desc">${PIPELINE_EXPLANATIONS[n.type]?.what || ""}</div>
+  `;
+  const wrap = pipelineCanvas.parentElement.getBoundingClientRect();
+  const sx = Math.min(wrap.width - 300, pipelinePointer.x + 16);
+  const sy = Math.min(wrap.height - 80, pipelinePointer.y + 16);
+  tt.style.left = sx + "px";
+  tt.style.top = sy + "px";
+  tt.style.display = "block";
+}
+
+/* Pipeline selection */
+function selectPipelineNode(node) {
+  pipelineSelected = node;
+  openPipelineInspector(node);
+  drawPipeline();
+}
+
+function clearPipelineSelection() {
+  pipelineSelected = null;
+  closePipelineInspector();
+  drawPipeline();
+}
+
+/* Pipeline inspector */
+function openPipelineInspector(node) {
+  const inspector = document.getElementById("pipeline-inspector");
+  const head = document.getElementById("pi-head");
+  const body = document.getElementById("pi-body");
+  inspector.classList.add("open");
+
+  const color = PIPELINE_COLORS[node.type] || "#94a3b8";
+  head.innerHTML = `
+    <div class="pi-type" style="color:${color}">${PIPELINE_LABELS[node.type] || node.type}</div>
+    <div class="pi-title">${escapeHtml(node.label)}</div>
+  `;
+
+  let html = "";
+  const expl = PIPELINE_EXPLANATIONS[node.type];
+
+  /* Explanation */
+  if (expl) {
+    html += `<div class="pi-section">
+      <div class="pi-section-title">What is this?</div>
+      <div class="pi-explain"><strong>${expl.what}</strong></div>
+    </div>`;
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Why does ARGUS need it?</div>
+      <div class="pi-explain">${expl.why}</div>
+    </div>`;
+  }
+
+  /* Data sections based on type */
+  if (node.type === "query") {
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Input</div>
+      <div class="pi-kv"><span class="k">Query</span><span class="v">${escapeHtml(node.data?.query || "—")}</span></div>
+    </div>`;
+  }
+
+  if (node.type === "analysis") {
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Analysis Results</div>
+      <div class="pi-kv"><span class="k">Pattern</span><span class="v">${escapeHtml(node.data?.pattern || "—")}</span></div>
+      <div class="pi-kv"><span class="k">Entities</span><span class="v">${escapeHtml((node.data?.entities || []).join(", ") || "—")}</span></div>
+      <div class="pi-kv"><span class="k">Time window</span><span class="v">${escapeHtml(node.data?.timeWindow || "—")}</span></div>
+      <div class="pi-kv"><span class="k">Risk level</span><span class="v">${escapeHtml(node.data?.riskLevel || "—")}</span></div>
+    </div>`;
+  }
+
+  if (node.type === "plan") {
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Research Plan</div>
+      <div class="pi-kv"><span class="k">Objective</span><span class="v">${escapeHtml(node.data?.objective || "—")}</span></div>
+      <div class="pi-kv"><span class="k">Strategy</span><span class="v">${escapeHtml((node.data?.strategy || []).join(", ") || "—")}</span></div>
+      <div class="pi-kv"><span class="k">Iterations</span><span class="v">${node.data?.iterations ?? "—"}</span></div>
+      <div class="pi-kv"><span class="k">Token budget</span><span class="v">${node.data?.tokenBudget ?? "—"}</span></div>
+      <div class="pi-kv"><span class="k">Stopping</span><span class="v">${escapeHtml(node.data?.stoppingCondition || "—")}</span></div>
+    </div>`;
+    if (node.data?.subqueries?.length) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Sub-queries (${node.data.subqueries.length})</div>
+        ${node.data.subqueries.map((sq, i) => `<div class="pi-kv"><span class="k">SQ ${i+1}</span><span class="v">${escapeHtml(sq)}</span></div>`).join("")}
+      </div>`;
+    }
+  }
+
+  if (node.type === "subquery") {
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Sub-query</div>
+      <div class="pi-kv"><span class="k">Query</span><span class="v">${escapeHtml(node.data?.query || "—")}</span></div>
+      <div class="pi-kv"><span class="k">Index</span><span class="v">${node.data?.index ?? "—"}</span></div>
+    </div>`;
+  }
+
+  if (node.type === "evidence") {
+    const cit = node.data?.citation;
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Evidence Details</div>
+      <div class="pi-kv"><span class="k">Source</span><span class="v">${escapeHtml(node.data?.source || "—")}</span></div>
+      <div class="pi-kv"><span class="k">Score</span><span class="v">${node.data?.score != null ? Math.round(node.data.score * 100) + "%" : "—"}</span></div>
+      ${node.data?.sectionPath ? `<div class="pi-kv"><span class="k">Section</span><span class="v">${escapeHtml(node.data.sectionPath)}</span></div>` : ""}
+      ${node.data?.pageStart != null ? `<div class="pi-kv"><span class="k">Page</span><span class="v">${parseInt(node.data.pageStart, 10) + 1}</span></div>` : ""}
+    </div>`;
+    if (node.data?.text) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Text Preview</div>
+        <div style="font-size:12px;color:var(--text-dim);line-height:1.5;white-space:pre-wrap;max-height:120px;overflow-y:auto">${escapeHtml(node.data.text.slice(0, 600))}${node.data.text.length > 600 ? "…" : ""}</div>
+      </div>`;
+    }
+    if (cit) {
+      html += `<button class="pi-btn" onclick="openDocument({id:'${escapeAttr(cit.chunk_id)}',type:'chunk',label:'${escapeAttr(node.data.source)}',metadata:{}})">Open Source Document</button>`;
+    }
+  }
+
+  if (node.type === "verification") {
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Verification Results</div>
+      <div class="pi-kv"><span class="k">Triggered</span><span class="v">${node.data?.triggered ? "Yes" : "No"}</span></div>
+      ${!node.data?.triggered && node.data?.skippedReason ? `<div class="pi-kv"><span class="k">Reason</span><span class="v">${escapeHtml(node.data.skippedReason)}</span></div>` : ""}
+      ${node.data?.status ? `<div class="pi-kv"><span class="k">Status</span><span class="v"><span class="pi-pill" style="background:${node.data.status === "supported" ? "rgba(52,211,153,.15);color:var(--good)" : node.data.status === "contradicted" ? "rgba(248,113,113,.15);color:var(--danger)" : "rgba(251,191,36,.15);color:var(--warn)"}">${escapeHtml(node.data.status)}</span></span></div>` : ""}
+      ${node.data?.confidence != null ? `<div class="pi-kv"><span class="k">Confidence</span><span class="v">${Math.round(node.data.confidence * 100)}%</span></div>` : ""}
+    </div>`;
+    if (node.data?.reasoning) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Reasoning</div>
+        <div style="font-size:12px;color:var(--text-dim);line-height:1.5">${escapeHtml(node.data.reasoning)}</div>
+      </div>`;
+    }
+    /* Confidence breakdown */
+    const comp = [
+      ["Evidence coverage", node.data?.evidenceCoverage],
+      ["Source quality", node.data?.sourceQuality],
+      ["Cross-source agreement", node.data?.crossSourceAgreement],
+      ["Temporal relevance", node.data?.temporalRelevance],
+    ].filter(([k,v]) => v != null);
+    if (comp.length) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Confidence Breakdown</div>
+        ${comp.map(([k,v]) => `<div class="pi-kv"><span class="k">${k}</span><span class="v">${Math.round(v * 100)}%</span></div>`).join("")}
+      </div>`;
+    }
+  }
+
+  if (node.type === "conflict") {
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Conflict Details</div>
+      <div class="pi-kv"><span class="k">Type</span><span class="v"><span class="pi-pill" style="background:rgba(248,113,113,.15);color:var(--danger)">${escapeHtml(node.data?.type || "—")}</span></span></div>
+      <div class="pi-kv"><span class="k">Confidence</span><span class="v">${node.data?.confidence != null ? Math.round(node.data.confidence * 100) + "%" : "—"}</span></div>
+      ${node.data?.entity?.length ? `<div class="pi-kv"><span class="k">Entities</span><span class="v">${escapeHtml(node.data.entity.join(", "))}</span></div>` : ""}
+      ${node.data?.metrics?.length ? `<div class="pi-kv"><span class="k">Metrics</span><span class="v">${escapeHtml(node.data.metrics.join(", "))}</span></div>` : ""}
+    </div>`;
+    if (node.data?.resolution) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Resolution</div>
+        <div class="pi-explain">${escapeHtml(node.data.resolution)}</div>
+      </div>`;
+    }
+  }
+
+  if (node.type === "synthesis") {
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Synthesis Results</div>
+      <div class="pi-kv"><span class="k">Outcome</span><span class="v"><span class="pi-pill" style="background:${node.data?.outcome === "answered" ? "rgba(52,211,153,.15);color:var(--good)" : "rgba(251,191,36,.15);color:var(--warn)"}">${escapeHtml(node.data?.outcome || "—")}</span></span></div>
+      <div class="pi-kv"><span class="k">Stop reason</span><span class="v">${escapeHtml(node.data?.stopReason || "—")}</span></div>
+      <div class="pi-kv"><span class="k">Iterations</span><span class="v">${node.data?.iterationsUsed ?? "—"}</span></div>
+      <div class="pi-kv"><span class="k">Token estimate</span><span class="v">${node.data?.tokenEstimate ?? "—"}</span></div>
+    </div>`;
+    if (node.data?.warnings?.length) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Warnings</div>
+        ${node.data.warnings.map(w => `<div class="pi-kv"><span class="v" style="color:var(--warn)">⚠ ${escapeHtml(w)}</span></div>`).join("")}
+      </div>`;
+    }
+    if (node.data?.memoryConsulted?.length) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Memory Consulted</div>
+        <div class="pi-kv"><span class="v">${node.data.memoryConsulted.length} records</span></div>
+      </div>`;
+    }
+  }
+
+  if (node.type === "answer") {
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Final Answer</div>
+      <div style="font-size:13px;color:var(--text);line-height:1.65;white-space:pre-wrap">${escapeHtml(node.data?.answer || "—")}</div>
+    </div>`;
+    if (node.data?.citations?.length) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Citations (${node.data.citations.length})</div>
+        <div class="pi-chip-row">
+          ${node.data.citations.map((c, i) => `<span class="pi-chip" data-cit-idx="${i}">${i + 1}</span>`).join("")}
+        </div>
+      </div>`;
+    }
+    /* Evidence trail */
+    if (node.data?.citations?.length) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Evidence Trail</div>
+        ${node.data.citations.map((c, i) => `
+          <div class="pi-evidence-card" data-cit-trace="${i}">
+            <div class="ec-source">[${i + 1}] ${escapeHtml(c.source_path || "—")}</div>
+            <div class="ec-text">${escapeHtml(c.text || "")}</div>
+            ${c.score != null ? `<div class="ec-score">Score: ${Math.round(c.score * 100)}%</div>` : ""}
+          </div>
+        `).join("")}
+      </div>`;
+    }
+    if (node.data?.telemetry) {
+      const t = node.data.telemetry;
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Telemetry</div>
+        <div class="pi-kv"><span class="k">Calls</span><span class="v">${t.total_calls || 0}</span></div>
+        ${t.failed_calls ? `<div class="pi-kv"><span class="k">Failed</span><span class="v" style="color:var(--danger)">${t.failed_calls}</span></div>` : ""}
+        <div class="pi-kv"><span class="k">Tokens</span><span class="v">${t.total_tokens || 0}</span></div>
+        <div class="pi-kv"><span class="k">Duration</span><span class="v">${t.duration_ms || 0}ms</span></div>
+      </div>`;
+    }
+  }
+
+  /* Technical details toggle */
+  if (expl) {
+    html += `<div class="pi-toggle-tech" id="pi-toggle-tech">Show technical details</div>`;
+    html += `<div class="pi-technical" id="pi-technical">
+      <div style="margin-bottom:6px"><strong>Input:</strong> ${escapeHtml(expl.input)}</div>
+      <div style="margin-bottom:6px"><strong>Output:</strong> ${escapeHtml(expl.output)}</div>
+      <div><strong>Impact:</strong> ${escapeHtml(expl.impact)}</div>
+    </div>`;
+  }
+
+  body.innerHTML = html;
+
+  /* Wire events */
+  body.querySelectorAll(".pi-chip[data-cit-idx]").forEach(el => {
+    el.addEventListener("click", () => {
+      const idx = parseInt(el.dataset.citIdx, 10);
+      const cit = node.data?.citations?.[idx];
+      if (cit) showToast("Citation " + (idx+1) + ": " + short(cit.source_path, 50));
+    });
+  });
+  body.querySelectorAll(".pi-evidence-card[data-cit-trace]").forEach(el => {
+    el.addEventListener("click", () => {
+      const idx = parseInt(el.dataset.citTrace, 10);
+      const cit = node.data?.citations?.[idx];
+      if (cit?.chunk_id) {
+        openDocument({ id: cit.chunk_id, type: "chunk", label: cit.source_path || "Evidence", metadata: cit });
+      }
+    });
+  });
+  const techToggle = body.querySelector("#pi-toggle-tech");
+  const techDetail = body.querySelector("#pi-technical");
+  if (techToggle && techDetail) {
+    techToggle.addEventListener("click", () => {
+      techDetail.classList.toggle("show");
+      techToggle.textContent = techDetail.classList.contains("show") ? "Hide technical details" : "Show technical details";
+    });
+  }
+}
+
+function closePipelineInspector() {
+  document.getElementById("pipeline-inspector").classList.remove("open");
+}
+
+/* Pipeline status */
+function showPipelineStatus(text) {
+  const el = document.getElementById("pipeline-status");
+  const txt = document.getElementById("pipeline-status-text");
+  if (el) el.classList.add("active");
+  if (txt) txt.textContent = text;
+}
+function hidePipelineStatus() {
+  const el = document.getElementById("pipeline-status");
+  if (el) el.classList.remove("active");
+}
+
+/* ============================================================
+   ARCHITECTURE VIEW
+   ============================================================ */
+
+const ARCH_COMPONENTS = [
+  { id: "query-input", label: "User Query", x: 400, y: 30, w: 200, h: 44, color: "#6ea8fe",
+    what: "The raw research question entered by the user.",
+    why: "Every research process starts with a question. ARGUS supports natural language queries of varying complexity.",
+    input: "Text string from the Research chat.",
+    output: "Query string passed to Query Analysis." },
+  { id: "query-analysis", label: "Query Analysis", x: 400, y: 100, w: 200, h: 44, color: "#8b9cf9",
+    what: "Parses the query to detect pattern, entities, time references, and complexity.",
+    why: "Different queries need different research strategies. Analysis determines the right approach.",
+    input: "Raw query text.",
+    output: "Question pattern, entities, time window, risk level." },
+  { id: "policy-router", label: "Policy Router", x: 400, y: 170, w: 200, h: 44, color: "#a78bfa",
+    what: "Selects the optimal retrieval and synthesis strategy based on query analysis.",
+    why: "Not every query needs the same retrieval depth. Simple factual queries are fast; complex comparisons need more iterations.",
+    input: "Query analysis results.",
+    output: "Retrieval configuration, iteration budget, stopping conditions." },
+  { id: "retrieval", label: "Hybrid Retrieval", x: 400, y: 240, w: 200, h: 44, color: "#34d399",
+    what: "Combines BM25 lexical search with FAISS dense vector search for comprehensive evidence retrieval.",
+    why: "Neither lexical nor semantic search alone captures all relevant evidence. Hybrid fusion gets the best of both.",
+    input: "Sub-queries from the research plan.",
+    output: "Ranked candidate evidence chunks." },
+  { id: "planner", label: "Evidence Planner", x: 400, y: 310, w: 200, h: 44, color: "#c4b5fd",
+    what: "Decides what evidence is needed and generates targeted sub-queries.",
+    why: "Complex questions require multiple evidence types. The planner ensures comprehensive coverage.",
+    input: "Query analysis and current evidence state.",
+    output: "Sub-queries and evidence requirements." },
+  { id: "reranker", label: "Reranker", x: 400, y: 380, w: 200, h: 44, color: "#f472b6",
+    what: "Re-ranks retrieved evidence by relevance to the specific query.",
+    why: "Initial retrieval is approximate. Reranking improves precision by scoring each candidate against the query.",
+    input: "Candidate evidence chunks.",
+    output: "Top-K evidence chunks by relevance." },
+  { id: "verification", label: "Evidence Verification", x: 400, y: 450, w: 200, h: 44, color: "#fbbf24",
+    what: "Checks whether evidence actually supports the claims being made.",
+    why: "Unverified evidence could be irrelevant or contradictory. Verification is a quality gate.",
+    input: "Evidence chunks and planned claims.",
+    output: "Verification status, confidence scores, reasoning." },
+  { id: "conflict-detection", label: "Conflict Detection", x: 400, y: 520, w: 200, h: 44, color: "#f87171",
+    what: "Detects contradictory information across evidence sources.",
+    why: "Conflicts must be acknowledged, not hidden. ARGUS distinguishes genuine contradictions from contextual differences.",
+    input: "Evidence chunks with contradictory claims.",
+    output: "Conflict signals with type, confidence, and resolution rules." },
+  { id: "synthesis", label: "Grounded Synthesis", x: 400, y: 590, w: 200, h: 44, color: "#f472b6",
+    what: "Generates the final answer from verified evidence with inline citations.",
+    why: "Synthesis is where evidence becomes an answer. Grounded synthesis ensures accuracy.",
+    input: "Verified evidence, conflict signals, research plan.",
+    output: "Answer text with citations and grounding status." },
+  { id: "evaluation", label: "Answer Quality", x: 400, y: 660, w: 200, h: 44, color: "#6ea8fe",
+    what: "Evaluates the quality and completeness of the generated answer.",
+    why: "Quality evaluation ensures the answer meets ARGUS's standards before presenting to the user.",
+    input: "Synthesized answer and evidence.",
+    output: "Quality scores, grounding status, confidence." },
+  { id: "answer-output", label: "Final Answer", x: 400, y: 730, w: 200, h: 44, color: "#6ea8fe",
+    what: "The research response presented to the user with citations and source references.",
+    why: "The end product of the entire pipeline. Every component exists to make this answer accurate and useful.",
+    input: "Evaluated answer with citations.",
+    output: "Formatted response with evidence trail." },
+];
+
+const ARCH_EDGES = [
+  { from: "query-input", to: "query-analysis" },
+  { from: "query-analysis", to: "policy-router" },
+  { from: "policy-router", to: "retrieval" },
+  { from: "retrieval", to: "planner" },
+  { from: "planner", to: "reranker" },
+  { from: "reranker", to: "verification" },
+  { from: "verification", to: "conflict-detection" },
+  { from: "conflict-detection", to: "synthesis" },
+  { from: "synthesis", to: "evaluation" },
+  { from: "evaluation", to: "answer-output" },
+];
+
+function renderArchitecture() {
+  const container = document.getElementById("architecture-diagram");
+  if (!container) return;
+
+  let svg = `<svg width="100%" height="780" viewBox="0 0 800 780" xmlns="http://www.w3.org/2000/svg" style="max-width:800px;margin:0 auto;display:block">`;
+
+  /* Edges */
+  for (const edge of ARCH_EDGES) {
+    const from = ARCH_COMPONENTS.find(c => c.id === edge.from);
+    const to = ARCH_COMPONENTS.find(c => c.id === edge.to);
+    if (!from || !to) continue;
+    const x1 = from.x, y1 = from.y + from.h;
+    const x2 = to.x, y2 = to.y;
+    svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(143,152,166,.35)" stroke-width="1.5" marker-end="url(#arrow)"/>`;
+  }
+
+  /* Arrow marker */
+  svg += `<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(143,152,166,.55)"/></marker></defs>`;
+
+  /* Components */
+  for (const comp of ARCH_COMPONENTS) {
+    const x = comp.x - comp.w / 2;
+    const y = comp.y;
+    svg += `<g class="arch-component" data-id="${comp.id}" style="cursor:pointer">`;
+    svg += `<rect x="${x}" y="${y}" width="${comp.w}" height="${comp.h}" rx="8" fill="rgba(19,24,32,.88)" stroke="${comp.color}" stroke-width="1.5"/>`;
+    svg += `<text x="${comp.x}" y="${y + comp.h / 2 + 1}" text-anchor="middle" dominant-baseline="middle" fill="${comp.color}" font-size="13" font-weight="600" font-family="Inter, sans-serif">${comp.label}</text>`;
+    svg += `</g>`;
+  }
+
+  svg += `</svg>`;
+  container.innerHTML = svg;
+
+  /* Wire click handlers */
+  container.querySelectorAll(".arch-component").forEach(el => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.id;
+      const comp = ARCH_COMPONENTS.find(c => c.id === id);
+      if (comp) showArchitectureDetail(comp);
+    });
+    el.addEventListener("mouseenter", () => {
+      el.querySelector("rect").setAttribute("stroke-width", "2.5");
+    });
+    el.addEventListener("mouseleave", () => {
+      el.querySelector("rect").setAttribute("stroke-width", "1.5");
+    });
+  });
+}
+
+function showArchitectureDetail(comp) {
+  const detail = document.getElementById("architecture-detail");
+  const title = document.getElementById("arch-detail-title");
+  const body = document.getElementById("arch-detail-body");
+  if (!detail || !title || !body) return;
+
+  detail.style.display = "block";
+  title.textContent = comp.label;
+  title.style.color = comp.color;
+
+  body.innerHTML = `
+    <div class="pi-section">
+      <div class="pi-section-title">What is this?</div>
+      <div class="pi-explain"><strong>${comp.what}</strong></div>
+    </div>
+    <div class="pi-section">
+      <div class="pi-section-title">Why does ARGUS need it?</div>
+      <div class="pi-explain">${comp.why}</div>
+    </div>
+    <div class="pi-section">
+      <div class="pi-section-title">Input / Output</div>
+      <div class="pi-kv"><span class="k">Input</span><span class="v">${escapeHtml(comp.input)}</span></div>
+      <div class="pi-kv"><span class="k">Output</span><span class="v">${escapeHtml(comp.output)}</span></div>
+    </div>
+  `;
+
+  detail.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+/* ============================================================
+   RESEARCH CHAT — Wire pipeline generation
+   ============================================================ */
+
+/* Override sendResearch to also build pipeline */
+const originalSendResearch = sendResearch;
+async function sendResearchWithPipeline() {
+  const q = researchInput.value.trim();
+  if (!q || researchBusy) return;
+
+  /* Show pipeline view with processing status */
+  switchView("pipeline");
+  showPipelineStatus("Researching: " + truncate(q, 50));
+
+  /* Build a minimal pipeline showing processing state */
+  const placeholderResult = {
+    query: q,
+    question_pattern: null,
+    plan: { objective: "Researching...", entities: [], subquestions: [] },
+    sub_queries_issued: [],
+    citations: [],
+    verification: null,
+    contradiction_signals: [],
+    answer: "",
+    outcome: "answered",
+    iterations_used: 0,
+    token_usage_estimate: 0,
+    telemetry: null,
+    warnings: [],
+    memory_consulted: [],
+  };
+  buildPipeline(placeholderResult);
+
+  /* Now run the actual research */
+  researchBusy = true;
+  researchSend.disabled = true;
+  addChat(q, "user", escapeHtml(q));
+  researchInput.value = "";
+  autosizeResearch();
+
+  const file = researchAttachedFile;
+  researchAttachedFile = null;
+  researchAttachedName.textContent = "";
+  researchFile.value = "";
+
+  let statusMsg = "Planning and researching…";
+  if (file) statusMsg = `Uploading ${file.name} and researching…`;
+  const statusEl = addStatus(statusMsg);
+
+  try {
+    if (file) {
+      const fd = new FormData();
+      fd.append("files", file);
+      statusEl.querySelector("div:last-child").textContent = `Uploading ${file.name}…`;
+      const upRes = await fetch(API_BASE + "/knowledge-base/upload", { method: "POST", body: fd });
+      if (!upRes.ok) {
+        let errMsg = "Upload failed: HTTP " + upRes.status;
+        try { const e = await upRes.json(); errMsg = e.detail || e.error || errMsg; } catch(_){}
+        throw new Error(errMsg);
+      }
+      statusEl.querySelector("div:last-child").textContent = "Researching…";
+    }
+
+    const res = await fetch(PIPELINE_API + "/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q }),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    statusEl.remove();
+    hidePipelineStatus();
+
+    /* Build pipeline from real result */
+    buildPipeline(data);
+
+    /* Also add to chat */
+    let formatted;
+    try {
+      formatted = fmtAnswer(data);
+    } catch (fmtErr) {
+      console.error("fmtAnswer error:", fmtErr, data);
+      formatted = `<span style="color:var(--danger)">Formatting error: ${escapeHtml(fmtErr.message)}</span>`;
+    }
+    const bubble = addChat(q, "brain", formatted);
+    bubble.querySelectorAll(".cit-chip[data-src]").forEach(chip => {
+      chip.addEventListener("click", () => {
+        showToast("Source: " + short(chip.dataset.src, 60));
+      });
+    });
+  } catch (e) {
+    statusEl.remove();
+    hidePipelineStatus();
+    addChat(q, "brain", `<span style="color:var(--danger)">Research failed: ${escapeHtml(e.message)}</span>`);
+    showPipelineStatus("Error: " + e.message);
+  } finally {
+    researchBusy = false;
+    researchSend.disabled = false;
+    researchInput.focus();
+  }
+}
+
+/* Replace the sendResearch function */
+sendResearch = sendResearchWithPipeline;
+
+/* ============================================================
+   INIT
+   ============================================================ */
+initPipelineCanvas();
+resizePipeline();
 </script>
 </body>
 </html>
