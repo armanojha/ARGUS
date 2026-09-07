@@ -1,0 +1,1096 @@
+{
+  "cold_start_ms": 8140.023100015242,
+  "queries": [
+    {
+      "query_id": "P37-Q01",
+      "pattern": "simple_lookup",
+      "query": "Where is Acme Corporation headquartered?",
+      "complexity_tier": "fast",
+      "fast_path": true,
+      "total_e2e_ms": 3077.03,
+      "total_llm_calls": 2,
+      "total_llm_ms": 2262,
+      "total_tokens": 1823,
+      "llm_by_type": {
+        "synthesis": {
+          "count": 1,
+          "total_ms": 836,
+          "latencies_ms": [
+            836
+          ],
+          "input_tokens": 1043,
+          "output_tokens": 132,
+          "total_tokens": 1175,
+          "fallbacks": 1,
+          "providers": [
+            "groq"
+          ],
+          "models": [
+            "openai/gpt-oss-120b"
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1426,
+          "latencies_ms": [
+            1426
+          ],
+          "input_tokens": 504,
+          "output_tokens": 144,
+          "total_tokens": 648,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        }
+      },
+      "fallback_count": 1,
+      "rate_limit_events": 0,
+      "is_clean": false,
+      "fallback_details": [
+        {
+          "call_type": "synthesis",
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "reason": "fallback_1"
+        }
+      ],
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+      "evidence_count": 1,
+      "answer_length": 239,
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [],
+      "verification": {
+        "triggered": true,
+        "skipped_reason": null
+      }
+    },
+    {
+      "query_id": "P37-Q02",
+      "pattern": "normal_qa",
+      "query": "How does Acme Corporation generate revenue?",
+      "complexity_tier": "strong",
+      "fast_path": false,
+      "total_e2e_ms": 10443.05,
+      "total_llm_calls": 6,
+      "total_llm_ms": 8450,
+      "total_tokens": 6656,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1141,
+          "latencies_ms": [
+            1141
+          ],
+          "input_tokens": 395,
+          "output_tokens": 201,
+          "total_tokens": 596,
+          "fallbacks": 0,
+          "providers": [
+            "groq"
+          ],
+          "models": [
+            "openai/gpt-oss-120b"
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1414,
+          "latencies_ms": [
+            1414
+          ],
+          "input_tokens": 165,
+          "output_tokens": 205,
+          "total_tokens": 370,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "evidence_extraction": {
+          "count": 2,
+          "total_ms": 2626,
+          "latencies_ms": [
+            1341,
+            1285
+          ],
+          "input_tokens": 2722,
+          "output_tokens": 584,
+          "total_tokens": 3306,
+          "fallbacks": 0,
+          "providers": [
+            "groq"
+          ],
+          "models": [
+            "openai/gpt-oss-120b"
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1946,
+          "latencies_ms": [
+            1946
+          ],
+          "input_tokens": 1187,
+          "output_tokens": 303,
+          "total_tokens": 1490,
+          "fallbacks": 1,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1323,
+          "latencies_ms": [
+            1323
+          ],
+          "input_tokens": 738,
+          "output_tokens": 156,
+          "total_tokens": 894,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        }
+      },
+      "fallback_count": 1,
+      "rate_limit_events": 0,
+      "is_clean": false,
+      "fallback_details": [
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ],
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b"
+      ],
+      "iterations": 3,
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+      "evidence_count": 5,
+      "answer_length": 1332,
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [
+        "unsupported_claim: The provided evidence does not detail specific business models (such as subscription vs.",
+        "unsupported_claim: direct sales) beyond manufacturing and distributing physical goods."
+      ],
+      "verification": {
+        "triggered": true,
+        "skipped_reason": null
+      }
+    },
+    {
+      "query_id": "P37-Q03",
+      "pattern": "technical_explanation",
+      "query": "How does the Atlas database achieve low latency?",
+      "complexity_tier": "strong",
+      "fast_path": false,
+      "total_e2e_ms": 12901.92,
+      "total_llm_calls": 6,
+      "total_llm_ms": 10046,
+      "total_tokens": 6755,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1159,
+          "latencies_ms": [
+            1159
+          ],
+          "input_tokens": 396,
+          "output_tokens": 244,
+          "total_tokens": 640,
+          "fallbacks": 0,
+          "providers": [
+            "groq"
+          ],
+          "models": [
+            "openai/gpt-oss-120b"
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1634,
+          "latencies_ms": [
+            1634
+          ],
+          "input_tokens": 176,
+          "output_tokens": 229,
+          "total_tokens": 405,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "evidence_extraction": {
+          "count": 2,
+          "total_ms": 2400,
+          "latencies_ms": [
+            1150,
+            1250
+          ],
+          "input_tokens": 2022,
+          "output_tokens": 154,
+          "total_tokens": 2176,
+          "fallbacks": 2,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 3402,
+          "latencies_ms": [
+            3402
+          ],
+          "input_tokens": 1049,
+          "output_tokens": 1141,
+          "total_tokens": 2190,
+          "fallbacks": 1,
+          "providers": [
+            "groq"
+          ],
+          "models": [
+            "openai/gpt-oss-120b"
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1451,
+          "latencies_ms": [
+            1451
+          ],
+          "input_tokens": 1189,
+          "output_tokens": 155,
+          "total_tokens": 1344,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        }
+      },
+      "fallback_count": 3,
+      "rate_limit_events": 0,
+      "is_clean": false,
+      "fallback_details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "reason": "fallback_1"
+        }
+      ],
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b"
+      ],
+      "iterations": 3,
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+      "evidence_count": 2,
+      "answer_length": 3621,
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [
+        "unsupported_claim: **Evidence\u2011based explanation of the mechanisms and architectural features that give Atlas its low\u2011latency performance**\n...",
+        "unsupported_claim: 1.",
+        "unsupported_claim: 2.",
+        "unsupported_claim: **Memory\u2011resident hot blocks with LZ4 compression** \u2013 Hot (frequently accessed) data blocks are kept in memory and compr...",
+        "unsupported_claim: 3.",
+        "unsupported_claim: **Optimistic concurrency control (OCC)** \u2013 Atlas avoids the heavyweight two\u2011phase locking protocol and instead uses OCC,...",
+        "unsupported_claim: 4.",
+        "unsupported_claim: **Range partitioning (default 64 partitions)** \u2013 Data is split into many range partitions, allowing queries to be parall...",
+        "unsupported_claim: 5.",
+        "unsupported_claim: **Pull\u2011based ingestion model** \u2013 Atlas reads source data on a schedule rather than being written to directly.",
+        "unsupported_claim: 6.",
+        "unsupported_claim: **Strong consistency by default** \u2013 Providing strong consistency ensures that queries see a stable, up\u2011to\u2011date snapshot ...",
+        "unsupported_claim: 7.",
+        "unsupported_claim: Together, these mechanisms\u2014columnar layout, fast in\u2011memory compression, lock\u2011free concurrency, fine\u2011grained partitioning..."
+      ],
+      "verification": {
+        "triggered": true,
+        "skipped_reason": null
+      }
+    },
+    {
+      "query_id": "P37-Q04",
+      "pattern": "multi_hop",
+      "query": "Who manages the team that developed Atlas?",
+      "complexity_tier": "balanced",
+      "fast_path": false,
+      "total_e2e_ms": 7577.05,
+      "total_llm_calls": 6,
+      "total_llm_ms": 6186,
+      "total_tokens": 3683,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 662,
+          "latencies_ms": [
+            662
+          ],
+          "input_tokens": 395,
+          "output_tokens": 106,
+          "total_tokens": 501,
+          "fallbacks": 0,
+          "providers": [
+            "groq"
+          ],
+          "models": [
+            "openai/gpt-oss-20b"
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1431,
+          "latencies_ms": [
+            1431
+          ],
+          "input_tokens": 166,
+          "output_tokens": 176,
+          "total_tokens": 342,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "evidence_extraction": {
+          "count": 2,
+          "total_ms": 1594,
+          "latencies_ms": [
+            157,
+            1437
+          ],
+          "input_tokens": 1003,
+          "output_tokens": 69,
+          "total_tokens": 1072,
+          "fallbacks": 1,
+          "providers": [
+            "gemini",
+            "groq"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite",
+            "openai/gpt-oss-120b"
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1293,
+          "latencies_ms": [
+            1293
+          ],
+          "input_tokens": 1078,
+          "output_tokens": 68,
+          "total_tokens": 1146,
+          "fallbacks": 1,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1206,
+          "latencies_ms": [
+            1206
+          ],
+          "input_tokens": 502,
+          "output_tokens": 120,
+          "total_tokens": 622,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        }
+      },
+      "fallback_count": 2,
+      "rate_limit_events": 1,
+      "is_clean": false,
+      "fallback_details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ],
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b"
+      ],
+      "iterations": 2,
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+      "evidence_count": 3,
+      "answer_length": 368,
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [
+        "unsupported_claim: *Mapping of key claims to evidence:*\n- (None) The provided evidence contains technical specifications, company facts, an...",
+        "unsupported_claim: Based on the provided evidence, there is no information available to identify the manager of the team that developed Atl...",
+        "citation_fallback: LLM produced no bracket citations; top evidence auto-attached as citations"
+      ],
+      "verification": {
+        "triggered": true,
+        "skipped_reason": null
+      }
+    },
+    {
+      "query_id": "P37-Q05",
+      "pattern": "numerical",
+      "query": "What was Acme's revenue growth rate from 2022 to 2023?",
+      "complexity_tier": "strong",
+      "fast_path": false,
+      "total_e2e_ms": 8274.47,
+      "total_llm_calls": 5,
+      "total_llm_ms": 6992,
+      "total_tokens": 3624,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1075,
+          "latencies_ms": [
+            1075
+          ],
+          "input_tokens": 103,
+          "output_tokens": 52,
+          "total_tokens": 155,
+          "fallbacks": 1,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1534,
+          "latencies_ms": [
+            1534
+          ],
+          "input_tokens": 173,
+          "output_tokens": 266,
+          "total_tokens": 439,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "evidence_extraction": {
+          "count": 1,
+          "total_ms": 1204,
+          "latencies_ms": [
+            1204
+          ],
+          "input_tokens": 921,
+          "output_tokens": 80,
+          "total_tokens": 1001,
+          "fallbacks": 1,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1568,
+          "latencies_ms": [
+            1568
+          ],
+          "input_tokens": 918,
+          "output_tokens": 246,
+          "total_tokens": 1164,
+          "fallbacks": 1,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1611,
+          "latencies_ms": [
+            1611
+          ],
+          "input_tokens": 704,
+          "output_tokens": 161,
+          "total_tokens": 865,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        }
+      },
+      "fallback_count": 3,
+      "rate_limit_events": 0,
+      "is_clean": false,
+      "fallback_details": [
+        {
+          "call_type": "query_analysis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ],
+      "providers_used": [
+        "gemini"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite"
+      ],
+      "iterations": 2,
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+      "evidence_count": 1,
+      "answer_length": 875,
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [
+        "unsupported_claim: *(Self-Correction/Evidence Mapping before drafting)*:\n- Claim: Determine Acme's revenue growth rate from 2022 to 2023.",
+        "unsupported_claim: However, there is no mention of overall Acme revenue for 2022 or the overall revenue growth rate from 2022 to 2023 in th...",
+        "unsupported_claim: *Drafting the response:*\nBased on the provided evidence, the overall revenue growth rate for Acme from 2022 to 2023 is n..."
+      ],
+      "verification": {
+        "triggered": true,
+        "skipped_reason": null
+      }
+    },
+    {
+      "query_id": "P37-Q06",
+      "pattern": "conflict",
+      "query": "What were Acme's revenue figures for 2023 according to different sources?",
+      "complexity_tier": "balanced",
+      "fast_path": false,
+      "total_e2e_ms": 10159.05,
+      "total_llm_calls": 7,
+      "total_llm_ms": 8206,
+      "total_tokens": 6076,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1198,
+          "latencies_ms": [
+            1198
+          ],
+          "input_tokens": 403,
+          "output_tokens": 178,
+          "total_tokens": 581,
+          "fallbacks": 0,
+          "providers": [
+            "groq"
+          ],
+          "models": [
+            "openai/gpt-oss-20b"
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1532,
+          "latencies_ms": [
+            1532
+          ],
+          "input_tokens": 185,
+          "output_tokens": 276,
+          "total_tokens": 461,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "evidence_extraction": {
+          "count": 3,
+          "total_ms": 2526,
+          "latencies_ms": [
+            1293,
+            113,
+            1120
+          ],
+          "input_tokens": 2299,
+          "output_tokens": 433,
+          "total_tokens": 2732,
+          "fallbacks": 1,
+          "providers": [
+            "gemini",
+            "groq"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite",
+            "openai/gpt-oss-120b"
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1728,
+          "latencies_ms": [
+            1728
+          ],
+          "input_tokens": 1113,
+          "output_tokens": 299,
+          "total_tokens": 1412,
+          "fallbacks": 1,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1222,
+          "latencies_ms": [
+            1222
+          ],
+          "input_tokens": 743,
+          "output_tokens": 147,
+          "total_tokens": 890,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        }
+      },
+      "fallback_count": 2,
+      "rate_limit_events": 1,
+      "is_clean": false,
+      "fallback_details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ],
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b"
+      ],
+      "iterations": 3,
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+      "evidence_count": 2,
+      "answer_length": 1098,
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [
+        "unsupported_claim: **Comparison Across Sources:**\nThe evidence provides only a single source containing Acme's 2023 revenue."
+      ],
+      "verification": {
+        "triggered": true,
+        "skipped_reason": null
+      }
+    },
+    {
+      "query_id": "P37-Q07",
+      "pattern": "complex_research",
+      "query": "What is Acme's competitive advantage in the analytics market?",
+      "complexity_tier": "balanced",
+      "fast_path": false,
+      "total_e2e_ms": 27983.74,
+      "total_llm_calls": 7,
+      "total_llm_ms": 26917,
+      "total_tokens": 2585,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 975,
+          "latencies_ms": [
+            975
+          ],
+          "input_tokens": 399,
+          "output_tokens": 306,
+          "total_tokens": 705,
+          "fallbacks": 0,
+          "providers": [
+            "groq"
+          ],
+          "models": [
+            "openai/gpt-oss-20b"
+          ]
+        },
+        "research_planning": {
+          "count": 4,
+          "total_ms": 24425,
+          "latencies_ms": [
+            21316,
+            979,
+            1623,
+            507
+          ],
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "fallbacks": 4,
+          "providers": [
+            "groq",
+            "zai",
+            "zen"
+          ],
+          "models": [
+            "big-pickle",
+            "glm-4.5-flash",
+            "nemotron-3-ultra-free",
+            "openai/gpt-oss-120b"
+          ]
+        },
+        "evidence_extraction": {
+          "count": 1,
+          "total_ms": 425,
+          "latencies_ms": [
+            425
+          ],
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "fallbacks": 1,
+          "providers": [
+            "zen"
+          ],
+          "models": [
+            "mimo-v2.5-free"
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1092,
+          "latencies_ms": [
+            1092
+          ],
+          "input_tokens": 1420,
+          "output_tokens": 460,
+          "total_tokens": 1880,
+          "fallbacks": 1,
+          "providers": [
+            "groq"
+          ],
+          "models": [
+            "openai/gpt-oss-20b"
+          ]
+        }
+      },
+      "fallback_count": 6,
+      "rate_limit_events": 1,
+      "is_clean": false,
+      "fallback_details": [
+        {
+          "call_type": "research_planning",
+          "provider": "zai",
+          "model": "glm-4.5-flash",
+          "reason": "fallback_3"
+        },
+        {
+          "call_type": "research_planning",
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "research_planning",
+          "provider": "zen",
+          "model": "big-pickle",
+          "reason": "fallback_4"
+        },
+        {
+          "call_type": "research_planning",
+          "provider": "zen",
+          "model": "nemotron-3-ultra-free",
+          "reason": "provider_fallback_zen"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "zen",
+          "model": "mimo-v2.5-free",
+          "reason": "fallback_4"
+        },
+        {
+          "call_type": "verification",
+          "provider": "groq",
+          "model": "openai/gpt-oss-20b",
+          "reason": "fallback_1"
+        }
+      ],
+      "providers_used": [
+        "groq",
+        "zai",
+        "zen"
+      ],
+      "models_used": [
+        "big-pickle",
+        "glm-4.5-flash",
+        "mimo-v2.5-free",
+        "nemotron-3-ultra-free",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+      "evidence_count": 3,
+      "answer_length": 957,
+      "outcome": "Outcome.ANSWERED_DEGRADED",
+      "warnings": [
+        "research_plan_fallback: research_planning call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "assessment_fallback: evidence_extraction call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Acme's fastest growing product line in ...",
+        "unsupported_claim: Acme operates manufacturing plants in New York, Ohio, and Mexico.",
+        "unsupported_claim: - Production at the Ohio plant has grown strongly and reached its highest utilization in 2025.",
+        "unsupported_claim: - Combined regional manufacturing output is tracked in the 2025 Regional Manufacturing Report."
+      ],
+      "verification": {
+        "triggered": true,
+        "skipped_reason": null
+      }
+    },
+    {
+      "query_id": "P37-Q08",
+      "pattern": "absent_info",
+      "query": "What is Acme's market share in the European robotics market?",
+      "complexity_tier": "strong",
+      "fast_path": false,
+      "total_e2e_ms": 9095.03,
+      "total_llm_calls": 6,
+      "total_llm_ms": 7708,
+      "total_tokens": 3888,
+      "llm_by_type": {
+        "research_planning": {
+          "count": 1,
+          "total_ms": 450,
+          "latencies_ms": [
+            450
+          ],
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "fallbacks": 1,
+          "providers": [
+            "zen"
+          ],
+          "models": [
+            "big-pickle"
+          ]
+        },
+        "evidence_extraction": {
+          "count": 2,
+          "total_ms": 4480,
+          "latencies_ms": [
+            3367,
+            1113
+          ],
+          "input_tokens": 1914,
+          "output_tokens": 153,
+          "total_tokens": 2067,
+          "fallbacks": 2,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        },
+        "synthesis": {
+          "count": 2,
+          "total_ms": 1436,
+          "latencies_ms": [
+            294,
+            1142
+          ],
+          "input_tokens": 983,
+          "output_tokens": 129,
+          "total_tokens": 1112,
+          "fallbacks": 2,
+          "providers": [
+            "gemini",
+            "groq"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite",
+            "openai/gpt-oss-120b"
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1342,
+          "latencies_ms": [
+            1342
+          ],
+          "input_tokens": 565,
+          "output_tokens": 144,
+          "total_tokens": 709,
+          "fallbacks": 0,
+          "providers": [
+            "gemini"
+          ],
+          "models": [
+            "gemini-3.5-flash-lite"
+          ]
+        }
+      },
+      "fallback_count": 5,
+      "rate_limit_events": 1,
+      "is_clean": false,
+      "fallback_details": [
+        {
+          "call_type": "research_planning",
+          "provider": "zen",
+          "model": "big-pickle",
+          "reason": "in_session_recovery_probe"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ],
+      "providers_used": [
+        "gemini",
+        "groq",
+        "zen"
+      ],
+      "models_used": [
+        "big-pickle",
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b"
+      ],
+      "iterations": 2,
+      "stop_reason": "StopReason.NEGLIGIBLE_EVIDENCE_GAIN",
+      "evidence_count": 1,
+      "answer_length": 622,
+      "outcome": "Outcome.ANSWERED_FALLBACK",
+      "warnings": [
+        "query_analysis_fallback: query_analysis call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'query_analysis'",
+        "research_plan_fallback: research_planning call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'research_planning'",
+        "unsupported_claim: **Synthesis Answer:**\nBased on the provided evidence, there is no information available regarding Acme's market share in..."
+      ],
+      "verification": {
+        "triggered": true,
+        "skipped_reason": null
+      }
+    }
+  ]
+}
