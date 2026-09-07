@@ -299,6 +299,20 @@ class Settings(BaseSettings):
         "Default False until benchmark validation is complete.",
     )
 
+    # --- Conflict-Aware Handling (Phase 41) ---
+    conflict_filtering_enabled: bool = Field(
+        default=False,
+        description="When True, contradiction signals are filtered for query "
+        "relevance before synthesis. Reduces false positives from historical "
+        "data differences (e.g., 2023 vs 2025 values). Default False.",
+    )
+    conflict_safe_synthesis_enabled: bool = Field(
+        default=False,
+        description="When True, synthesis uses safe resolution for unresolved "
+        "conflicts: presents both sides without choosing one unless evidence "
+        "establishes clear authority. Default False.",
+    )
+
     # --- Obsidian Ingestion (Phase 05) ---
     obsidian_enabled: bool = Field(
         default=False,

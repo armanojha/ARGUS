@@ -72,6 +72,149 @@ _NEGATION_PAIRS = [
     ("supports", "contradicts"), ("contains", "does not contain"),
 ]
 
+_METRIC_KEYWORDS = frozenset({
+    "revenue", "employees", "utilization", "growth", "output",
+    "production", "units", "profit", "income", "capacity",
+    "rate", "percent", "sales", "cost", "price", "margin",
+})
+
+# Temporal patterns: years, quarters, "as of", etc.
+_YEAR_RE = re.compile(r"\b(20[0-9]{2})\b")
+_QUARTER_RE = re.compile(r"\bQ([1-4])\b", re.IGNORECASE)
+_AS_OF_RE = re.compile(r"\bas of\b.*?\b(20[0-9]{2})\b")
+
+# Unit normalization: map unit strings to a canonical form
+_UNIT_NORMALIZE = {
+    "billion": "B", "bn": "B", "b": "B",
+    "million": "M", "mn": "M", "m": "M",
+    "thousand": "K", "k": "K",
+    "percent": "%", "pct": "%",
+}
+
+
+def _extract_years(text: str) -> set[int]:
+    """Extract mentioned years from text."""
+    years = set()
+    for m in _YEAR_RE.finditer(text):
+        years.add(int(m.group(1)))
+    return years
+
+
+def _extract_quarters(text: str) -> set[str]:
+    """Extract mentioned quarters from text."""
+    quarters = set()
+    for m in _QUARTER_RE.finditer(text):
+        quarters.add(f"Q{m.group(1)}")
+    return quarters
+
+
+def _normalize_number_with_unit(raw: str) -> tuple[float, str]:
+    """Normalize a number string like '$3.1 billion' to (3.1, 'B').
+
+    Returns (numeric_value, canonical_unit).
+    """
+    s = raw.strip().lower()
+    # Detect unit suffix
+    unit = ""
+    for unit_str, canonical in _UNIT_NORMALIZE.items():
+        if s.endswith(unit_str):
+            unit = canonical
+            s = s[: -len(unit_str)].strip()
+            break
+    # Strip currency symbols and commas
+    s = re.sub(r"[$,]", "", s)
+    try:
+        val = float(s)
+    except ValueError:
+        return (0.0, "")
+    return (val, unit)
+
+
+def _normalize_value(val: float, unit: str) -> float:
+    """Normalize a value to a common scale (billions) for comparison.
+
+    This allows comparing '$3.1 billion' with '$3100 million' as equal.
+    """
+    multipliers = {"B": 1.0, "M": 0.001, "K": 0.000001, "%": 1.0, "": 1.0}
+    return val * multipliers.get(unit, 1.0)
+
+
+def _extract_entity_keywords(text: str) -> set[str]:
+    """Extract likely entity names (capitalized words, proper nouns)."""
+    # Simple heuristic: words that are capitalized and 3+ chars
+    words = set()
+    for m in re.finditer(r"\b([A-Z][a-z]{2,})\b", text):
+        w = m.group(1).lower()
+        if w not in {"the", "and", "for", "with", "from", "this", "that", "report", "annual", "fiscal", "total", "combined"}:
+            words.add(w)
+    return words
+
+
+def _detect_temporal_context(text: str) -> dict:
+    """Extract temporal context from text."""
+    years = _extract_years(text)
+    quarters = _extract_quarters(text)
+    # Check for "as of" pattern
+    as_of_match = _AS_OF_RE.search(text)
+    as_of_year = int(as_of_match.group(1)) if as_of_match else None
+    return {
+        "years": years,
+        "quarters": quarters,
+        "as_of_year": as_of_year,
+        "has_temporal": bool(years or quarters),
+    }
+
+
+def _compute_confidence(
+    shared_metrics: set[str],
+    years_i: set[int],
+    years_j: set[int],
+    entities_i: set[str],
+    entities_j: set[str],
+    severity: float,
+) -> str:
+    """Compute conflict confidence: HIGH, MEDIUM, or LOW.
+
+    HIGH: Same entity, same metric, same timeframe, different values
+    MEDIUM: Same metric, similar context, different values
+    LOW: Same metric but different context or weak signals
+    """
+    same_entity = bool(entities_i & entities_j)
+    same_timeframe = bool(years_i & years_j) or (not years_i and not years_j)
+
+    if same_entity and same_timeframe and shared_metrics and severity >= 0.8:
+        return "HIGH"
+    elif same_entity and shared_metrics and severity >= 0.5:
+        return "MEDIUM"
+    elif shared_metrics:
+        return "LOW"
+    return "LOW"
+
+
+def _classify_conflict_type(
+    years_i: set[int],
+    years_j: set[int],
+    entities_i: set[str],
+    entities_j: set[str],
+    metrics_i: set[str],
+    metrics_j: set[str],
+) -> str:
+    """Classify the type of conflict."""
+    same_entity = bool(entities_i & entities_j)
+    same_timeframe = bool(years_i & years_j)
+    same_metrics = bool(metrics_i & metrics_j)
+
+    if same_entity and same_timeframe and same_metrics:
+        return "GENUINE_CONTRADICTION"
+    elif same_entity and not same_timeframe:
+        return "DIFFERENT_TIMEFRAME"
+    elif not same_entity and same_metrics:
+        return "DIFFERENT_SOURCE"
+    elif same_entity and same_metrics:
+        return "POSSIBLE_CONTRADICTION"
+    else:
+        return "IRRELEVANT_DIFFERENCE"
+
 
 def _detect_contradictions(
     evidence: list[EvidenceRef],
@@ -79,7 +222,12 @@ def _detect_contradictions(
 ) -> list[dict]:
     """Deterministically detect pairwise contradictions in evidence chunks.
 
-    Compares evidence chunks using keyword-based negation detection.
+    Context-aware detection that distinguishes:
+    - GENUINE_CONTRADICTION: same entity, same metric, same timeframe, different values
+    - DIFFERENT_TIMEFRAME: same entity/metric but different years (not a contradiction)
+    - DIFFERENT_SOURCE: different sources with different values
+    - IRRELEVANT_DIFFERENCE: unrelated numbers in different contexts
+
     Returns a list of contradiction signal dicts suitable for
     ``state["contradiction_signals"]``.
     """
@@ -94,75 +242,196 @@ def _detect_contradictions(
             text_i = evidence[i].text.lower()
             text_j = evidence[j].text.lower()
 
-            # Check for direct negation pairs across chunks
+            # Extract temporal context
+            ctx_i = _detect_temporal_context(evidence[i].text)
+            ctx_j = _detect_temporal_context(evidence[j].text)
+
+            # Extract entity keywords
+            entities_i = _extract_entity_keywords(evidence[i].text)
+            entities_j = _extract_entity_keywords(evidence[j].text)
+
+            # Extract metric keywords present in both chunks
+            words_i = set(re.findall(r"\b\w{4,}\b", text_i))
+            words_j = set(re.findall(r"\b\w{4,}\b", text_j))
+            shared_metrics = words_i & words_j & _METRIC_KEYWORDS
+
+            # ── Check 1: Direct negation pairs ──
             for neg_a, neg_b in _NEGATION_PAIRS:
                 if (neg_a in text_i and neg_b in text_j) or (neg_b in text_i and neg_a in text_j):
-                    # Verify same topic: shared significant words (4+ chars)
-                    words_i = set(re.findall(r"\b\w{4,}\b", text_i))
-                    words_j = set(re.findall(r"\b\w{4,}\b", text_j))
-                    shared = words_i & words_j
-                    # Remove generic words
-                    shared -= {"this", "that", "with", "from", "have", "been", "were", "their", "which", "about"}
-                    if len(shared) >= 2:
+                    shared_words = words_i & words_j
+                    shared_words -= {"this", "that", "with", "from", "have", "been", "were", "their", "which", "about"}
+                    if len(shared_words) >= 2:
                         pair = (min(i, j), max(i, j))
                         if pair not in seen_pairs:
                             seen_pairs.add(pair)
+                            conflict_type = _classify_conflict_type(
+                                ctx_i["years"], ctx_j["years"],
+                                entities_i, entities_j,
+                                shared_metrics, shared_metrics,
+                            )
+                            confidence = _compute_confidence(
+                                shared_metrics, ctx_i["years"], ctx_j["years"],
+                                entities_i, entities_j, 1.0,
+                            )
                             contradictions.append({
                                 "severity": 1.0,
+                                "confidence": confidence,
+                                "conflict_type": conflict_type,
                                 "description": (
-                                    f"Evidence [{i+1}] and [{j+1}] appear to contradict: "
-                                    f"shared terms: {', '.join(sorted(shared)[:5])}"
+                                    f"Evidence [{i+1}] and [{j+1}] contain opposing claims: "
+                                    f"shared terms: {', '.join(sorted(shared_words)[:5])}"
                                 ),
                                 "evidence_indices": [i + 1, j + 1],
+                                "entity_overlap": sorted(entities_i & entities_j)[:3],
+                                "metric_overlap": sorted(shared_metrics)[:3],
+                                "timeframe_i": sorted(ctx_i["years"]),
+                                "timeframe_j": sorted(ctx_j["years"]),
                                 "resolved": False,
                                 "critical": True,
                             })
                         break  # One contradiction per pair is enough
 
-            # Check for numerical discrepancies: same metric, different values.
-            # Require both chunks to mention the same specific metric keyword
-            # AND extract numbers that are near (within ~40 chars of) that keyword.
-            _METRIC_KEYWORDS = {
-                "revenue", "employees", "utilization", "growth", "output",
-                "production", "units", "profit", "income", "capacity",
-                "rate", "percent", "sales", "cost", "price", "margin",
-            }
-            words_i = set(re.findall(r"\b\w{4,}\b", text_i))
-            words_j = set(re.findall(r"\b\w{4,}\b", text_j))
-            shared_metrics = words_i & words_j & _METRIC_KEYWORDS
+            # ── Check 2: Numerical discrepancies with context ──
             if shared_metrics:
                 # For each shared metric, extract numbers near it in each chunk
                 metric_nums_i: set[str] = set()
                 metric_nums_j: set[str] = set()
+                raw_nums_i: list[tuple[float, str]] = []
+                raw_nums_j: list[tuple[float, str]] = []
+
                 for metric in shared_metrics:
-                    for text, num_set in [(text_i, metric_nums_i), (text_j, metric_nums_j)]:
-                        # Find positions of the metric keyword
+                    for text, num_set, raw_list in [
+                        (text_i, metric_nums_i, raw_nums_i),
+                        (text_j, metric_nums_j, raw_nums_j),
+                    ]:
                         for m in re.finditer(r"\b" + re.escape(metric) + r"\b", text):
-                            # Look for numbers within ~40 chars of the keyword
-                            start = max(0, m.start() - 40)
-                            end = min(len(text), m.end() + 40)
+                            start = max(0, m.start() - 50)
+                            end = min(len(text), m.end() + 50)
                             window = text[start:end]
-                            for n in re.findall(r"\$?[\d,]+\.?\d*\s*(?:billion|million|%)?", window):
+                            for n in re.findall(r"\$?[\d,]+\.?\d*\s*(?:billion|million|thousand|%)?", window):
                                 cleaned = re.sub(r"[,$]", "", n.strip())
                                 if cleaned:
                                     num_set.add(cleaned)
+                                    raw_list.append(_normalize_number_with_unit(n))
+
                 if metric_nums_i and metric_nums_j and metric_nums_i != metric_nums_j:
                     pair = (min(i, j), max(i, j))
                     if pair not in seen_pairs:
+                        # Check if values are actually equivalent after normalization
+                        norm_i = {_normalize_value(v, u) for v, u in raw_nums_i if v > 0}
+                        norm_j = {_normalize_value(v, u) for v, u in raw_nums_j if v > 0}
+
+                        # If normalized values are the same, it's not a contradiction
+                        if norm_i and norm_j and norm_i == norm_j:
+                            continue
+
                         seen_pairs.add(pair)
+                        conflict_type = _classify_conflict_type(
+                            ctx_i["years"], ctx_j["years"],
+                            entities_i, entities_j,
+                            shared_metrics, shared_metrics,
+                        )
+                        confidence = _compute_confidence(
+                            shared_metrics, ctx_i["years"], ctx_j["years"],
+                            entities_i, entities_j, 0.8,
+                        )
                         contradictions.append({
                             "severity": 0.8,
+                            "confidence": confidence,
+                            "conflict_type": conflict_type,
                             "description": (
-                                f"Evidence [{i+1}] and [{j+1}] present different numerical values "
+                                f"Evidence [{i+1}] and [{j+1}] present different values "
                                 f"for metric(s) {sorted(shared_metrics)}: "
                                 f"{sorted(metric_nums_i)[:3]} vs {sorted(metric_nums_j)[:3]}"
                             ),
                             "evidence_indices": [i + 1, j + 1],
+                            "entity_overlap": sorted(entities_i & entities_j)[:3],
+                            "metric_overlap": sorted(shared_metrics)[:3],
+                            "timeframe_i": sorted(ctx_i["years"]),
+                            "timeframe_j": sorted(ctx_j["years"]),
                             "resolved": False,
                             "critical": True,
                         })
 
     return contradictions
+
+
+def filter_contradictions_by_query(
+    contradictions: list[dict],
+    evidence: list[EvidenceRef],
+    query: str,
+) -> list[dict]:
+    """Filter contradiction signals to only those relevant to the user's query.
+
+    A contradiction is relevant if:
+    1. Its metric overlap includes a metric the query is asking about
+    2. Its conflict type is not DIFFERENT_TIMEFRAME (unless query asks about history)
+    3. Its confidence is not LOW (unless query explicitly asks about conflicts)
+
+    This prevents false positives where historical data (2023 vs 2025) is
+    incorrectly flagged as contradictory.
+    """
+    if not contradictions:
+        return []
+
+    query_lower = query.lower()
+    query_words = set(re.findall(r"\b\w{4,}\b", query_lower))
+    query_words -= {"what", "which", "when", "where", "does", "that", "have", "been", "from", "about", "how", "many", "was", "were"}
+
+    # Extract the query's intended metric
+    query_metrics = query_words & _METRIC_KEYWORDS
+
+    # Check if query explicitly asks about conflicts/history
+    conflict_intent = any(w in query_lower for w in [
+        "conflict", "contradict", "discrepan", "differ",
+        "disagree", "inconsistent", "versus", "vs",
+    ])
+    historical_intent = any(w in query_lower for w in [
+        "history", "historical", "trend", "over time", "change",
+        "compare", "comparison", "before", "after",
+    ])
+
+    filtered = []
+    for sig in contradictions:
+        conflict_type = sig.get("conflict_type", "UNKNOWN")
+        confidence = sig.get("confidence", "LOW")
+        entity_overlap = set(sig.get("entity_overlap", []))
+        metric_overlap = set(sig.get("metric_overlap", []))
+        timeframe_i = set(sig.get("timeframe_i", []))
+        timeframe_j = set(sig.get("timeframe_j", []))
+
+        # ── Rule 1: DIFFERENT_TIMEFRAME is not a contradiction unless query asks about history ──
+        if conflict_type == "DIFFERENT_TIMEFRAME" and not historical_intent:
+            continue
+
+        # ── Rule 2: LOW confidence signals are filtered unless query asks about conflicts ──
+        if confidence == "LOW" and not conflict_intent:
+            continue
+
+        # ── Rule 3: Check metric relevance to query ──
+        # The conflict is relevant only if its metric matches what the query asks about
+        if query_metrics:
+            # Query asks about a specific metric — conflict must match
+            if not (metric_overlap & query_metrics):
+                continue
+        else:
+            # Query doesn't mention a specific metric — don't show conflicts
+            # unless query explicitly asks about conflicts or history
+            if not conflict_intent and not historical_intent:
+                continue
+
+        # ── Rule 4: Check entity relevance ──
+        # If query mentions a specific entity, conflict should involve that entity
+        query_entities = query_words - _METRIC_KEYWORDS
+        if query_entities and not (entity_overlap & query_entities):
+            # Query mentions specific entities, but conflict involves different entities
+            # (unless conflict involves the same metric which is query-relevant)
+            if not (metric_overlap & query_metrics):
+                continue
+
+        filtered.append(sig)
+
+    return filtered
 
 
 def _is_evidence_absent(
@@ -460,10 +729,20 @@ def make_assess_node(
         if evidence and not contradiction_signals:
             detected = _detect_contradictions(evidence, query=state["query"])
             if detected:
-                contradiction_signals = detected
+                # Phase 41: Query-aware filtering (feature-flagged)
+                conflict_filtering = getattr(settings, "conflict_filtering_enabled", False)
+                if conflict_filtering:
+                    filtered = filter_contradictions_by_query(
+                        detected, evidence, state["query"]
+                    )
+                else:
+                    filtered = detected
+                contradiction_signals = filtered
                 logger.info(
                     "contradictions_detected",
                     count=len(detected),
+                    filtered_count=len(filtered),
+                    filtering_enabled=conflict_filtering,
                     request_id=state["request_id"],
                 )
 
@@ -735,12 +1014,29 @@ def make_synthesize_node(
             # with citations, NOT a naked raw-evidence dump (07c §15.1). The
             # citation markers [[i]] still map to the evidence list below, and
             # _derive_outcome labels this ANSWERED_DEGRADED.
+            #
+            # Phase 41: If conflict signals exist, include them in the degraded
+            # response so the user sees the conflict even when synthesis fails.
             top = evidence[: min(3, len(evidence))]
             bullets = "\n".join(f"- {r.text.strip()[:300]} [{i}]" for i, r in enumerate(top, 1))
+
+            conflict_note = ""
+            if contradiction_signals:
+                conflict_lines = []
+                for sig in contradiction_signals:
+                    desc = sig.get("description", "Unknown conflict")
+                    conflict_lines.append(f"  - {desc}")
+                conflict_note = (
+                    "\n\nIMPORTANT: The evidence contains the following conflicts:\n"
+                    + "\n".join(conflict_lines)
+                    + "\nThese conflicts could not be fully resolved during synthesis."
+                )
+
             answer = (
                 "Synthesis is temporarily unavailable, so I could not produce a "
                 "polished answer. Here is the grounded evidence I retrieved "
                 f"(correctness not fully synthesized):\n{bullets}"
+                f"{conflict_note}"
             )
             warnings.append("synthesis_degraded_to_raw_evidence")
 

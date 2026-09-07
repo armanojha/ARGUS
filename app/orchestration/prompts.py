@@ -136,17 +136,34 @@ def build_synthesis_messages(
         items = []
         for sig in contradiction_signals:
             severity = sig.get("severity", "unknown")
+            confidence = sig.get("confidence", "unknown")
+            conflict_type = sig.get("conflict_type", "unknown")
             desc = sig.get("description", "")
-            items.append(f"- Severity {severity}: {desc}" if desc else f"- Severity {severity}")
+            entity = sig.get("entity_overlap", [])
+            metric = sig.get("metric_overlap", [])
+            time_i = sig.get("timeframe_i", [])
+            time_j = sig.get("timeframe_j", [])
+            items.append(
+                f"- Severity {severity} | Confidence {confidence} | Type: {conflict_type}\n"
+                f"  {desc}\n"
+                f"  Entity: {entity} | Metric: {metric} | Timeframes: {time_i} vs {time_j}"
+                if desc else f"- Severity {severity} | Confidence {confidence}"
+            )
         contradiction_section = (
-            "\n--- CONTRADICTION ALERT ---\n"
-            "The retrieved evidence contains contradictions. When synthesizing:\n"
-            "1. Acknowledge the conflict explicitly in your answer\n"
-            "2. Present both sides with their respective sources\n"
-            "3. If one source is more authoritative or recent, note that\n"
-            "4. Do NOT present contradictory claims as settled fact\n"
+            "\n--- RELEVANT CONFLICTS DETECTED ---\n"
+            "The retrieved evidence contains conflicts relevant to this query.\n\n"
+            "SAFE RESOLUTION RULES:\n"
+            "1. Present BOTH sides with their respective evidence citations [X] and [Y]\n"
+            "2. State clearly that the sources disagree\n"
+            "3. Do NOT select one side as 'correct' unless evidence establishes\n"
+            "   clear authority (newer date, official source, etc.)\n"
+            "4. If one source is more authoritative, explain WHY\n"
+            "5. If authority is unclear, say: 'The available evidence does not\n"
+            "   establish which value is correct'\n"
+            "6. NEVER present contradictory claims as settled fact\n\n"
+            "Conflict details:\n"
             + "\n".join(items)
-            + "\n--- END CONTRADICTION ALERT ---\n"
+            + "\n--- END CONFLICTS ---\n"
         )
 
     user = (

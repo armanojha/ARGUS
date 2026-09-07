@@ -118,7 +118,7 @@ class TestContradictionAwarePrompts:
         evidence = [_make_evidence()]
         messages = build_synthesis_messages(plan, evidence)
         assert len(messages) == 2
-        assert "CONTRADICTION ALERT" not in messages[1].content
+        assert "RELEVANT CONFLICTS DETECTED" not in messages[1].content
 
     def test_contradictions_injected(self):
         plan = _make_plan()
@@ -129,7 +129,7 @@ class TestContradictionAwarePrompts:
         ]
         messages = build_synthesis_messages(plan, evidence, contradiction_signals=signals)
         user_content = messages[1].content
-        assert "CONTRADICTION ALERT" in user_content
+        assert "RELEVANT CONFLICTS DETECTED" in user_content
         assert "Source A says X" in user_content
         assert "Date mismatch" in user_content
 
@@ -137,7 +137,7 @@ class TestContradictionAwarePrompts:
         plan = _make_plan()
         evidence = [_make_evidence()]
         messages = build_synthesis_messages(plan, evidence, contradiction_signals=[])
-        assert "CONTRADICTION ALERT" not in messages[1].content
+        assert "RELEVANT CONFLICTS DETECTED" not in messages[1].content
 
 
 # ─── Evidence Quality Annotations ─────────────────────────────────
@@ -276,7 +276,7 @@ class TestSynthesizeNodePhase25:
         router.complete.assert_called_once()
         call_args = router.complete.call_args
         messages = call_args[0][0]
-        assert "CONTRADICTION ALERT" in messages[1].content
+        assert "RELEVANT CONFLICTS DETECTED" in messages[1].content
 
     @pytest.mark.asyncio
     async def test_empty_evidence_no_synthesis(self):
