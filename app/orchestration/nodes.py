@@ -119,6 +119,49 @@ def _detect_contradictions(
                             })
                         break  # One contradiction per pair is enough
 
+            # Check for numerical discrepancies: same metric, different values.
+            # Require both chunks to mention the same specific metric keyword
+            # AND extract numbers that are near (within ~40 chars of) that keyword.
+            _METRIC_KEYWORDS = {
+                "revenue", "employees", "utilization", "growth", "output",
+                "production", "units", "profit", "income", "capacity",
+                "rate", "percent", "sales", "cost", "price", "margin",
+            }
+            words_i = set(re.findall(r"\b\w{4,}\b", text_i))
+            words_j = set(re.findall(r"\b\w{4,}\b", text_j))
+            shared_metrics = words_i & words_j & _METRIC_KEYWORDS
+            if shared_metrics:
+                # For each shared metric, extract numbers near it in each chunk
+                metric_nums_i: set[str] = set()
+                metric_nums_j: set[str] = set()
+                for metric in shared_metrics:
+                    for text, num_set in [(text_i, metric_nums_i), (text_j, metric_nums_j)]:
+                        # Find positions of the metric keyword
+                        for m in re.finditer(r"\b" + re.escape(metric) + r"\b", text):
+                            # Look for numbers within ~40 chars of the keyword
+                            start = max(0, m.start() - 40)
+                            end = min(len(text), m.end() + 40)
+                            window = text[start:end]
+                            for n in re.findall(r"\$?[\d,]+\.?\d*\s*(?:billion|million|%)?", window):
+                                cleaned = re.sub(r"[,$]", "", n.strip())
+                                if cleaned:
+                                    num_set.add(cleaned)
+                if metric_nums_i and metric_nums_j and metric_nums_i != metric_nums_j:
+                    pair = (min(i, j), max(i, j))
+                    if pair not in seen_pairs:
+                        seen_pairs.add(pair)
+                        contradictions.append({
+                            "severity": 0.8,
+                            "description": (
+                                f"Evidence [{i+1}] and [{j+1}] present different numerical values "
+                                f"for metric(s) {sorted(shared_metrics)}: "
+                                f"{sorted(metric_nums_i)[:3]} vs {sorted(metric_nums_j)[:3]}"
+                            ),
+                            "evidence_indices": [i + 1, j + 1],
+                            "resolved": False,
+                            "critical": True,
+                        })
+
     return contradictions
 
 

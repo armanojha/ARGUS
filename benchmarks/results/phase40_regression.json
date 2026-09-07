@@ -1,0 +1,32 @@
+[
+  {
+    "query": "What is Acme Corporation?",
+    "detected": false,
+    "signal_count": 0,
+    "acknowledged": false
+  },
+  {
+    "query": "What products does Acme make?",
+    "detected": true,
+    "signal_count": 11,
+    "acknowledged": false
+  },
+  {
+    "query": "Where are Acme plants located?",
+    "detected": true,
+    "signal_count": 12,
+    "acknowledged": false
+  },
+  {
+    "query": "How many employees does Acme have?",
+    "detected": true,
+    "signal_count": 12,
+    "acknowledged": false
+  },
+  {
+    "query": "What industry is Acme in?",
+    "detected": true,
+    "signal_count": 11,
+    "acknowledged": false
+  }
+]

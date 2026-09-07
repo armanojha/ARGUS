@@ -241,6 +241,11 @@ class OrchestrationResult(BaseModel):
         "distinct from user-document evidence. Empty when no persistent memory "
         "influenced the plan.",
     )
+    # Phase 39 / Phase 40 contradiction signals (additive; empty when none detected)
+    contradiction_signals: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Deterministic contradiction signals detected between evidence chunks.",
+    )
     # Phase 07b selective verification traceability (additive; None when skipped/off)
     verification: OrchestrationVerification | None = Field(
         default=None,

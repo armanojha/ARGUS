@@ -499,6 +499,8 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
         disagreement_detected=final_state.get("disagreement_detected"),
         # Phase 08 / knowledge-system traceability (additive)
         memory_consulted=final_state.get("memory_consulted") or [],
+        # Phase 39 / Phase 40 contradiction signals
+        contradiction_signals=final_state.get("contradiction_signals") or [],
     )
 
 
