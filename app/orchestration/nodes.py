@@ -400,9 +400,11 @@ def filter_contradictions_by_query(
         timeframe_i = set(sig.get("timeframe_i", []))
         timeframe_j = set(sig.get("timeframe_j", []))
 
-        # ── Rule 1: DIFFERENT_TIMEFRAME is not a contradiction unless query asks about history ──
-        if conflict_type == "DIFFERENT_TIMEFRAME" and not historical_intent:
-            continue
+        # ── Rule 1: DIFFERENT_TIMEFRAME is filtered unless query asks about history
+        # OR the query asks about the same metric (user needs both values) ──
+        if conflict_type == "DIFFERENT_TIMEFRAME":
+            if not historical_intent and not (metric_overlap & query_metrics):
+                continue
 
         # ── Rule 2: LOW confidence signals are filtered unless query asks about conflicts ──
         if confidence == "LOW" and not conflict_intent:
