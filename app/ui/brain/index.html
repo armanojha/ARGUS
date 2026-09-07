@@ -2463,6 +2463,76 @@ let pipelineCanvas, pipelineCtx;
 let pipelineWidth = 0, pipelineHeight = 0, pipelineDpr = 1;
 let pipelineBusy = false;
 
+/* Extract per-stage timing from existing telemetry routing_decisions */
+function extractStageTimings(result) {
+  const telemetry = result.telemetry;
+  if (!telemetry || !Array.isArray(telemetry.routing_decisions)) return [];
+
+  const decisions = telemetry.routing_decisions;
+  if (!decisions.length) return [];
+
+  /* Map call_type to pipeline stage */
+  const callTypeToStage = {
+    "query_analysis": "analysis",
+    "research_planning": "plan",
+    "evidence_extraction": "retrieval",
+    "synthesis": "synthesis",
+    "verification": "verification",
+    "revision": "synthesis",
+    "reasoning": "synthesis",
+    "general": "synthesis",
+  };
+
+  /* Aggregate timing by stage */
+  const stageTiming = {};
+  let cumulativeMs = 0;
+
+  for (const d of decisions) {
+    const stage = callTypeToStage[d.call_type] || "synthesis";
+    const latency = d.latency_ms || 0;
+    if (!stageTiming[stage]) {
+      stageTiming[stage] = { stage, totalMs: 0, calls: 0, providers: new Set() };
+    }
+    stageTiming[stage].totalMs += latency;
+    stageTiming[stage].calls++;
+    if (d.provider) stageTiming[stage].providers.add(d.provider);
+  }
+
+  /* Build ordered timeline */
+  const stageOrder = ["analysis", "plan", "retrieval", "verification", "synthesis"];
+  const timeline = [];
+
+  for (const stage of stageOrder) {
+    if (stageTiming[stage]) {
+      const t = stageTiming[stage];
+      timeline.push({
+        stage: t.stage,
+        label: PIPELINE_LABELS[t.stage] || t.stage,
+        timeMs: t.totalMs,
+        calls: t.calls,
+        providers: Array.from(t.providers),
+        startMs: cumulativeMs,
+      });
+      cumulativeMs += t.totalMs;
+    }
+  }
+
+  /* Add retrieval timing if not captured by LLM calls (deterministic stage) */
+  if (!stageTiming.retrieval && result.citations?.length) {
+    timeline.splice(2, 0, {
+      stage: "retrieval",
+      label: "Retrieval",
+      timeMs: null,
+      calls: result.citations.length,
+      providers: [],
+      startMs: cumulativeMs,
+      note: `${result.citations.length} chunks retrieved`,
+    });
+  }
+
+  return timeline;
+}
+
 /* Initialize pipeline canvas */
 function initPipelineCanvas() {
   pipelineCanvas = document.getElementById("pipeline-canvas");
@@ -2837,6 +2907,7 @@ function buildPipeline(result) {
   y += stageH;
 
   /* Answer */
+  const stageTimings = extractStageTimings(result);
   const ansNode = {
     id: "pipeline-answer", type: "answer", label: "Final Answer",
     x: cx, y: y, w: 360, h: 70, status: "complete",
@@ -2846,6 +2917,7 @@ function buildPipeline(result) {
       outcome: result.outcome,
       telemetry: result.telemetry,
       warnings: result.warnings || [],
+      stageTimings: stageTimings,
     },
   };
   pipelineNodes.push(ansNode);
@@ -3370,6 +3442,26 @@ function openPipelineInspector(node) {
         <div class="pi-kv"><span class="k">Duration</span><span class="v">${t.duration_ms || 0}ms</span></div>
       </div>`;
     }
+
+    /* Stage timing timeline */
+    if (node.data?.stageTimings?.length) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Research Timeline</div>
+        <div class="pi-timeline">
+          ${node.data.stageTimings.map(st => `
+            <div class="pi-timeline-item">
+              <span class="pi-timeline-time">${st.timeMs != null ? st.timeMs + "ms" : "—"}</span>
+              <span class="pi-timeline-event">
+                <strong>${escapeHtml(st.label)}</strong>
+                ${st.calls > 1 ? ` (${st.calls} calls)` : ""}
+                ${st.providers?.length ? ` — ${escapeHtml(st.providers.join(", "))}` : ""}
+                ${st.note ? ` — ${escapeHtml(st.note)}` : ""}
+              </span>
+            </div>
+          `).join("")}
+        </div>
+      </div>`;
+    }
   }
 
   /* Technical details toggle */
@@ -3593,24 +3685,14 @@ async function sendResearchWithPipeline() {
   switchView("pipeline");
   showPipelineStatus("Researching: " + truncate(q, 50));
 
-  /* Build a minimal pipeline showing processing state */
-  const placeholderResult = {
-    query: q,
-    question_pattern: null,
-    plan: { objective: "Researching...", entities: [], subquestions: [] },
-    sub_queries_issued: [],
-    citations: [],
-    verification: null,
-    contradiction_signals: [],
-    answer: "",
-    outcome: "answered",
-    iterations_used: 0,
-    token_usage_estimate: 0,
-    telemetry: null,
-    warnings: [],
-    memory_consulted: [],
-  };
-  buildPipeline(placeholderResult);
+  /* Clear any existing pipeline */
+  pipelineNodes = [];
+  pipelineEdges = [];
+  pipelineSelected = null;
+  pipelineHover = null;
+  const empty = document.getElementById("pipeline-empty");
+  if (empty) empty.style.display = "none";
+  drawPipeline();
 
   /* Now run the actual research */
   researchBusy = true;
@@ -3652,8 +3734,8 @@ async function sendResearchWithPipeline() {
     statusEl.remove();
     hidePipelineStatus();
 
-    /* Build pipeline from real result */
-    buildPipeline(data);
+    /* Build pipeline progressively */
+    await buildPipelineProgressive(data);
 
     /* Also add to chat */
     let formatted;
@@ -3683,6 +3765,223 @@ async function sendResearchWithPipeline() {
 
 /* Replace the sendResearch function */
 sendResearch = sendResearchWithPipeline;
+
+/* Progressive pipeline building — shows stages appearing one by one */
+async function buildPipelineProgressive(result) {
+  const cx = pipelineWidth / 2;
+  const stageH = 90;
+  const evidenceSpacing = 140;
+  let y = 60;
+
+  /* Stage 1: Query */
+  pipelineNodes = [{
+    id: "pipeline-query", type: "query", label: result.query || "Query",
+    x: cx, y: y, w: 320, h: 56, status: "processing",
+    data: { query: result.query },
+  }];
+  pipelineEdges = [];
+  drawPipeline();
+  await sleep(300);
+
+  /* Stage 2: Analysis */
+  y += stageH;
+  const analysisNode = {
+    id: "pipeline-analysis", type: "analysis", label: "Query Analysis",
+    x: cx, y: y, w: 280, h: 50, status: "processing",
+    data: {
+      pattern: result.question_pattern || "—",
+      entities: result.plan?.entities || [],
+      timeWindow: result.plan?.time_window,
+      riskLevel: result.plan?.risk_level,
+    },
+  };
+  pipelineNodes.push(analysisNode);
+  pipelineEdges.push({ from: "pipeline-query", to: analysisNode.id, type: "flow" });
+  pipelineNodes[0].status = "complete";
+  drawPipeline();
+  await sleep(400);
+
+  /* Stage 3: Plan */
+  y += stageH;
+  const planNode = {
+    id: "pipeline-plan", type: "plan", label: "Research Plan",
+    x: cx, y: y, w: 280, h: 50, status: "processing",
+    data: {
+      objective: result.plan?.objective,
+      subqueries: result.plan?.subquestions || [],
+      strategy: result.plan?.preferred_retrieval_methods || [],
+      iterations: result.iterations_used,
+      tokenBudget: result.plan?.token_budget,
+      stoppingCondition: result.plan?.stopping_condition,
+    },
+  };
+  pipelineNodes.push(planNode);
+  pipelineEdges.push({ from: analysisNode.id, to: planNode.id, type: "flow" });
+  analysisNode.status = "complete";
+  drawPipeline();
+  await sleep(300);
+
+  /* Stage 4: Sub-queries */
+  const subQueries = result.sub_queries_issued || [];
+  const subqueryNodes = [];
+  subQueries.forEach((sq, i) => {
+    const sx = cx + (i - (subQueries.length - 1) / 2) * evidenceSpacing;
+    const sqNode = {
+      id: `pipeline-subquery-${i}`, type: "subquery", label: `Sub-query ${i + 1}`,
+      x: sx, y: y, w: 180, h: 44, status: "processing",
+      data: { query: sq, index: i },
+    };
+    pipelineNodes.push(sqNode);
+    subqueryNodes.push(sqNode);
+    pipelineEdges.push({ from: planNode.id, to: sqNode.id, type: "flow" });
+  });
+  planNode.status = "complete";
+  drawPipeline();
+  await sleep(200);
+  subqueryNodes.forEach(n => n.status = "complete");
+  drawPipeline();
+
+  /* Show "Retrieving..." status */
+  showPipelineStatus("Retrieving evidence…");
+  await sleep(500);
+
+  /* Stage 5: Evidence */
+  y += stageH;
+  const citations = result.citations || [];
+  const evidenceNodes = [];
+  citations.forEach((cit, i) => {
+    const ex = cx + (i - (citations.length - 1) / 2) * evidenceSpacing;
+    const eNode = {
+      id: `pipeline-evidence-${i}`, type: "evidence", label: `Evidence ${i + 1}`,
+      x: ex, y: y, w: 180, h: 56, status: "processing",
+      data: {
+        citation: cit,
+        source: cit.source_path || "—",
+        text: cit.text || "",
+        score: cit.score,
+        refId: cit.ref_id,
+        sectionPath: cit.section_path,
+        pageStart: cit.page_start,
+      },
+    };
+    pipelineNodes.push(eNode);
+    evidenceNodes.push(eNode);
+    const fromNode = subqueryNodes.length ? subqueryNodes[Math.min(i, subqueryNodes.length - 1)] : planNode;
+    pipelineEdges.push({ from: fromNode.id, to: eNode.id, type: "retrieval" });
+  });
+  drawPipeline();
+  await sleep(300);
+  evidenceNodes.forEach(n => n.status = "complete");
+  drawPipeline();
+
+  /* Stage 6: Verification */
+  y += stageH;
+  showPipelineStatus("Verifying evidence…");
+  const ver = result.verification;
+  const verNode = {
+    id: "pipeline-verification", type: "verification", label: "Verification",
+    x: cx, y: y, w: 280, h: 50, status: "processing",
+    data: {
+      triggered: ver?.triggered || false,
+      status: ver?.status,
+      confidence: ver?.confidence,
+      reasoning: ver?.reasoning,
+      skippedReason: ver?.skipped_reason,
+      evidenceCoverage: ver?.evidence_coverage,
+      sourceQuality: ver?.source_quality,
+      crossSourceAgreement: ver?.cross_source_agreement,
+      temporalRelevance: ver?.temporal_relevance,
+    },
+  };
+  pipelineNodes.push(verNode);
+  evidenceNodes.forEach(e => pipelineEdges.push({ from: e.id, to: verNode.id, type: "verification" }));
+  drawPipeline();
+  await sleep(400);
+  verNode.status = "complete";
+  drawPipeline();
+
+  /* Stage 7: Conflict Detection */
+  y += stageH;
+  const conflicts = result.contradiction_signals || [];
+  const conflictNodes = [];
+  if (conflicts.length) {
+    showPipelineStatus("Detecting conflicts…");
+    conflicts.forEach((conf, i) => {
+      const konf = cx + (i - (conflicts.length - 1) / 2) * evidenceSpacing;
+      const cNode = {
+        id: `pipeline-conflict-${i}`, type: "conflict", label: `Conflict ${i + 1}`,
+        x: konf, y: y, w: 200, h: 50, status: "processing",
+        data: {
+          conflict: conf,
+          type: conf.type || conf.conflict_type || "—",
+          confidence: conf.confidence,
+          entity: conf.entity || [],
+          metrics: conf.metrics || [],
+          resolution: conf.resolution_suggestion,
+        },
+      };
+      pipelineNodes.push(cNode);
+      conflictNodes.push(cNode);
+      pipelineEdges.push({ from: verNode.id, to: cNode.id, type: "conflict" });
+    });
+    drawPipeline();
+    await sleep(300);
+    conflictNodes.forEach(n => n.status = "complete");
+    drawPipeline();
+  }
+
+  /* Stage 8: Synthesis */
+  y += stageH;
+  showPipelineStatus("Synthesizing answer…");
+  const synNode = {
+    id: "pipeline-synthesis", type: "synthesis", label: "Synthesis",
+    x: cx, y: y, w: 280, h: 50, status: "processing",
+    data: {
+      outcome: result.outcome,
+      stopReason: result.stop_reason,
+      iterationsUsed: result.iterations_used,
+      tokenEstimate: result.token_usage_estimate,
+      memoryConsulted: result.memory_consulted || [],
+      warnings: result.warnings || [],
+    },
+  };
+  pipelineNodes.push(synNode);
+  const synSources = conflictNodes.length ? conflictNodes : [verNode];
+  synSources.forEach(s => pipelineEdges.push({ from: s.id, to: synNode.id, type: "synthesis" }));
+  drawPipeline();
+  await sleep(400);
+  synNode.status = "complete";
+  drawPipeline();
+
+  /* Stage 9: Answer */
+  y += stageH;
+  const stageTimings = extractStageTimings(result);
+  const ansNode = {
+    id: "pipeline-answer", type: "answer", label: "Final Answer",
+    x: cx, y: y, w: 360, h: 70, status: "processing",
+    data: {
+      answer: result.answer,
+      citations: citations,
+      outcome: result.outcome,
+      telemetry: result.telemetry,
+      warnings: result.warnings || [],
+      stageTimings: stageTimings,
+    },
+  };
+  pipelineNodes.push(ansNode);
+  pipelineEdges.push({ from: synNode.id, to: ansNode.id, type: "flow" });
+  drawPipeline();
+  await sleep(200);
+  ansNode.status = "complete";
+  hidePipelineStatus();
+  drawPipeline();
+
+  /* Store pipeline data */
+  pipelineData = result;
+  pipelineFitView();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 /* ============================================================
    INIT
