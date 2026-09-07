@@ -252,3 +252,25 @@ class OrchestrationResult(BaseModel):
         description="Selective claim verification metadata for this query, when the 07b "
         "verification stage fired. Verification annotates but never replaces the answer.",
     )
+
+
+def sanitize_result_for_user(result: OrchestrationResult) -> OrchestrationResult:
+    """Strip internal filesystem paths and sensitive metadata from a result.
+
+    Replaces full source_path values with just the filename to prevent
+    internal directory structure disclosure to API consumers.
+    """
+    sanitized_citations = []
+    for c in result.citations:
+        # Mask source_path to just the filename
+        parts = c.source_path.replace("\\", "/").split("/")
+        masked = parts[-1] if parts else c.source_path
+        sanitized_citations.append(c.model_copy(update={"source_path": masked}))
+
+    # Strip agent debate traces and internal policy details
+    return result.model_copy(update={
+        "citations": sanitized_citations,
+        "agent_messages": [],  # Never expose inter-agent reasoning
+        "stop_decisions": [],  # Never expose internal policy thresholds
+        "evidence_tasks": [],  # Never expose gap-detection internals
+    })

@@ -8,22 +8,22 @@ version = "0.1.0"
 description = "ARGUS — Adaptive Autonomous Evidence & Reasoning Intelligence System"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 license-files = ["LICENSE"]
+authors = [
+    { name = "Arman Ojha" }
+]
+
+# Intentionally empty: install via the optional-dependency groups below
+# (e.g. `pip install -e ".[core,dev-test]"`), so each phase only pulls in
+# what it needs.
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/armanojha/ARGUS"
 Repository = "https://github.com/armanojha/ARGUS"
 Issues = "https://github.com/armanojha/ARGUS/issues"
 Changelog = "https://github.com/armanojha/ARGUS/blob/main/CHANGELOG.md"
-
-[project.authors]
-name = "Arman Ojha"
-
-# Intentionally empty: install via the optional-dependency groups below
-# (e.g. `pip install -e ".[core,dev-test]"`), so each phase only pulls in
-# what it needs.
-dependencies = []
 
 [project.optional-dependencies]
 # Foundation: config, API surface, orchestration, logging, LLM gateway (Phases 00.1-00.3).

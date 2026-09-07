@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.config import get_settings
 from app.llm_gateway.telemetry import end_run_telemetry, start_run_telemetry
 from app.orchestration.graph import run_query
-from app.orchestration.models import OrchestrationResult
+from app.orchestration.models import OrchestrationResult, sanitize_result_for_user
 
 router = APIRouter(prefix="/api/v1", tags=["orchestration"])
 
@@ -64,4 +64,4 @@ async def query(request: QueryRequest, http_request: Request) -> OrchestrationRe
         summary = end_run_telemetry()
     if summary is not None:
         result = result.model_copy(update={"telemetry": summary})
-    return result
+    return sanitize_result_for_user(result)

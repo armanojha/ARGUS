@@ -246,7 +246,7 @@ class TestFlowAThroughAPI:
         assert body["plan"]["objective"]
         assert body["answer"]
         assert len(body["citations"]) >= 1
-        assert body["citations"][0]["source_path"] == "/test/corpus.txt"
+        assert body["citations"][0]["source_path"] == "corpus.txt"  # sanitized from /test/corpus.txt
         # Phase 06 policy participated (question pattern classified), and the
         # loop stopped early (single iteration) once evidence was sufficient.
         assert body["question_pattern"] is not None

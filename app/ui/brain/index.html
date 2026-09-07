@@ -899,6 +899,19 @@ let view = { x: 0, y: 0, k: 1 };
 
 let sim = null;
 
+/* Pipeline state */
+let pipelineData = null;
+let pipelineNodes = [];
+let pipelineEdges = [];
+let pipelineSelected = null;
+let pipelineHover = null;
+let pipelineView = { x: 0, y: 0, k: 1 };
+let pipelineCanvas, pipelineCtx;
+let pipelineWidth = 0, pipelineHeight = 0, pipelineDpr = 1;
+let pipelineBusy = false;
+let pipelinePan = null;
+let demoModeActive = false;
+
 /* ---------------- Data loading ---------------- */
 async function fetchGraph() {
   try {
@@ -2452,17 +2465,6 @@ const PIPELINE_EXPLANATIONS = {
   },
 };
 
-/* Pipeline state */
-let pipelineData = null;
-let pipelineNodes = [];
-let pipelineEdges = [];
-let pipelineSelected = null;
-let pipelineHover = null;
-let pipelineView = { x: 0, y: 0, k: 1 };
-let pipelineCanvas, pipelineCtx;
-let pipelineWidth = 0, pipelineHeight = 0, pipelineDpr = 1;
-let pipelineBusy = false;
-
 /* Extract per-stage timing from existing telemetry routing_decisions */
 function extractStageTimings(result) {
   const telemetry = result.telemetry;
@@ -2573,7 +2575,6 @@ function renderPipelineExamples() {
 }
 
 /* Demo mode */
-let demoModeActive = false;
 function loadDemoMode() {
   demoModeActive = true;
   buildPipeline(DEMO_RESULT);
@@ -3109,7 +3110,6 @@ function pipelineZoomBy(factor, cx, cy) {
 
 /* Pipeline interaction */
 let pipelineDrag = null;
-let pipelinePan = null;
 let pipelinePointer = { x: 0, y: 0 };
 
 function pipelineNodeAt(x, y) {

@@ -63,11 +63,14 @@ class RetrievalResponse(BaseModel):
 
 
 def _evidence_ref_to_citation(ref: EvidenceRef) -> Citation:
+    # Mask internal filesystem paths to just the filename
+    parts = ref.source_path.replace("\\", "/").split("/")
+    masked_path = parts[-1] if parts else ref.source_path
     return Citation(
         chunk_id=ref.chunk_id,
         document_id=ref.document_id,
         source_id=ref.source_id,
-        source_path=ref.source_path,
+        source_path=masked_path,
         source_type=ref.source_type.value,
         text=ref.text,
         page_start=ref.page_start,

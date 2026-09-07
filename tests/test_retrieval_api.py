@@ -234,7 +234,7 @@ class TestRetrievalAPI:
         assert citation["chunk_id"] is not None
         assert citation["document_id"] is not None
         assert citation["source_id"] is not None
-        assert citation["source_path"] == "/test/corpus.txt"
+        assert citation["source_path"] == "corpus.txt"  # sanitized from /test/corpus.txt
         assert citation["source_type"] == "text"
         assert citation["text"] is not None
         assert citation["score"] > 0

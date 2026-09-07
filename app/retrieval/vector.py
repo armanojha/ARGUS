@@ -5,7 +5,7 @@ Provides dense vector retrieval using FAISS over chunk embeddings.
 
 from __future__ import annotations
 
-import pickle
+import json
 from pathlib import Path
 from uuid import UUID
 
@@ -74,10 +74,10 @@ class FAISSVectorStore:
         if self._index is None:
             return
         faiss.write_index(self._index, str(self.index_path))
-        # Save chunk IDs separately
-        ids_path = self.index_path.with_suffix(".ids.pkl")
-        with ids_path.open("wb") as f:
-            pickle.dump(self._chunk_ids, f)
+        # Save chunk IDs as JSON (safe, no RCE risk like pickle)
+        ids_path = self.index_path.with_suffix(".ids.json")
+        with ids_path.open("w", encoding="utf-8") as f:
+            json.dump(self._chunk_ids, f)
         logger.debug("faiss_index_saved", path=str(self.index_path))
 
     def load_index(self) -> bool:
@@ -86,12 +86,23 @@ class FAISSVectorStore:
             return False
         try:
             self._index = faiss.read_index(str(self.index_path))
-            ids_path = self.index_path.with_suffix(".ids.pkl")
-            with ids_path.open("rb") as f:
-                self._chunk_ids = pickle.load(f)
+            ids_path = self.index_path.with_suffix(".ids.json")
+            if ids_path.exists():
+                with ids_path.open("r", encoding="utf-8") as f:
+                    self._chunk_ids = json.load(f)
+            else:
+                # Legacy pickle fallback (read-only, for migration)
+                legacy_path = self.index_path.with_suffix(".ids.pkl")
+                if legacy_path.exists():
+                    import pickle as _pickle
+                    with legacy_path.open("rb") as f:
+                        self._chunk_ids = _pickle.load(f)
+                    logger.info("faiss_ids_migrated_from_pickle", path=str(legacy_path))
+                else:
+                    self._chunk_ids = []
             logger.info("faiss_index_loaded", chunk_count=len(self._chunk_ids))
             return True
-        except (OSError, pickle.PickleError, RuntimeError) as e:
+        except (OSError, RuntimeError, json.JSONDecodeError) as e:
             logger.error("faiss_index_load_failed", error=str(e))
             return False
 

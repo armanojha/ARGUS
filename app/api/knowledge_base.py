@@ -186,6 +186,16 @@ async def upload_endpoint(
             continue
 
         destination = root / filename
+
+        # Security: verify resolved path stays within root (prevent path traversal)
+        try:
+            if not destination.resolve().is_relative_to(root.resolve()):
+                rejected.append({"filename": filename, "reason": "Invalid filename"})
+                continue
+        except (OSError, ValueError):
+            rejected.append({"filename": filename, "reason": "Invalid filename"})
+            continue
+
         try:
             content = await upload.read()
             destination.write_bytes(content)

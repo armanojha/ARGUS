@@ -216,6 +216,98 @@ def _classify_conflict_type(
         return "IRRELEVANT_DIFFERENCE"
 
 
+# ---------------------------------------------------------------------------
+# Query relevance gate (deterministic, no LLM)
+# ---------------------------------------------------------------------------
+
+# Stopwords excluded from relevance overlap calculations
+_STOPWORDS = frozenset({
+    "what", "which", "when", "where", "does", "that", "have", "been",
+    "from", "about", "how", "many", "was", "were", "this", "that",
+    "with", "from", "their", "which", "supports", "claim", "evidence",
+    "information", "data", "system", "using", "based", "provide",
+})
+
+
+def _compute_query_relevance(
+    evidence_text: str,
+    query: str,
+) -> float:
+    """Compute a deterministic relevance score between evidence and query.
+
+    Uses lexical overlap (Jaccard-like) weighted by content-word density.
+    Returns a float in [0.0, 1.0].  No LLM call.
+
+    A score below 0.15 indicates the evidence is almost certainly irrelevant
+    to the query.
+    """
+    query_lower = query.lower()
+    evidence_lower = evidence_text.lower()
+
+    query_words = set(re.findall(r"\b\w{4,}\b", query_lower)) - _STOPWORDS
+    evidence_words = set(re.findall(r"\b\w{4,}\b", evidence_lower)) - _STOPWORDS
+
+    if not query_words or not evidence_words:
+        return 0.0
+
+    overlap = query_words & evidence_words
+    # Jaccard-like: intersection / union, boosted by overlap count
+    union = query_words | evidence_words
+    jaccard = len(overlap) / len(union) if union else 0.0
+
+    # Coverage: what fraction of query words appear in evidence
+    coverage = len(overlap) / len(query_words) if query_words else 0.0
+
+    # Weighted combination: coverage matters more than Jaccard for relevance
+    return 0.4 * jaccard + 0.6 * coverage
+
+
+def _is_topic_coherent(
+    text_i: str,
+    text_j: str,
+    min_shared_significant: int = 3,
+) -> bool:
+    """Check whether two evidence chunks discuss the same topic.
+
+    Requires at least ``min_shared_significant`` meaningful words (4+ chars,
+    excluding stopwords) to overlap.  This prevents flagging contradictions
+    between documents that merely share generic vocabulary like "analytics"
+    or "database".
+    """
+    words_i = set(re.findall(r"\b\w{4,}\b", text_i.lower())) - _STOPWORDS
+    words_j = set(re.findall(r"\b\w{4,}\b", text_j.lower())) - _STOPWORDS
+    shared = words_i & words_j
+    return len(shared) >= min_shared_significant
+
+
+def _filter_evidence_by_relevance(
+    evidence: list[EvidenceRef],
+    query: str,
+    relevance_threshold: float = 0.12,
+) -> tuple[list[EvidenceRef], list[dict]]:
+    """Filter evidence by query relevance. Returns (relevant, excluded).
+
+    Each excluded item gets metadata explaining why it was filtered.
+    This is deterministic and adds no LLM calls.
+    """
+    relevant: list[EvidenceRef] = []
+    excluded: list[dict] = []
+
+    for i, ev in enumerate(evidence):
+        score = _compute_query_relevance(ev.text, query)
+        if score >= relevance_threshold:
+            relevant.append(ev)
+        else:
+            excluded.append({
+                "index": i,
+                "reason": "insufficient_relevance",
+                "relevance_score": round(score, 3),
+                "text_preview": ev.text[:120],
+            })
+
+    return relevant, excluded
+
+
 def _detect_contradictions(
     evidence: list[EvidenceRef],
     query: str = "",
@@ -256,11 +348,19 @@ def _detect_contradictions(
             shared_metrics = words_i & words_j & _METRIC_KEYWORDS
 
             # ── Check 1: Direct negation pairs ──
+            # SAFETY: Require topic coherence AND entity overlap before
+            # flagging a negation-based contradiction.  Shared generic
+            # words alone (e.g. "analytics", "database") are NOT sufficient.
             for neg_a, neg_b in _NEGATION_PAIRS:
                 if (neg_a in text_i and neg_b in text_j) or (neg_b in text_i and neg_a in text_j):
+                    # Topic coherence: chunks must share meaningful vocabulary
+                    if not _is_topic_coherent(evidence[i].text, evidence[j].text, min_shared_significant=3):
+                        continue
                     shared_words = words_i & words_j
                     shared_words -= {"this", "that", "with", "from", "have", "been", "were", "their", "which", "about"}
-                    if len(shared_words) >= 2:
+                    # Require entity overlap for negation to be meaningful
+                    entity_overlap = entities_i & entities_j
+                    if len(shared_words) >= 3 or (len(shared_words) >= 2 and entity_overlap):
                         pair = (min(i, j), max(i, j))
                         if pair not in seen_pairs:
                             seen_pairs.add(pair)
@@ -292,7 +392,10 @@ def _detect_contradictions(
                         break  # One contradiction per pair is enough
 
             # ── Check 2: Numerical discrepancies with context ──
-            if shared_metrics:
+            # SAFETY: Require topic coherence before checking numerical discrepancies.
+            # Documents about unrelated topics sharing a generic metric keyword
+            # (e.g. "rate", "growth") must NOT be flagged.
+            if shared_metrics and _is_topic_coherent(evidence[i].text, evidence[j].text, min_shared_significant=3):
                 # For each shared metric, extract numbers near it in each chunk
                 metric_nums_i: set[str] = set()
                 metric_nums_j: set[str] = set()
@@ -729,10 +832,30 @@ def make_assess_node(
         # Phase 39: Deterministic contradiction detection.
         # Detect pairwise contradictions in evidence and populate
         # contradiction_signals so synthesis can acknowledge conflicts.
+        #
+        # Phase 43: Relevance gate — only run contradiction detection on
+        # evidence that is relevant to the query.  This prevents false
+        # contradictions between unrelated documents sharing generic vocabulary.
         evidence = state["evidence"]
         contradiction_signals = list(state.get("contradiction_signals") or [])
         if evidence and not contradiction_signals:
-            detected = _detect_contradictions(evidence, query=state["query"])
+            # Relevance gate: filter out clearly irrelevant evidence first
+            relevant_evidence, excluded_evidence = _filter_evidence_by_relevance(
+                evidence, state["query"], relevance_threshold=0.12,
+            )
+            if excluded_evidence:
+                logger.info(
+                    "evidence_relevance_filtered",
+                    total=len(evidence),
+                    relevant=len(relevant_evidence),
+                    excluded=len(excluded_evidence),
+                    request_id=state["request_id"],
+                )
+            # Run contradiction detection only on relevant evidence
+            detected = _detect_contradictions(
+                relevant_evidence if relevant_evidence else evidence,
+                query=state["query"],
+            )
             if detected:
                 # Phase 41: Query-aware filtering (feature-flagged)
                 conflict_filtering = getattr(settings, "conflict_filtering_enabled", False)
@@ -1020,30 +1143,77 @@ def make_synthesize_node(
             # citation markers [[i]] still map to the evidence list below, and
             # _derive_outcome labels this ANSWERED_DEGRADED.
             #
-            # Phase 41: If conflict signals exist, include them in the degraded
-            # response so the user sees the conflict even when synthesis fails.
-            top = evidence[: min(3, len(evidence))]
-            bullets = "\n".join(f"- {r.text.strip()[:300]} [{i}]" for i, r in enumerate(top, 1))
+            # Phase 43: Safe synthesis fallback.
+            # 1. Filter evidence by query relevance before presenting
+            # 2. Only include relevant conflict signals
+            # 3. Say "insufficient evidence" when nothing is relevant
+            # 4. Never dump unrelated evidence as if it supports the query
 
-            conflict_note = ""
-            if contradiction_signals:
-                conflict_lines = []
-                for sig in contradiction_signals:
-                    desc = sig.get("description", "Unknown conflict")
-                    conflict_lines.append(f"  - {desc}")
-                conflict_note = (
-                    "\n\nIMPORTANT: The evidence contains the following conflicts:\n"
-                    + "\n".join(conflict_lines)
-                    + "\nThese conflicts could not be fully resolved during synthesis."
+            query_text = state.get("query", "")
+            relevant_evidence, excluded_evidence = _filter_evidence_by_relevance(
+                evidence, query_text, relevance_threshold=0.12,
+            )
+
+            # Also filter contradiction signals by relevance to query
+            relevant_conflicts = contradiction_signals
+            if contradiction_signals and query_text:
+                relevant_conflicts = filter_contradictions_by_query(
+                    contradiction_signals, evidence, query_text,
                 )
 
-            answer = (
-                "Synthesis is temporarily unavailable, so I could not produce a "
-                "polished answer. Here is the grounded evidence I retrieved "
-                f"(correctness not fully synthesized):\n{bullets}"
-                f"{conflict_note}"
-            )
-            warnings.append("synthesis_degraded_to_raw_evidence")
+            total_evidence = len(evidence)
+            relevant_count = len(relevant_evidence)
+            excluded_count = len(excluded_evidence)
+
+            if relevant_count == 0:
+                # No relevant evidence at all — honest "insufficient" response
+                answer = (
+                    "Synthesis unavailable and the retrieved evidence does not "
+                    "contain sufficient relevant information to support this "
+                    f"claim.\n\n"
+                    f"Evidence status: Insufficient\n"
+                    f"Retrieved: {total_evidence} items\n"
+                    f"Relevant: 0 / {total_evidence}\n\n"
+                    "The retrieved sources did not provide enough directly "
+                    "relevant information. No conclusion was generated."
+                )
+                warnings.append("synthesis_fallback_insufficient_evidence")
+            else:
+                # Some relevant evidence exists — present it clearly labeled
+                top = relevant_evidence[: min(5, len(relevant_evidence))]
+                bullets = "\n".join(
+                    f"- {r.text.strip()[:300]} [{idx+1}]"
+                    for idx, r in enumerate(top)
+                )
+
+                excluded_note = ""
+                if excluded_count > 0:
+                    excluded_note = (
+                        f"\n\n{excluded_count} retrieved items excluded as "
+                        "insufficiently relevant to this query."
+                    )
+
+                conflict_note = ""
+                if relevant_conflicts:
+                    conflict_lines = []
+                    for sig in relevant_conflicts:
+                        desc = sig.get("description", "Unknown conflict")
+                        conflict_lines.append(f"  - {desc}")
+                    conflict_note = (
+                        "\n\nConflicts detected (not fully resolved):\n"
+                        + "\n".join(conflict_lines)
+                    )
+
+                answer = (
+                    "Synthesis unavailable — this is unsynthesized evidence, "
+                    "not a final answer.\n\n"
+                    f"Evidence status: {relevant_count} relevant / "
+                    f"{total_evidence} retrieved\n\n"
+                    f"Relevant evidence:\n{bullets}"
+                    f"{excluded_note}"
+                    f"{conflict_note}"
+                )
+                warnings.append("synthesis_degraded_to_evidence_summary")
 
         # Phase 25: deterministic claim grounding check
         grounding_warnings = check_claim_grounding(answer, len(evidence_for_llm))

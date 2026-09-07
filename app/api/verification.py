@@ -100,6 +100,6 @@ async def verify(
             claim_text=verification_request.claim_text,
             status=VerificationStatus.ERROR,
             confidence=0.0,
-            reasoning=f"Verifier unavailable: {exc}",
-            metadata={"error": str(exc)},
+            reasoning="Verifier unavailable due to an internal error.",
+            metadata={"error": "internal_error"},
         )
