@@ -367,7 +367,7 @@
 </div>
 
 <div class="footer">
-  ARGUS v0.1.0 — 105 source files • 13 phases • 559 tests • <a href="https://github.com/armanojha/ARGUS">GitHub</a>
+  ARGUS v0.1.0 — 105 source files • 43 phases • 925 tests • <a href="https://github.com/armanojha/ARGUS">GitHub</a>
 </div>
 
 <script>
@@ -375,10 +375,10 @@ const nodeData = {
   user: {
     title: "User Query",
     tags: [{text:"Input",color:"var(--accent)"}],
-    what: "The entry point for every interaction. A user submits a natural-language question through the API, CLI, or Streamlit UI.",
+    what: "The entry point for every interaction. A user submits a natural-language question through the API, CLI, or Brain UI.",
     why: "ARGUS treats every question as an evidence-backed investigation — not a simple lookup. The query drives the entire orchestration loop.",
     how: "Passed as a string to the orchestration loop. A zero-cost regex classifier immediately determines if it's a simple factual query (fast path) or requires deep research (full path).",
-    tech: ["FastAPI POST /api/v1/query","Streamlit UI","CLI scripts"],
+    tech: ["FastAPI POST /api/v1/query","Brain UI","CLI scripts"],
     input: "Raw question string",
     output: "QueryAnalysis {complexity, reasoning, subquestion_count}"
   },
@@ -386,7 +386,7 @@ const nodeData = {
     title: "FastAPI Server",
     tags: [{text:"API Layer",color:"var(--accent)"},{text:"Phase 00.1",color:"var(--muted)"}],
     what: "The HTTP surface of ARGUS. Provides RESTful endpoints for querying, ingestion, status checks, telemetry, and memory operations.",
-    why: "Decouples the orchestration engine from any specific client. The same backend serves the Streamlit UI, CLI tools, MCP servers, and external integrations.",
+    why: "Decouples the orchestration engine from any specific client. The same backend serves the Brain UI, CLI tools, MCP servers, and external integrations.",
     how: "FastAPI with structured error envelopes, request-ID propagation, and CORS. Every response includes a unique request ID for tracing. Telemetry is recorded per-request.",
     tech: ["FastAPI","Uvicorn","Pydantic","structlog"],
     input: "HTTP requests",
@@ -557,7 +557,7 @@ const nodeData = {
     tags: [{text:"Output",color:"var(--accent)"}],
     what: "The complete response returned to the user, including the cited answer, evidence list, confidence score, and outcome classification.",
     why: "The user needs not just an answer but trust indicators — which sources support it, how confident the system is, and whether any contradictions were found.",
-    how: "OrchestrationResult includes: answer text with citations, evidence list with scores, outcome classification (ANSWERED / ANSWERED_DEGRADED / ANSWED_FALLBACK / NOT_FOUND / NO_ANSWER), confidence score, contradiction flags, loop count, and token usage. Returned via API or rendered in Streamlit UI.",
+    how: "OrchestrationResult includes: answer text with citations, evidence list with scores, outcome classification (ANSWERED / ANSWERED_DEGRADED / ANSWED_FALLBACK / NOT_FOUND / NO_ANSWER), confidence score, contradiction flags, loop count, and token usage. Returned via API or rendered in Brain UI.",
     tech: ["OrchestrationResult","outcome classification","citation mapping"],
     input: "Synthesis output + verification results",
     output: "Structured response to user"
