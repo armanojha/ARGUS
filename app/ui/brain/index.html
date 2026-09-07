@@ -520,10 +520,42 @@
   .pi-technical.show { display: block; }
   .pi-toggle-tech { font-size: 11px; color: var(--accent-2); cursor: pointer; margin-top: 6px; }
   .pi-toggle-tech:hover { text-decoration: underline; }
+
+  /* ------- Responsive ------- */
+  @media (max-width: 1024px) {
+    :root { --sidebar-w: 200px; }
+    #details { width: 300px; }
+    #pipeline-inspector { width: 340px; }
+  }
+  @media (max-width: 768px) {
+    :root { --sidebar-w: 0px; }
+    #sidebar { position: absolute; z-index: 30; height: 100%; width: 232px; transform: translateX(-232px); transition: transform .25s ease; }
+    #sidebar.open { transform: translateX(0); }
+    #sidebar.collapsed { margin-left: 0; }
+    #sidebar-toggle { display: flex; }
+    #details { width: 280px; right: 8px; top: 8px; bottom: 8px; }
+    #pipeline-inspector { width: 100%; right: 0; top: 0; bottom: 0; border-radius: 0; }
+    .chat-scroll { padding: 16px; }
+    .view-scroll { padding: 16px; }
+    #pipeline-empty .pe-examples { flex-direction: column; align-items: center; }
+    #pipeline-empty .pe-example { max-width: 100%; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    #details { width: 100%; right: 0; top: 0; bottom: 0; border-radius: 0; }
+    .dv-body { padding: 12px; font-size: 12.5px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    .spinner { animation: none !important; border-top-color: var(--accent-2); }
+    #pipeline-status .ps-dot { animation: none !important; }
+  }
 </style>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='42' fill='%236ea8fe' opacity='.25'/%3E%3Ccircle cx='50' cy='50' r='22' fill='%236ea8fe'/%3E%3C/svg%3E">
 </head>
 <body>
+<a href="#main-content" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:8px 16px;background:var(--accent);color:#000;font-weight:600;text-decoration:none;border-radius:0 0 8px 0" onfocus="this.style.left='0'">Skip to main content</a>
 <div id="app">
   <!-- Sidebar -->
   <aside id="sidebar">
@@ -554,16 +586,16 @@
   </aside>
 
   <!-- Main -->
-  <main id="main">
+  <main id="main" aria-label="Main content">
     <div class="bg-grid"></div>
     <div id="topbar">
-      <button id="sidebar-toggle" title="Toggle sidebar">☰</button>
+      <button id="sidebar-toggle" title="Toggle sidebar" aria-label="Toggle sidebar navigation">☰</button>
       <div id="page-title">ARGUS Brain<small id="page-sub">Explore connected knowledge</small></div>
       <div id="searchwrap" data-brain-only>
-        <span id="search-icon">⌕</span>
-        <input id="search" type="text" placeholder="Search concepts, claims, entities, documents…" autocomplete="off" />
-        <button id="search-clear" title="Clear">✕</button>
-        <div id="search-results"></div>
+        <span id="search-icon" aria-hidden="true">⌕</span>
+        <input id="search" type="text" placeholder="Search concepts, claims, entities, documents…" autocomplete="off" aria-label="Search graph nodes" role="combobox" aria-expanded="false" aria-controls="search-results" />
+        <button id="search-clear" title="Clear" aria-label="Clear search">✕</button>
+        <div id="search-results" role="listbox" aria-label="Search results"></div>
       </div>
     </div>
 
@@ -583,19 +615,19 @@
           <div class="legend-title">Graph</div>
           <div id="legend-rows"></div>
         </div>
-        <div id="controls">
-          <button class="ctl-btn" id="zoom-in" title="Zoom in">+</button>
-          <button class="ctl-btn" id="zoom-out" title="Zoom out">−</button>
-          <button class="ctl-btn" id="zoom-fit" title="Fit to screen">⛶</button>
-          <button class="ctl-btn" id="zoom-reset" title="Reset view">⌂</button>
+        <div id="controls" role="toolbar" aria-label="Graph controls">
+          <button class="ctl-btn" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+          <button class="ctl-btn" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+          <button class="ctl-btn" id="zoom-fit" title="Fit to screen" aria-label="Fit graph to screen">⛶</button>
+          <button class="ctl-btn" id="zoom-reset" title="Reset view" aria-label="Reset graph view">⌂</button>
         </div>
         <div id="tooltip"></div>
-        <div id="details">
-          <button class="d-close" title="Close">✕</button>
+        <div id="details" role="complementary" aria-label="Node details panel">
+          <button class="d-close" title="Close" aria-label="Close details panel">✕</button>
           <div class="d-head" id="d-head"></div>
           <div class="d-body" id="d-body"></div>
         </div>
-        <div id="toast"></div>
+        <div id="toast" role="status" aria-live="polite"></div>
       </div>
     </section>
 
@@ -615,14 +647,14 @@
           </div>
         </div>
         <div id="pipeline-status"><div class="ps-dot"></div><span id="pipeline-status-text">Processing…</span></div>
-        <div id="pipeline-controls">
-          <button class="ctl-btn" id="pipeline-zoom-in" title="Zoom in">+</button>
-          <button class="ctl-btn" id="pipeline-zoom-out" title="Zoom out">−</button>
-          <button class="ctl-btn" id="pipeline-zoom-fit" title="Fit to screen">⛶</button>
+        <div id="pipeline-controls" role="toolbar" aria-label="Pipeline controls">
+          <button class="ctl-btn" id="pipeline-zoom-in" title="Zoom in" aria-label="Zoom in pipeline">+</button>
+          <button class="ctl-btn" id="pipeline-zoom-out" title="Zoom out" aria-label="Zoom out pipeline">−</button>
+          <button class="ctl-btn" id="pipeline-zoom-fit" title="Fit to screen" aria-label="Fit pipeline to screen">⛶</button>
         </div>
         <div class="pipeline-tooltip" id="pipeline-tooltip"></div>
-        <div id="pipeline-inspector">
-          <button class="pi-close" title="Close">✕</button>
+        <div id="pipeline-inspector" role="complementary" aria-label="Pipeline node inspector">
+          <button class="pi-close" title="Close" aria-label="Close inspector">✕</button>
           <div class="pi-head" id="pi-head"></div>
           <div class="pi-body" id="pi-body"></div>
         </div>
@@ -638,8 +670,8 @@
         <span class="attached-name" id="research-attached-name"></span>
       </div>
       <div class="chat-inputbar">
-        <textarea id="research-input" rows="1" placeholder="Ask ARGUS a research question…  (Enter to send, Shift+Enter for newline)"></textarea>
-        <button class="chat-send" id="research-send" title="Send">➤</button>
+        <textarea id="research-input" rows="1" placeholder="Ask ARGUS a research question…  (Enter to send, Shift+Enter for newline)" aria-label="Research question input"></textarea>
+        <button class="chat-send" id="research-send" title="Send" aria-label="Send research question">➤</button>
       </div>
     </section>
 
@@ -655,11 +687,11 @@
           <div class="panel-title">Upload documents</div>
           <div class="upload-row">
             <input type="file" id="kb-file" multiple />
-            <button class="btn" id="kb-upload">Upload</button>
+            <button class="btn" id="kb-upload" aria-label="Upload selected files">Upload</button>
           </div>
           <div class="panel-title" style="margin-top:16px">Folder ingest</div>
           <div class="upload-row">
-            <button class="btn" id="kb-ingest">Re-ingest knowledge folder</button>
+            <button class="btn" id="kb-ingest" aria-label="Re-ingest knowledge folder">Re-ingest knowledge folder</button>
           </div>
           <div class="badge-note" id="kb-msg"></div>
         </div>
@@ -738,7 +770,7 @@
         <div class="panel">
           <div class="panel-title">Promotion</div>
           <div id="obsidian-promote">
-            <button class="promote-btn" id="obsidian-promote-btn">Promote eligible memories into vault</button>
+            <button class="promote-btn" id="obsidian-promote-btn" aria-label="Promote eligible memories into Obsidian vault">Promote eligible memories into vault</button>
             <div id="obsidian-promote-msg" class="badge-note" style="margin-top:8px"></div>
           </div>
         </div>
@@ -790,17 +822,17 @@
 
 <div id="loading"><div class="spinner"></div><div class="l-text">Waking up the Brain…</div></div>
 
-<div id="docviewer">
+<div id="docviewer" role="dialog" aria-modal="true" aria-label="Document viewer">
   <div id="docviewer-panel">
     <div class="dv-head">
       <div>
         <div class="dv-etype" id="dv-etype">Document</div>
         <div class="dv-title" id="dv-title">Document</div>
       </div>
-      <button class="dv-close" id="dv-close" title="Close (Esc)">✕</button>
+      <button class="dv-close" id="dv-close" title="Close (Esc)" aria-label="Close document viewer">✕</button>
     </div>
     <div class="dv-actions" id="dv-actions"></div>
-    <div class="dv-body" id="dv-body"></div>
+    <div class="dv-body" id="dv-body" aria-live="polite"></div>
   </div>
 </div>
 
@@ -1278,7 +1310,12 @@ canvas.addEventListener("pointerup", (ev) => {
 canvas.addEventListener("dblclick", (ev) => {
   const p = { x: ev.offsetX, y: ev.offsetY };
   const hit = nodeAt(p.x, p.y);
-  if (hit) openDocument(hit);
+  if (hit) {
+    focusedNode = hit;
+    animateTo(hit, 2.2);
+    openDetails(hit);
+    showToast("Focused: " + short(hit.label));
+  }
 });
 
 canvas.addEventListener("wheel", (ev) => {
@@ -2295,7 +2332,7 @@ async function renderSettings() {
   }
 }
 
-window.addEventListener("resize", resize);
+window.addEventListener("resize", () => { resize(); resizePipeline(); });
 resize();
 document.getElementById("loading").style.display = "none";
 fetchGraph();
@@ -3075,8 +3112,28 @@ function pipelinePointerUp(ev) {
 function pipelineDblClick(ev) {
   const p = { x: ev.offsetX, y: ev.offsetY };
   const hit = pipelineNodeAt(p.x, p.y);
-  if (hit && hit.data?.citation) {
-    openDocument({ id: hit.data.citation.chunk_id, type: "chunk", label: hit.data.source, metadata: hit.data.citation });
+  if (hit) {
+    selectPipelineNode(hit);
+    /* Zoom into the node */
+    const targetK = Math.min(pipelineView.k * 1.5, 3);
+    const start = { x: pipelineView.x, y: pipelineView.y, k: pipelineView.k };
+    const target = {
+      x: pipelineWidth / 2 - hit.x * targetK,
+      y: pipelineHeight / 2 - hit.y * targetK,
+      k: targetK,
+    };
+    const t0 = performance.now();
+    const dur = 260;
+    function step(now) {
+      let t = Math.min(1, (now - t0) / dur);
+      const e = 1 - Math.pow(1 - t, 3);
+      pipelineView.x = start.x + (target.x - start.x) * e;
+      pipelineView.y = start.y + (target.y - start.y) * e;
+      pipelineView.k = start.k + (target.k - start.k) * e;
+      drawPipeline();
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
   }
 }
 
