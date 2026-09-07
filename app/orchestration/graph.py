@@ -277,6 +277,18 @@ def build_graph(
             )
             warnings.extend(synth_warnings)
 
+            # Phase 39: Degrade to raw evidence if Pass 1 failed (empty answer).
+            # This matches the single-pass degraded path and prevents empty answers.
+            if not answer.strip():
+                top = evidence[: min(3, len(evidence))]
+                bullets = "\n".join(f"- {r.text.strip()[:300]} [{i}]" for i, r in enumerate(top, 1))
+                answer = (
+                    "Verified synthesis is temporarily unavailable, so I could not produce a "
+                    "polished answer. Here is the grounded evidence I retrieved "
+                    f"(correctness not fully synthesized):\n{bullets}"
+                )
+                warnings.append("synthesis_degraded_to_raw_evidence")
+
             # Deterministic claim grounding check
             grounding_warnings = check_claim_grounding(answer, len(evidence_for_llm))
             warnings.extend(grounding_warnings)
@@ -413,7 +425,7 @@ def _derive_outcome(final_state: OrchestrationState) -> Outcome:
     if not answer:
         return Outcome.NO_ANSWER
 
-    if any(w.startswith("synthesis_fallback") or w == "synthesis_degraded_to_raw_evidence" for w in warnings):
+    if any(w.startswith(("synthesis_fallback", "synthesis_degraded_")) for w in warnings):
         return Outcome.ANSWERED_DEGRADED
 
     if any(

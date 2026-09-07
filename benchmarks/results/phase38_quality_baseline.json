@@ -1,5 +1,5 @@
 {
-  "cold_start_ms": 7572.184999997262,
+  "cold_start_ms": 6052.56050004391,
   "queries": [
     {
       "query_id": "A1",
@@ -11,20 +11,22 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Evidence supporting the claim**\n\n- Passage\u202f[1] states directly that Acme Corporation \u201cis headquartered in New\u202fYork\u202fCity.\u201d No other passage provides a different location for the corporate headquarters.\n\n**Answer**\n\nAcme Corporation is headquartered in New\u202fYork\u202fCity\u30101\u3011.",
-      "answer_length": 270,
+      "answer": "**Claim-to-Evidence Mapping:**\n* Acme Corporation is headquartered in New York City: Evidence [1]\n\n**Answer:**\nAcme Corporation is headquartered in New York City [1].",
+      "answer_length": 166,
       "evidence_count": 1,
       "cited_indices": [
         1
       ],
-      "claim_support_rate": 0.6029411764705882,
+      "claim_support_rate": 1.0,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.5,
+      "partially_supported_rate": 0.0,
       "contradicted_claim_rate": 0.0,
       "citation_presence_rate": 1.0,
       "citation_precision": 1.0,
-      "gold_fact_coverage": 0.0,
-      "gold_facts_found": [],
+      "gold_fact_coverage": 1.0,
+      "gold_facts_found": [
+        "New York City"
+      ],
       "gold_facts_missing": [],
       "numerical_consistency_rate": null,
       "query_relevance": 1.0,
@@ -35,39 +37,38 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 3587.23,
+      "total_e2e_ms": 3363.35,
       "llm_calls": 2,
-      "llm_ms": 2304,
-      "total_tokens": 1819,
+      "llm_ms": 2771,
+      "total_tokens": 1676,
       "llm_by_type": {
         "synthesis": {
           "count": 1,
-          "total_ms": 876,
-          "total_tokens": 1170
+          "total_ms": 1462,
+          "total_tokens": 1081
         },
         "verification": {
           "count": 1,
-          "total_ms": 1428,
-          "total_tokens": 649
+          "total_ms": 1309,
+          "total_tokens": 595
         }
       },
       "fallback_count": 1,
       "is_clean": false,
       "providers": [
-        "gemini",
-        "groq"
+        "gemini"
       ],
       "iterations": 1,
       "stop_reason": "StopReason.BUDGET_EXHAUSTED",
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 0.4024000372737646,
-        "vector_ms": 0.22440002067014575,
-        "embedding_ms": 53.42860001837835,
-        "fusion_ms": 742.0179999899119,
-        "rerank_ms": 421.5385999996215,
-        "esel_ms": 0.6492999964393675
+        "bm25_ms": 0.36539998836815357,
+        "vector_ms": 0.2989000058732927,
+        "embedding_ms": 17.10329996421933,
+        "fusion_ms": 376.1295999865979,
+        "rerank_ms": 164.56960001960397,
+        "esel_ms": 0.4113000468350947
       }
     },
     {
@@ -80,15 +81,15 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Support Analysis:**\n- CEO of Acme Corporation is Diana Reyes: Evidence [1].\n\n**Answer:**\nThe Chief Executive Officer (CEO) of Acme Corporation is Diana Reyes, who assumed the role in January 2023 [1].",
-      "answer_length": 208,
+      "answer": "**Claim Support Mapping:**\n- Diana Reyes is the CEO of Acme Corporation: Evidence [1]\n\n**Answer:**\nThe Chief Executive Officer (CEO) of Acme Corporation is Diana Reyes [1].",
+      "answer_length": 172,
       "evidence_count": 1,
       "cited_indices": [
         1
       ],
-      "claim_support_rate": 0.6111111111111112,
+      "claim_support_rate": 0.2692307692307692,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.5,
+      "partially_supported_rate": 1.0,
       "contradicted_claim_rate": 0.0,
       "citation_presence_rate": 1.0,
       "citation_precision": 1.0,
@@ -97,7 +98,7 @@
         "Diana Reyes"
       ],
       "gold_facts_missing": [],
-      "numerical_consistency_rate": 1.0,
+      "numerical_consistency_rate": null,
       "query_relevance": 1.0,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
@@ -106,15 +107,15 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 2352.35,
+      "total_e2e_ms": 2623.95,
       "llm_calls": 2,
-      "llm_ms": 1234,
-      "total_tokens": 1145,
+      "llm_ms": 1968,
+      "total_tokens": 1134,
       "llm_by_type": {
         "synthesis": {
           "count": 2,
-          "total_ms": 1234,
-          "total_tokens": 1145
+          "total_ms": 1968,
+          "total_tokens": 1134
         }
       },
       "fallback_count": 2,
@@ -128,12 +129,12 @@
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 0.5037999944761395,
-        "vector_ms": 0.2318999613635242,
-        "embedding_ms": 44.93659996660426,
-        "fusion_ms": 533.422700013034,
-        "rerank_ms": 453.6198999849148,
-        "esel_ms": 0.7459000335074961
+        "bm25_ms": 0.2305000089108944,
+        "vector_ms": 0.13589998707175255,
+        "embedding_ms": 14.299700036644936,
+        "fusion_ms": 396.9448000425473,
+        "rerank_ms": 167.7096000057645,
+        "esel_ms": 0.5088000325486064
       }
     },
     {
@@ -146,13 +147,13 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Support Mapping:**\n- Acme Corporation was founded in 1987: [1]\n\n***\n\nAcme Corporation was founded in 1987 [1].",
-      "answer_length": 118,
+      "answer": "**Mapping of Claims to Evidence:**\n- Acme Corporation was founded in 1987: [1]\n\n**Answer:**\nAcme Corporation was founded in 1987 [1].",
+      "answer_length": 133,
       "evidence_count": 1,
       "cited_indices": [
         1
       ],
-      "claim_support_rate": 0.25,
+      "claim_support_rate": 0.21428571428571427,
       "unsupported_claim_rate": 0.0,
       "partially_supported_rate": 1.0,
       "contradicted_claim_rate": 0.0,
@@ -172,49 +173,44 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 6040.34,
-      "llm_calls": 4,
-      "llm_ms": 4897,
-      "total_tokens": 2807,
+      "total_e2e_ms": 4354.58,
+      "llm_calls": 3,
+      "llm_ms": 3415,
+      "total_tokens": 1844,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 1549,
+          "total_ms": 442,
           "total_tokens": 494
         },
         "research_planning": {
           "count": 1,
-          "total_ms": 1434,
-          "total_tokens": 322
-        },
-        "evidence_extraction": {
-          "count": 1,
-          "total_ms": 953,
-          "total_tokens": 981
+          "total_ms": 1896,
+          "total_tokens": 328
         },
         "synthesis": {
           "count": 1,
-          "total_ms": 961,
-          "total_tokens": 1010
+          "total_ms": 1077,
+          "total_tokens": 1022
         }
       },
-      "fallback_count": 2,
+      "fallback_count": 1,
       "is_clean": false,
       "providers": [
         "gemini",
         "groq"
       ],
       "iterations": 1,
-      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 1.5716000343672931,
-        "vector_ms": 0.603599997702986,
-        "embedding_ms": 252.85069999517873,
-        "fusion_ms": 851.7829000484198,
-        "rerank_ms": 342.049999977462,
-        "esel_ms": 1.2094999547116458
+        "bm25_ms": 5.241800041403621,
+        "vector_ms": 0.2913000644184649,
+        "embedding_ms": 114.85630000242963,
+        "fusion_ms": 1138.7760000070557,
+        "rerank_ms": 143.2920999941416,
+        "esel_ms": 0.48180000158026814
       }
     },
     {
@@ -227,8 +223,8 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Mapping Evidence to Key Claims:**\n- Default storage engine is columnar (\"Atlas Columnar Engine\", version 4.2): [1]\n\n***\n\nThe default storage engine of Atlas is the columnar engine, specifically the \"Atlas Columnar Engine\" (version 4.2) [1].",
-      "answer_length": 242,
+      "answer": "**Claim Mapping:**\n- Default storage engine is columnar (\"Atlas Columnar Engine\", version 4.2): supported by evidence [1].\n\n**Answer:**\nThe default storage engine of Atlas is a columnar engine (\"Atlas Columnar Engine\", version 4.2) [1].",
+      "answer_length": 236,
       "evidence_count": 1,
       "cited_indices": [
         1
@@ -253,15 +249,15 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 2326.79,
+      "total_e2e_ms": 1968.21,
       "llm_calls": 1,
-      "llm_ms": 1124,
-      "total_tokens": 1141,
+      "llm_ms": 1161,
+      "total_tokens": 1139,
       "llm_by_type": {
         "synthesis": {
           "count": 1,
-          "total_ms": 1124,
-          "total_tokens": 1141
+          "total_ms": 1161,
+          "total_tokens": 1139
         }
       },
       "fallback_count": 1,
@@ -274,12 +270,12 @@
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 0.5558999837376177,
-        "vector_ms": 0.22769998759031296,
-        "embedding_ms": 55.10949995368719,
-        "fusion_ms": 641.1023000255227,
-        "rerank_ms": 450.7698999950662,
-        "esel_ms": 0.6753999623470008
+        "bm25_ms": 0.2618000144138932,
+        "vector_ms": 0.1860000193119049,
+        "embedding_ms": 27.525999990757555,
+        "fusion_ms": 568.4343000175431,
+        "rerank_ms": 162.29080001357943,
+        "esel_ms": 0.5132000078447163
       }
     },
     {
@@ -293,23 +289,22 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Mapping:**\n- Deployment depth of the Polaris probe (1,400 meters in the North Atlantic): Supported by [1].\n\n**Answer:**\nThe Polaris probe is deployed at a fixed depth of 1,400 meters in the North Atlantic.",
-      "answer_length": 213,
-      "evidence_count": 1,
+      "answer": "*Evidence mapping:*\n- Deployment depth of 1,400 meters: Evidence [1]\n- Claims that no other document/information exists in the corpus regarding the Polaris probe: Evidence [1], [2], [8]\n\n*Synthesis and Contradiction Acknowledgment:*\nThere is a contradiction in the provided evidence regarding the documentation available for the Polaris probe. Evidence [1] states that the Polaris probe is deployed at a fixed depth of 1,400 meters in the North Atlantic [1]. However, Evidence [1] also claims that \"there is no other document in this corpus that mentions the Polaris probe\" [1], while Evidence [2] and Evidence [8] present conflicting assertions about what information is or is not contained within the corpus documents regarding the probe [2][8]. \n\nAcknowledging this conflict, the specific deployment depth provided in the text is a fixed depth of **1,400 meters** in the North Atlantic [1].",
+      "answer_length": 893,
+      "evidence_count": 3,
       "cited_indices": [
-        1
+        1,
+        2,
+        8
       ],
-      "claim_support_rate": 0.5,
+      "claim_support_rate": 0.2508417508417508,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.0,
+      "partially_supported_rate": 0.3333333333333333,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.5,
-      "citation_precision": 1.0,
-      "gold_fact_coverage": 1.0,
-      "gold_facts_found": [
-        "1,400",
-        "meters"
-      ],
+      "citation_presence_rate": 0.8333333333333334,
+      "citation_precision": 0.6666666666666666,
+      "gold_fact_coverage": 0.0,
+      "gold_facts_found": [],
       "gold_facts_missing": [],
       "numerical_consistency_rate": 1.0,
       "query_relevance": 1.0,
@@ -320,46 +315,50 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 5771.84,
-      "llm_calls": 4,
-      "llm_ms": 4769,
-      "total_tokens": 1983,
+      "total_e2e_ms": 27826.26,
+      "llm_calls": 7,
+      "llm_ms": 27131,
+      "total_tokens": 3377,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 2260,
-          "total_tokens": 508
+          "total_ms": 745,
+          "total_tokens": 504
         },
         "research_planning": {
           "count": 1,
-          "total_ms": 1366,
-          "total_tokens": 340
+          "total_ms": 1228,
+          "total_tokens": 341
+        },
+        "evidence_extraction": {
+          "count": 3,
+          "total_ms": 22707,
+          "total_tokens": 1088
         },
         "synthesis": {
           "count": 2,
-          "total_ms": 1143,
-          "total_tokens": 1135
+          "total_ms": 2451,
+          "total_tokens": 1444
         }
       },
-      "fallback_count": 2,
+      "fallback_count": 4,
       "is_clean": false,
       "providers": [
         "gemini",
-        "groq"
+        "groq",
+        "zai"
       ],
       "iterations": 1,
-      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+      "stop_reason": "StopReason.SUFFICIENT_EVIDENCE",
       "outcome": "Outcome.ANSWERED",
-      "warnings": [
-        "unsupported_claim: **Answer:**\nThe Polaris probe is deployed at a fixed depth of 1,400 meters in the North Atlantic."
-      ],
+      "warnings": [],
       "retrieval": {
-        "bm25_ms": 1.142699969932437,
-        "vector_ms": 0.23659999715164304,
-        "embedding_ms": 83.28800002345815,
-        "fusion_ms": 426.73999996623024,
-        "rerank_ms": 358.4792999899946,
-        "esel_ms": 0.6665000109933317
+        "bm25_ms": 0.5313999718055129,
+        "vector_ms": 0.38139999378472567,
+        "embedding_ms": 27.689899958204478,
+        "fusion_ms": 475.307899992913,
+        "rerank_ms": 137.59350002510473,
+        "esel_ms": 1.5498999855481088
       }
     },
     {
@@ -372,17 +371,17 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "* **Claim:** The unique serial number of the Polaris probe is PLR-70211.\n  * **Supporting Evidence:** [1]\n\n**Answer:**\nThe unique serial number of the Polaris probe is PLR-70211.",
-      "answer_length": 178,
+      "answer": "**Evidence Mapping:**\n- Serial number of the Polaris probe (PLR-70211) -> Supported by Evidence [1].\n\n**Answer:**\nThe unique serial number of the Polaris probe is PLR-70211 [1].",
+      "answer_length": 177,
       "evidence_count": 1,
       "cited_indices": [
         1
       ],
-      "claim_support_rate": 0.5,
+      "claim_support_rate": 1.0,
       "unsupported_claim_rate": 0.0,
       "partially_supported_rate": 0.0,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.5,
+      "citation_presence_rate": 1.0,
       "citation_precision": 1.0,
       "gold_fact_coverage": 1.0,
       "gold_facts_found": [
@@ -398,15 +397,15 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 2089.93,
+      "total_e2e_ms": 1839.86,
       "llm_calls": 1,
-      "llm_ms": 1101,
-      "total_tokens": 1090,
+      "llm_ms": 1055,
+      "total_tokens": 1089,
       "llm_by_type": {
         "synthesis": {
           "count": 1,
-          "total_ms": 1101,
-          "total_tokens": 1090
+          "total_ms": 1055,
+          "total_tokens": 1089
         }
       },
       "fallback_count": 1,
@@ -417,16 +416,14 @@
       "iterations": 1,
       "stop_reason": "StopReason.BUDGET_EXHAUSTED",
       "outcome": "Outcome.ANSWERED",
-      "warnings": [
-        "unsupported_claim: * **Claim:** The unique serial number of the Polaris probe is PLR-70211."
-      ],
+      "warnings": [],
       "retrieval": {
-        "bm25_ms": 0.4741000011563301,
-        "vector_ms": 0.20299997413530946,
-        "embedding_ms": 50.366499985102564,
-        "fusion_ms": 443.8786000246182,
-        "rerank_ms": 360.27519998606294,
-        "esel_ms": 0.6909000221639872
+        "bm25_ms": 0.2889000461436808,
+        "vector_ms": 0.1246000174432993,
+        "embedding_ms": 15.287399990484118,
+        "fusion_ms": 554.6965000103228,
+        "rerank_ms": 133.52889998350292,
+        "esel_ms": 0.4653999931178987
       }
     },
     {
@@ -439,16 +436,16 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "*Claim Mapping:*\n- Acme employed approximately 12,400 people in 2025: supported by evidence [1] and [2].\n\nFor the year 2025, Acme reported employing approximately 12,400 people [1][2].",
-      "answer_length": 184,
+      "answer": "**Claim Support Mapping:**\n- Number of employees reported by Acme for 2025 (approximately 12,400 people / 12,400): [1], [2]\n\n***\n\nFor the year 2025, Acme Corporation reported employing approximately 12,400 people [1][2].",
+      "answer_length": 220,
       "evidence_count": 2,
       "cited_indices": [
         1,
         2
       ],
-      "claim_support_rate": 0.625,
+      "claim_support_rate": 0.25,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.5,
+      "partially_supported_rate": 1.0,
       "contradicted_claim_rate": 0.0,
       "citation_presence_rate": 1.0,
       "citation_precision": 1.0,
@@ -458,7 +455,7 @@
       ],
       "gold_facts_missing": [],
       "numerical_consistency_rate": 1.0,
-      "query_relevance": 0.25,
+      "query_relevance": 0.5,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
@@ -466,54 +463,49 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 7003.45,
-      "llm_calls": 5,
-      "llm_ms": 5623,
-      "total_tokens": 3631,
+      "total_e2e_ms": 6145.67,
+      "llm_calls": 4,
+      "llm_ms": 5236,
+      "total_tokens": 2654,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 596,
+          "total_ms": 1286,
           "total_tokens": 518
         },
         "research_planning": {
           "count": 1,
-          "total_ms": 1492,
-          "total_tokens": 391
-        },
-        "evidence_extraction": {
-          "count": 1,
-          "total_ms": 1195,
-          "total_tokens": 1027
+          "total_ms": 1267,
+          "total_tokens": 366
         },
         "synthesis": {
           "count": 1,
-          "total_ms": 1052,
-          "total_tokens": 1053
+          "total_ms": 1131,
+          "total_tokens": 1096
         },
         "verification": {
           "count": 1,
-          "total_ms": 1288,
-          "total_tokens": 642
+          "total_ms": 1552,
+          "total_tokens": 674
         }
       },
-      "fallback_count": 2,
+      "fallback_count": 1,
       "is_clean": false,
       "providers": [
         "gemini",
         "groq"
       ],
       "iterations": 1,
-      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 2.708899963181466,
-        "vector_ms": 0.5738000036217272,
-        "embedding_ms": 207.52320002065971,
-        "fusion_ms": 1122.8590000537224,
-        "rerank_ms": 591.6654000175186,
-        "esel_ms": 1.3122999807819724
+        "bm25_ms": 1.5625999658368528,
+        "vector_ms": 0.35420001950114965,
+        "embedding_ms": 113.78399998648092,
+        "fusion_ms": 1143.207999994047,
+        "rerank_ms": 174.04610000085086,
+        "esel_ms": 0.4710000357590616
       }
     },
     {
@@ -526,19 +518,21 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Mapping:**\n- Identification of plants (New York, Ohio, Mexico) and 2025 utilization rates (New York: 82%, Ohio: 91%, Mexico: 74%): Supported by [1], [4].\n- Ohio plant had the highest utilization rate in 2025: Supported by [4].\n\n**Answer:**\nIn 2025, the Acme plant with the highest utilization rate was the **Ohio plant**, which reached a utilization rate of 91% [1][4]. For comparison, the New York plant had a utilization rate of 82%, and the Mexico (Monterrey) plant had a utilization rate of 74% [1][4].",
-      "answer_length": 514,
-      "evidence_count": 2,
+      "answer": "*Claim mapping:*\n- Ohio plant reached its highest utilization in 2025 (91%): [1], [2], [3], [4]\n- New York plant utilization (82%): [2]\n- Mexico plant utilization (74%): [3]\n\n**Answer:**\nIn the year 2025, the Acme plant with the highest utilization was the Ohio plant, reaching a utilization rate of 91% [1][2][3][4]. For comparison, the New York plant had a utilization rate of 82% [2], and the Mexico plant had a utilization rate of 74% [3].",
+      "answer_length": 443,
+      "evidence_count": 4,
       "cited_indices": [
         1,
+        2,
+        3,
         4
       ],
-      "claim_support_rate": 0.0,
+      "claim_support_rate": 0.34722222222222215,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.0,
+      "partially_supported_rate": 1.0,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.8,
-      "citation_precision": 0.5,
+      "citation_presence_rate": 1.0,
+      "citation_precision": 1.0,
       "gold_fact_coverage": 1.0,
       "gold_facts_found": [
         "Ohio"
@@ -553,38 +547,38 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 7774.53,
-      "llm_calls": 6,
-      "llm_ms": 7141,
-      "total_tokens": 4092,
+      "total_e2e_ms": 8591.8,
+      "llm_calls": 7,
+      "llm_ms": 7734,
+      "total_tokens": 4351,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 1480,
-          "total_tokens": 687
+          "total_ms": 1166,
+          "total_tokens": 154
         },
         "research_planning": {
           "count": 1,
-          "total_ms": 1390,
-          "total_tokens": 381
+          "total_ms": 1328,
+          "total_tokens": 380
         },
         "evidence_extraction": {
           "count": 2,
-          "total_ms": 1735,
-          "total_tokens": 1098
+          "total_ms": 1980,
+          "total_tokens": 1088
         },
         "synthesis": {
           "count": 1,
-          "total_ms": 1318,
-          "total_tokens": 1184
+          "total_ms": 1533,
+          "total_tokens": 1170
         },
         "verification": {
-          "count": 1,
-          "total_ms": 1218,
-          "total_tokens": 742
+          "count": 2,
+          "total_ms": 1727,
+          "total_tokens": 1559
         }
       },
-      "fallback_count": 2,
+      "fallback_count": 4,
       "is_clean": false,
       "providers": [
         "gemini",
@@ -595,12 +589,12 @@
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 0.4943999811075628,
-        "vector_ms": 0.14870002632960677,
-        "embedding_ms": 23.376299999654293,
-        "fusion_ms": 293.18109998712316,
-        "rerank_ms": 159.77560001192614,
-        "esel_ms": 1.5440999995917082
+        "bm25_ms": 0.46609999844804406,
+        "vector_ms": 0.12580002658069134,
+        "embedding_ms": 20.915300003252923,
+        "fusion_ms": 547.3091000458226,
+        "rerank_ms": 164.41420000046492,
+        "esel_ms": 1.4910000609233975
       }
     },
     {
@@ -613,8 +607,8 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Support Mapping:**\n- Default consistency model is strong consistency: Evidence [1]\n\n**Answer:**\nAtlas uses strong consistency by default, while eventual consistency is only available in the \"Atlas Cloud\" deployment mode [1].",
-      "answer_length": 232,
+      "answer": "**Mapping Claims to Evidence:**\n- Atlas default consistency model (strong consistency): [1]\n- Eventual consistency availability (Atlas Cloud deployment mode only): [1]\n\n**Answer:**\nThe default consistency model used by Atlas is strong consistency [1]. Eventual consistency is only available in the \"Atlas Cloud\" deployment mode [1].",
+      "answer_length": 332,
       "evidence_count": 1,
       "cited_indices": [
         1
@@ -639,49 +633,45 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 5882.54,
-      "llm_calls": 4,
-      "llm_ms": 4540,
-      "total_tokens": 2900,
+      "total_e2e_ms": 27628.41,
+      "llm_calls": 5,
+      "llm_ms": 26814,
+      "total_tokens": 1933,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 1284,
+          "total_ms": 1982,
           "total_tokens": 543
         },
         "research_planning": {
-          "count": 1,
-          "total_ms": 1372,
-          "total_tokens": 333
-        },
-        "evidence_extraction": {
-          "count": 1,
-          "total_ms": 897,
-          "total_tokens": 989
+          "count": 2,
+          "total_ms": 22523,
+          "total_tokens": 332
         },
         "synthesis": {
-          "count": 1,
-          "total_ms": 987,
-          "total_tokens": 1035
+          "count": 2,
+          "total_ms": 2309,
+          "total_tokens": 1058
         }
       },
-      "fallback_count": 2,
+      "fallback_count": 3,
       "is_clean": false,
       "providers": [
         "gemini",
-        "groq"
+        "groq",
+        "zai"
       ],
       "iterations": 1,
-      "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 2.8241999680176377,
-        "vector_ms": 0.5641999887302518,
-        "embedding_ms": 256.1526999925263,
-        "fusion_ms": 674.552800017409,
-        "rerank_ms": 440.264799981378,
-        "esel_ms": 2.37649999326095
+        "bm25_ms": 1.568300009239465,
+        "vector_ms": 0.6089999806135893,
+        "embedding_ms": 111.48859997047111,
+        "fusion_ms": 540.763400029391,
+        "rerank_ms": 134.6565000130795,
+        "esel_ms": 0.4835000145249069
       }
     },
     {
@@ -694,15 +684,15 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Mapping Claims to Evidence:**\n- Founder of Acme Corporation (Martin Whitfield): [1]\n\n**Answer:**\nThe founder of Acme Corporation is Martin Whitfield [1].",
-      "answer_length": 155,
+      "answer": "**Evidence Mapping:**\n- Founder of Acme Corporation (Martin Whitfield succeeded by Diana Reyes): [1]\n\n**Answer:**\nThe founder of Acme Corporation is Martin Whitfield [1].",
+      "answer_length": 170,
       "evidence_count": 1,
       "cited_indices": [
         1
       ],
-      "claim_support_rate": 0.2777777777777778,
+      "claim_support_rate": 1.0,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 1.0,
+      "partially_supported_rate": 0.0,
       "contradicted_claim_rate": 0.0,
       "citation_presence_rate": 1.0,
       "citation_precision": 1.0,
@@ -720,28 +710,28 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 5081.37,
-      "llm_calls": 4,
-      "llm_ms": 3680,
-      "total_tokens": 1876,
+      "total_e2e_ms": 4211.8,
+      "llm_calls": 3,
+      "llm_ms": 3312,
+      "total_tokens": 1880,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 545,
+          "total_ms": 365,
           "total_tokens": 488
         },
         "research_planning": {
           "count": 1,
-          "total_ms": 1407,
-          "total_tokens": 321
+          "total_ms": 1842,
+          "total_tokens": 323
         },
         "synthesis": {
-          "count": 2,
-          "total_ms": 1728,
-          "total_tokens": 1067
+          "count": 1,
+          "total_ms": 1105,
+          "total_tokens": 1069
         }
       },
-      "fallback_count": 2,
+      "fallback_count": 1,
       "is_clean": false,
       "providers": [
         "gemini",
@@ -752,12 +742,12 @@
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 2.831100020557642,
-        "vector_ms": 0.5046000005677342,
-        "embedding_ms": 268.42989993747324,
-        "fusion_ms": 1297.5809000781737,
-        "rerank_ms": 362.87529999390244,
-        "esel_ms": 0.665400002617389
+        "bm25_ms": 1.5064000617712736,
+        "vector_ms": 0.40689995512366295,
+        "embedding_ms": 107.67240001587197,
+        "fusion_ms": 968.6302999616601,
+        "rerank_ms": 146.61729999352247,
+        "esel_ms": 0.4731999943032861
       }
     },
     {
@@ -801,33 +791,32 @@
       "hallucinated_claims": [
         "Synthesis is temporarily unavailable, so I could not produce a polished answer."
       ],
-      "total_e2e_ms": 28072.51,
-      "llm_calls": 6,
-      "llm_ms": 26597,
-      "total_tokens": 153,
+      "total_e2e_ms": 5941.92,
+      "llm_calls": 5,
+      "llm_ms": 5175,
+      "total_tokens": 146,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 1028,
-          "total_tokens": 153
+          "total_ms": 1161,
+          "total_tokens": 146
         },
         "research_planning": {
-          "count": 4,
-          "total_ms": 24848,
+          "count": 3,
+          "total_ms": 3347,
           "total_tokens": 0
         },
         "evidence_extraction": {
           "count": 1,
-          "total_ms": 721,
+          "total_ms": 667,
           "total_tokens": 0
         }
       },
-      "fallback_count": 6,
+      "fallback_count": 5,
       "is_clean": false,
       "providers": [
         "gemini",
         "groq",
-        "zai",
         "zen"
       ],
       "iterations": 1,
@@ -846,12 +835,12 @@
         "unsupported_claim: - The inspection robot is designed for warehouse inventory counting and integrates with the Memphis distribution center ..."
       ],
       "retrieval": {
-        "bm25_ms": 3.237700031604618,
-        "vector_ms": 0.26030000299215317,
-        "embedding_ms": 73.88879999052733,
-        "fusion_ms": 650.3491000039503,
-        "rerank_ms": 472.92580001521856,
-        "esel_ms": 2.453400054946542
+        "bm25_ms": 2.002499997615814,
+        "vector_ms": 0.30149996746331453,
+        "embedding_ms": 41.51720000663772,
+        "fusion_ms": 444.2977999569848,
+        "rerank_ms": 163.6729000019841,
+        "esel_ms": 0.8725000079721212
       }
     },
     {
@@ -864,70 +853,63 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Important naming note: Atlas \"Delta Sync\" and Atlas \"Incremental Sync\" are DIFFERENT features. Delta Sync copies only changed range partitions. Incremental Sync applies append-only log records. They are not interchangeable.\n\nAtlas ships a CLI tool whose command for rebuilding an index is `atlas inde [1]\n- Key technical facts:\n- Default storage engine: columnar (\"Atlas Columnar Engine\", version 4.2)\n- Consistency model: strong consistency by default; eventual consistency is available only in the \"Atlas Cloud\" deployment mode\n- Ingestion model: Atlas is pull-based; it reads from source systems on a sch [2]\n- # Atlas Database Engine \u2014 Technical Specification\n\nAtlas is a self-hosted SQL database engine optimized for analytical workloads. It is not a NoSQL store and it does not use a document model. [3]",
-      "answer_length": 970,
-      "evidence_count": 3,
+      "answer": "* **Key claim 1:** The correct Atlas CLI command to rebuild an index is `atlas index rebuild` (and it is frequently confused with `atlas reindex`).\n  * *Supporting evidence:* [1]\n\n***\n\nThe correct Atlas CLI command to rebuild an index is `atlas index rebuild` [1]. This command is frequently confused with `atlas reindex`, but `atlas reindex` is incorrect [1].",
+      "answer_length": 360,
+      "evidence_count": 1,
       "cited_indices": [
-        1,
-        2,
-        3
+        1
       ],
-      "claim_support_rate": 0.125,
+      "claim_support_rate": 0.6666666666666666,
       "unsupported_claim_rate": 0.0,
       "partially_supported_rate": 0.0,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.125,
-      "citation_precision": 0.6666666666666666,
-      "gold_fact_coverage": 0.0,
-      "gold_facts_found": [],
+      "citation_presence_rate": 0.6666666666666666,
+      "citation_precision": 1.0,
+      "gold_fact_coverage": 1.0,
+      "gold_facts_found": [
+        "atlas index rebuild"
+      ],
       "gold_facts_missing": [],
-      "numerical_consistency_rate": 1.0,
-      "query_relevance": 0.6666666666666666,
+      "numerical_consistency_rate": null,
+      "query_relevance": 1.0,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
       "conflict_acknowledged": false,
-      "hallucination_rate": 0.14285714285714285,
-      "hallucinated_count": 1,
-      "hallucinated_claims": [
-        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
-      ],
-      "total_e2e_ms": 1718.39,
-      "llm_calls": 1,
-      "llm_ms": 511,
-      "total_tokens": 0,
+      "hallucination_rate": 0.0,
+      "hallucinated_count": 0,
+      "hallucinated_claims": [],
+      "total_e2e_ms": 23544.13,
+      "llm_calls": 3,
+      "llm_ms": 22867,
+      "total_tokens": 1132,
       "llm_by_type": {
         "synthesis": {
-          "count": 1,
-          "total_ms": 511,
-          "total_tokens": 0
+          "count": 3,
+          "total_ms": 22867,
+          "total_tokens": 1132
         }
       },
-      "fallback_count": 1,
+      "fallback_count": 3,
       "is_clean": false,
       "providers": [
-        "zen"
+        "gemini",
+        "groq",
+        "zai"
       ],
       "iterations": 1,
       "stop_reason": "StopReason.BUDGET_EXHAUSTED",
-      "outcome": "Outcome.ANSWERED_DEGRADED",
+      "outcome": "Outcome.ANSWERED",
       "warnings": [
-        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
-        "synthesis_degraded_to_raw_evidence",
-        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
-        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Important naming note: Atlas \"Delta Syn...",
-        "unsupported_claim: Delta Sync copies only changed range partitions.",
-        "unsupported_claim: Incremental Sync applies append-only log records.",
-        "unsupported_claim: They are not interchangeable.",
-        "unsupported_claim: It is not a NoSQL store and it does not use a document model."
+        "unsupported_claim: * **Key claim 1:** The correct Atlas CLI command to rebuild an index is `atlas index rebuild` (and it is frequently conf..."
       ],
       "retrieval": {
-        "bm25_ms": 2.1597000304609537,
-        "vector_ms": 0.23329997202381492,
-        "embedding_ms": 72.41329998942092,
-        "fusion_ms": 612.3446999699809,
-        "rerank_ms": 439.26830001873896,
-        "esel_ms": 0.7023999933153391
+        "bm25_ms": 0.2846000134013593,
+        "vector_ms": 0.22170000011101365,
+        "embedding_ms": 23.83930003270507,
+        "fusion_ms": 427.86729999352247,
+        "rerank_ms": 158.34510000422597,
+        "esel_ms": 0.32699998700991273
       }
     },
     {
@@ -941,89 +923,68 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Key technical facts:\n- Default storage engine: columnar (\"Atlas Columnar Engine\", version 4.2)\n- Consistency model: strong consistency by default; eventual consistency is available only in the \"Atlas Cloud\" deployment mode\n- Ingestion model: Atlas is pull-based; it reads from source systems on a sch [1]\n- Important naming note: Atlas \"Delta Sync\" and Atlas \"Incremental Sync\" are DIFFERENT features. Delta Sync copies only changed range partitions. Incremental Sync applies append-only log records. They are not interchangeable.\n\nAtlas ships a CLI tool whose command for rebuilding an index is `atlas inde [2]\n- # Atlas Database Engine \u2014 Technical Specification\n\nAtlas is a self-hosted SQL database engine optimized for analytical workloads. It is not a NoSQL store and it does not use a document model. [3]",
-      "answer_length": 970,
-      "evidence_count": 3,
+      "answer": "**Claim Mapping:**\n- Atlas uses optimistic concurrency control and does not use two-phase locking under normal operation: [1]\n\n**Answer:**\nAtlas does not use two-phase locking under normal operation [1]. Instead, it uses optimistic concurrency control (OCC) [1].",
+      "answer_length": 262,
+      "evidence_count": 1,
       "cited_indices": [
-        1,
-        2,
-        3
+        1
       ],
-      "claim_support_rate": 0.14930555555555555,
+      "claim_support_rate": 0.6666666666666666,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.125,
+      "partially_supported_rate": 0.0,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.25,
-      "citation_precision": 0.6666666666666666,
+      "citation_presence_rate": 0.6666666666666666,
+      "citation_precision": 1.0,
       "gold_fact_coverage": 0.0,
       "gold_facts_found": [],
-      "gold_facts_missing": [
-        "optimistic concurrency"
-      ],
-      "numerical_consistency_rate": 1.0,
-      "query_relevance": 0.4,
+      "gold_facts_missing": [],
+      "numerical_consistency_rate": null,
+      "query_relevance": 1.0,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
       "conflict_acknowledged": false,
-      "hallucination_rate": 0.14285714285714285,
-      "hallucinated_count": 1,
-      "hallucinated_claims": [
-        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
-      ],
-      "total_e2e_ms": 4093.56,
-      "llm_calls": 5,
-      "llm_ms": 3176,
-      "total_tokens": 523,
+      "hallucination_rate": 0.0,
+      "hallucinated_count": 0,
+      "hallucinated_claims": [],
+      "total_e2e_ms": 3788.48,
+      "llm_calls": 3,
+      "llm_ms": 3300,
+      "total_tokens": 1909,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 1133,
+          "total_ms": 974,
           "total_tokens": 523
         },
         "research_planning": {
-          "count": 2,
-          "total_ms": 803,
-          "total_tokens": 0
-        },
-        "evidence_extraction": {
           "count": 1,
-          "total_ms": 637,
-          "total_tokens": 0
+          "total_ms": 1429,
+          "total_tokens": 344
         },
         "synthesis": {
           "count": 1,
-          "total_ms": 603,
-          "total_tokens": 0
+          "total_ms": 897,
+          "total_tokens": 1042
         }
       },
-      "fallback_count": 4,
+      "fallback_count": 1,
       "is_clean": false,
       "providers": [
-        "groq",
-        "zen"
+        "gemini",
+        "groq"
       ],
       "iterations": 1,
-      "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
-      "outcome": "Outcome.ANSWERED_DEGRADED",
-      "warnings": [
-        "research_plan_fallback: research_planning call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
-        "assessment_fallback: evidence_extraction call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'evidence_extraction'",
-        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
-        "synthesis_degraded_to_raw_evidence",
-        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
-        "unsupported_claim: Delta Sync copies only changed range partitions.",
-        "unsupported_claim: Incremental Sync applies append-only log records.",
-        "unsupported_claim: They are not interchangeable.",
-        "unsupported_claim: It is not a NoSQL store and it does not use a document model."
-      ],
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [],
       "retrieval": {
-        "bm25_ms": 0.3695000195875764,
-        "vector_ms": 0.2280999906361103,
-        "embedding_ms": 58.970100013539195,
-        "fusion_ms": 162.48699999414384,
-        "rerank_ms": 420.6990000093356,
-        "esel_ms": 2.107999986037612
+        "bm25_ms": 0.7668000180274248,
+        "vector_ms": 0.28989999555051327,
+        "embedding_ms": 44.86919997725636,
+        "fusion_ms": 191.9610000331886,
+        "rerank_ms": 147.4201999953948,
+        "esel_ms": 0.47719996655359864
       }
     },
     {
@@ -1039,19 +1000,23 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Mapping:**\n- Plants feeding the Memphis distribution center: [1], [3]\n- Plants fed by the Memphis distribution center: [3]\n- What moved through the Memphis distribution center in 2025: [2], [3]\n\n***\n\n### Answer\n\n**Plants feeding and fed by the Memphis distribution center:**\n* **Feeding Memphis:** The Ohio plant feeds the Memphis distribution center [1], shipping manufactured adhesives to it [3]. \n* **Fed by Memphis:** The Memphis distribution center ships finished goods to all retail distributors in the eastern United States [3].\n\n**What moved through the Memphis distribution center in 2025:**\nIn 2025, the Memphis center moved a total of 2.2 million units [2]. These goods consisted of adhesives manufactured at the Ohio plant [3] and finished goods destined for eastern US retail distributors [3].",
-      "answer_length": 814,
-      "evidence_count": 3,
+      "answer": "**Mapping Evidence to Key Claims:**\n- Plants feeding or fed by the Memphis distribution center: [1], [2], [3]\n- Inventory or materials that moved through the Memphis distribution center in 2025 (including unit counts/throughput): [1], [4]\n- Contradictions / Missing evidence notes: The provided evidence details the supply network for Acme (shipping adhesives from the Ohio plant to Memphis, and from Memphis to eastern US retail distributors) [1][2], but evidence [7] introduces a future 2026 robotics project involving warehouse inventory counting integration rather than 2025 inventory movement, and evidence [6] introduces a different supply network (\"Northwind Supply Network\") which conflicts with Acme's network structure. \n\n***\n\n### Synthesis Answer\n\n#### Plants that Feed or are Fed by the Memphis Distribution Center\n* **Feeding Plants:** The Ohio plant (operated by Acme) manufactures adhesives and feeds the Memphis distribution center [1][2]. Upstream of the Ohio plant, PetroKem Co. supplies crude polymers to Ohio, and Ohio is also upstream of the Monterrey, Mexico plant [1][2][3]. \n* **Fed Entities (Downstream):** The Memphis distribution center ships finished goods (adhesives) to all retail distributors in the eastern United States [1][3].\n\n#### Inventory and Materials Moving Through Memphis in 2025\n* **Materials:** Finished goods, specifically **adhesives** manufactured by the Ohio plant, moved through the Memphis distribution center [1]. \n* **Volume/Throughput:** In the year 2025, the Memphis center served the eastern US distribution network and moved a total of **2.2 million units** [4].\n\n#### Contradictions and Discrepancies in the Evidence\n* **Supply Network Discrepancy:** Evidence [6] introduces \"Northwind Supply Network\" dependencies, which contradicts the Acme supply network (comprising PetroKem, Ohio, Mexico, and Memphis) detailed in evidence [1], [2], [3], [4], and [5]. \n* **Timeline and Scope Discrepancy:** Evidence [7] references a Q4 2026 robotics inspection project and warehouse inventory counting integration, which falls outside the requested 2025 operational timeframe for inventory movement [7].",
+      "answer_length": 2149,
+      "evidence_count": 7,
       "cited_indices": [
         1,
+        2,
         3,
-        2
+        4,
+        7,
+        6,
+        5
       ],
-      "claim_support_rate": 0.2777777777777778,
-      "unsupported_claim_rate": 0.3333333333333333,
-      "partially_supported_rate": 0.5,
+      "claim_support_rate": 0.2594507073386384,
+      "unsupported_claim_rate": 0.2,
+      "partially_supported_rate": 0.25,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 1.0,
+      "citation_presence_rate": 0.65,
       "citation_precision": 1.0,
       "gold_fact_coverage": 1.0,
       "gold_facts_found": [
@@ -1061,8 +1026,8 @@
         "million"
       ],
       "gold_facts_missing": [],
-      "numerical_consistency_rate": 0.5,
-      "query_relevance": 0.8571428571428571,
+      "numerical_consistency_rate": 0.3333333333333333,
+      "query_relevance": 1.0,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
@@ -1070,41 +1035,56 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 4601.36,
-      "llm_calls": 2,
-      "llm_ms": 3302,
-      "total_tokens": 2244,
+      "total_e2e_ms": 14947.74,
+      "llm_calls": 7,
+      "llm_ms": 13611,
+      "total_tokens": 5965,
       "llm_by_type": {
-        "evidence_extraction": {
+        "query_analysis": {
           "count": 1,
-          "total_ms": 1484,
-          "total_tokens": 1067
+          "total_ms": 970,
+          "total_tokens": 184
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1851,
+          "total_tokens": 499
+        },
+        "evidence_extraction": {
+          "count": 3,
+          "total_ms": 6197,
+          "total_tokens": 2337
         },
         "synthesis": {
           "count": 1,
-          "total_ms": 1818,
-          "total_tokens": 1177
+          "total_ms": 2656,
+          "total_tokens": 1849
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1937,
+          "total_tokens": 1096
         }
       },
-      "fallback_count": 2,
+      "fallback_count": 4,
       "is_clean": false,
       "providers": [
-        "gemini"
+        "gemini",
+        "groq"
       ],
-      "iterations": 1,
+      "iterations": 2,
       "stop_reason": "StopReason.CLAIMS_SUPPORTED",
-      "outcome": "Outcome.ANSWERED_FALLBACK",
+      "outcome": "Outcome.ANSWERED",
       "warnings": [
-        "query_analysis_fallback: query_analysis call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'query_analysis'",
-        "research_plan_fallback: research_planning call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'research_planning'"
+        "unsupported_claim: Upstream of the Ohio plant, PetroKem Co."
       ],
       "retrieval": {
-        "bm25_ms": 1.0295999818481505,
-        "vector_ms": 0.24559994926676154,
-        "embedding_ms": 66.33190001593903,
-        "fusion_ms": 545.6492999801412,
-        "rerank_ms": 510.5492000002414,
-        "esel_ms": 2.5308000622317195
+        "bm25_ms": 1.260399993043393,
+        "vector_ms": 0.4126999410800636,
+        "embedding_ms": 61.447199957910925,
+        "fusion_ms": 884.5516999717802,
+        "rerank_ms": 310.5401999782771,
+        "esel_ms": 1.858100004028529
       }
     },
     {
@@ -1117,15 +1097,15 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Mapping:**\n- Ohio plant Q3 unit output (470,000): Supported by evidence [1]\n- Mexico plant Q3 unit output (240,000): Supported by evidence [1]\n- Total Q3 unit output combined (710,000): Calculated using evidence [1]\n\n**Answer:**\nTo find the total Q3 unit output of the Ohio and Mexico plants, combine their individual Q3 outputs:\n- Ohio plant unit output (Q3): 470,000 units [1]\n- Mexico plant unit output (Q3): 240,000 units [1]\n\nCombined Q3 unit output = 470,000 + 240,000 = **710,000 units**.",
-      "answer_length": 503,
+      "answer": "*(Mapping key claims to supporting evidence)*\n- Ohio plant unit output (Q3): [1]\n- Mexico plant unit output (Q3): [1]\n- Total combined Q3 unit output of Ohio and Mexico plants: [1]\n\nTo find the total Q3 unit output of the Ohio and Mexico plants, we combine their individual Q3 outputs:\n- Ohio plant unit output (Q3): 470,000 units [1]\n- Mexico plant unit output (Q3): 240,000 units [1]\n\nCombining these values yields a total production of 710,000 units [1].",
+      "answer_length": 457,
       "evidence_count": 1,
       "cited_indices": [
         1
       ],
-      "claim_support_rate": 0.1346153846153846,
-      "unsupported_claim_rate": 0.5,
-      "partially_supported_rate": 0.5,
+      "claim_support_rate": 0.4230769230769231,
+      "unsupported_claim_rate": 0.3333333333333333,
+      "partially_supported_rate": 0.3333333333333333,
       "contradicted_claim_rate": 0.0,
       "citation_presence_rate": 1.0,
       "citation_precision": 1.0,
@@ -1134,7 +1114,7 @@
         "710,000"
       ],
       "gold_facts_missing": [],
-      "numerical_consistency_rate": 0.0,
+      "numerical_consistency_rate": 0.6666666666666666,
       "query_relevance": 0.8888888888888888,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
@@ -1143,30 +1123,30 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 7772.98,
+      "total_e2e_ms": 6946.94,
       "llm_calls": 5,
-      "llm_ms": 6450,
-      "total_tokens": 2941,
+      "llm_ms": 6174,
+      "total_tokens": 3002,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 1129,
-          "total_tokens": 164
+          "total_ms": 1017,
+          "total_tokens": 157
         },
         "research_planning": {
           "count": 1,
-          "total_ms": 1836,
-          "total_tokens": 421
+          "total_ms": 1449,
+          "total_tokens": 417
         },
         "evidence_extraction": {
           "count": 2,
-          "total_ms": 1956,
-          "total_tokens": 1117
+          "total_ms": 2152,
+          "total_tokens": 1177
         },
         "synthesis": {
           "count": 1,
-          "total_ms": 1529,
-          "total_tokens": 1239
+          "total_ms": 1556,
+          "total_tokens": 1251
         }
       },
       "fallback_count": 3,
@@ -1180,12 +1160,12 @@
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 1.3055999879725277,
-        "vector_ms": 0.21780002862215042,
-        "embedding_ms": 70.93330001225695,
-        "fusion_ms": 699.0498999948613,
-        "rerank_ms": 433.47270000958815,
-        "esel_ms": 1.8210000125691295
+        "bm25_ms": 0.7836000295355916,
+        "vector_ms": 0.4070000140927732,
+        "embedding_ms": 36.495499953161925,
+        "fusion_ms": 506.5681000123732,
+        "rerank_ms": 163.90429995954037,
+        "esel_ms": 0.9312000474892557
       }
     },
     {
@@ -1198,842 +1178,54 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "* **New York plant Q3 unit output (310,000)**: Supported by Evidence [1]\n* **Ohio plant Q3 unit output (470,000)**: Supported by Evidence [1]\n* **Mexico plant Q3 unit output (240,000)**: Supported by Evidence [1]\n* **Sum calculation (1,020,000 total)**: Supported by Evidence [1]\n\nTo find the total Q3 unit output of the New York, Ohio, and Mexico plants, we sum their individual outputs for the quarter:\n\n* New York plant Q3 unit output: 310,000 [1]\n* Ohio plant Q3 unit output: 470,000 [1]\n* Mexico plant Q3 unit output: 240,000 [1]\n\n**Total Q3 Unit Output:** 1,020,000 [1]",
-      "answer_length": 575,
-      "evidence_count": 1,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Q3 2025 Operational Metrics\n\nSelected operational metrics for Q3 2025 across Acme plants. All numbers are precise and should be quoted exactly.\n\n- New York plant unit output (Q3): 310,000\n- Ohio plant unit output (Q3): 470,000\n- Mexico plant unit output (Q3): 240,000\n- Total Q3 output: 1,020,000\n- [1]\n- Plant utilization for Q3: New York 81%, Ohio 90%, Mexico 73%.\n\nThe most common failure mode in Q3 reported by support was \"connector seal leakage\", accounting for 41% of all reported incidents. [2]\n- ## Mexico Region\nThe Mexico plant (Monterrey) produced 0.9 million units in 2025. Its flagship line was packaging adhesives. Utilization was 74%.\n\n## Combined\nCombined regional output across New York, Ohio, and Mexico in 2025 was 3.9 million units. Ohio had the highest utilization.\n\nThe eastern US d [3]",
+      "answer_length": 972,
+      "evidence_count": 3,
       "cited_indices": [
-        1
+        1,
+        2,
+        3
       ],
-      "claim_support_rate": 1.0,
-      "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.0,
+      "claim_support_rate": 0.12083333333333333,
+      "unsupported_claim_rate": 0.08333333333333333,
+      "partially_supported_rate": 0.08333333333333333,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 1.0,
+      "citation_presence_rate": 0.25,
       "citation_precision": 1.0,
       "gold_fact_coverage": 1.0,
       "gold_facts_found": [
         "1,020,000"
       ],
       "gold_facts_missing": [],
-      "numerical_consistency_rate": 1.0,
-      "query_relevance": 1.0,
-      "abstention_correct": true,
-      "abstention_type": "not_applicable",
-      "conflict_correct": true,
-      "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 6874.05,
-      "llm_calls": 4,
-      "llm_ms": 5513,
-      "total_tokens": 2969,
-      "llm_by_type": {
-        "query_analysis": {
-          "count": 1,
-          "total_ms": 1103,
-          "total_tokens": 155
-        },
-        "research_planning": {
-          "count": 1,
-          "total_ms": 1830,
-          "total_tokens": 407
-        },
-        "evidence_extraction": {
-          "count": 1,
-          "total_ms": 996,
-          "total_tokens": 1137
-        },
-        "synthesis": {
-          "count": 1,
-          "total_ms": 1584,
-          "total_tokens": 1270
-        }
-      },
-      "fallback_count": 3,
-      "is_clean": false,
-      "providers": [
-        "gemini"
-      ],
-      "iterations": 1,
-      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
-      "outcome": "Outcome.ANSWERED",
-      "warnings": [],
-      "retrieval": {
-        "bm25_ms": 0.7941999938338995,
-        "vector_ms": 0.20169996423646808,
-        "embedding_ms": 62.29229999007657,
-        "fusion_ms": 632.2818999760784,
-        "rerank_ms": 500.23780000628904,
-        "esel_ms": 2.3672999814152718
-      }
-    },
-    {
-      "query_id": "E1",
-      "category": "multi_hop",
-      "question": "If PetroKem Co. is disrupted, which distribution center is first affected?",
-      "gold_facts": [
-        "Memphis"
-      ],
-      "expected_behavior": "answer_with_citations",
-      "is_absent": false,
-      "is_conflict": false,
-      "answer": "**Mapping Evidence to Key Claims:**\n- Disruption at PetroKem propagates first to the Ohio plant, then to the Memphis center, and finally to eastern US retail distributors: [1]\n- The Ohio plant manufactures adhesives/sealants and ships them to the Memphis distribution center: [1], [2]\n\n***\n\nIf PetroKem Co. is disrupted, the disruption propagates first to the Ohio plant, and subsequently to the Memphis distribution center [1]. Specifically, a disruption at PetroKem affects the Ohio plant (which relies on PetroKem for crude polymers), and because the Ohio plant ships its manufactured products to the Memphis distribution center, Memphis is the first distribution center affected [1][2].",
-      "answer_length": 690,
-      "evidence_count": 2,
-      "cited_indices": [
-        1,
-        2
-      ],
-      "claim_support_rate": 0.4642857142857143,
-      "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.14285714285714285,
-      "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.5714285714285714,
-      "citation_precision": 1.0,
-      "gold_fact_coverage": 1.0,
-      "gold_facts_found": [
-        "Memphis"
-      ],
-      "gold_facts_missing": [],
-      "numerical_consistency_rate": null,
-      "query_relevance": 1.0,
-      "abstention_correct": true,
-      "abstention_type": "not_applicable",
-      "conflict_correct": true,
-      "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 6619.61,
-      "llm_calls": 5,
-      "llm_ms": 5384,
-      "total_tokens": 3265,
-      "llm_by_type": {
-        "query_analysis": {
-          "count": 1,
-          "total_ms": 1088,
-          "total_tokens": 576
-        },
-        "research_planning": {
-          "count": 1,
-          "total_ms": 1433,
-          "total_tokens": 381
-        },
-        "evidence_extraction": {
-          "count": 2,
-          "total_ms": 1541,
-          "total_tokens": 1130
-        },
-        "synthesis": {
-          "count": 1,
-          "total_ms": 1322,
-          "total_tokens": 1178
-        }
-      },
-      "fallback_count": 2,
-      "is_clean": false,
-      "providers": [
-        "gemini",
-        "groq"
-      ],
-      "iterations": 1,
-      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
-      "outcome": "Outcome.ANSWERED",
-      "warnings": [],
-      "retrieval": {
-        "bm25_ms": 0.9481000015512109,
-        "vector_ms": 0.244300055783242,
-        "embedding_ms": 80.60350001323968,
-        "fusion_ms": 522.9120000149123,
-        "rerank_ms": 505.4377000196837,
-        "esel_ms": 2.81810003798455
-      }
-    },
-    {
-      "query_id": "E2",
-      "category": "multi_hop",
-      "question": "Which plant is downstream of Ohio and depends indirectly on PetroKem?",
-      "gold_facts": [
-        "Monterrey",
-        "Mexico"
-      ],
-      "expected_behavior": "answer_with_citations",
-      "is_absent": false,
-      "is_conflict": false,
-      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- - Acme runs three primary plants: New York, Ohio, and Mexico (Monterrey).\n- Production at the Ohio plant has grown strongly and reached its highest utilization in 2025.\n- Combined regional manufacturing output is tracked in the 2025 Regional Manufacturing Report.\n- Ohio is upstream of the Mexico pla [1]\n- Therefore, any disruption at PetroKem Co. propagates first to the Ohio plant, then to the Memphis center, and finally to eastern US retail distributors. The Monterrey plant is downstream of Ohio, so it depends indirectly on PetroKem.\n\nThe Ohio plant relies on a single upstream supplier (PetroKem) fo [2]\n- # Regional Manufacturing Report \u2014 2025\n\nThis report summarizes manufacturing activity across the three Acme plant regions in 2025.\n\n## New York Region\nThe New York plant produced 1.2 million units in 2025. Its flagship line was fasteners. Utilization was 82%.\n\n## Ohio Region\nThe Ohio plant produced  [3]",
-      "answer_length": 1079,
-      "evidence_count": 3,
-      "cited_indices": [
-        1,
-        2,
-        3
-      ],
-      "claim_support_rate": 0.08333333333333334,
-      "unsupported_claim_rate": 0.07142857142857142,
-      "partially_supported_rate": 0.07142857142857142,
-      "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.21428571428571427,
-      "citation_precision": 1.0,
-      "gold_fact_coverage": 0.0,
-      "gold_facts_found": [],
-      "gold_facts_missing": [],
-      "numerical_consistency_rate": null,
-      "query_relevance": 1.0,
-      "abstention_correct": true,
-      "abstention_type": "not_applicable",
-      "conflict_correct": true,
-      "conflict_acknowledged": false,
-      "hallucination_rate": 0.08333333333333333,
-      "hallucinated_count": 1,
-      "hallucinated_claims": [
-        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
-      ],
-      "total_e2e_ms": 29163.85,
-      "llm_calls": 7,
-      "llm_ms": 28199,
-      "total_tokens": 4037,
-      "llm_by_type": {
-        "query_analysis": {
-          "count": 1,
-          "total_ms": 791,
-          "total_tokens": 588
-        },
-        "research_planning": {
-          "count": 1,
-          "total_ms": 1970,
-          "total_tokens": 408
-        },
-        "evidence_extraction": {
-          "count": 1,
-          "total_ms": 1007,
-          "total_tokens": 982
-        },
-        "synthesis": {
-          "count": 3,
-          "total_ms": 22922,
-          "total_tokens": 0
-        },
-        "verification": {
-          "count": 1,
-          "total_ms": 1509,
-          "total_tokens": 2059
-        }
-      },
-      "fallback_count": 5,
-      "is_clean": false,
-      "providers": [
-        "gemini",
-        "groq",
-        "zai",
-        "zen"
-      ],
-      "iterations": 1,
-      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
-      "outcome": "Outcome.ANSWERED_DEGRADED",
-      "warnings": [
-        "synthesis_fallback: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
-        "synthesis_degraded_to_raw_evidence",
-        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
-        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- - Acme runs three primary plants: New Y...",
-        "unsupported_claim: - Production at the Ohio plant has grown strongly and reached its highest utilization in 2025.",
-        "unsupported_claim: - Combined regional manufacturing output is tracked in the 2025 Regional Manufacturing Report.",
-        "unsupported_claim: propagates first to the Ohio plant, then to the Memphis center, and finally to eastern US retail distributors.",
-        "unsupported_claim: The Monterrey plant is downstream of Ohio, so it depends indirectly on PetroKem.",
-        "unsupported_claim: ## New York Region\nThe New York plant produced 1.2 million units in 2025.",
-        "unsupported_claim: Its flagship line was fasteners.",
-        "unsupported_claim: Utilization was 82%."
-      ],
-      "retrieval": {
-        "bm25_ms": 1.1481000110507011,
-        "vector_ms": 0.26160001289099455,
-        "embedding_ms": 165.9487000433728,
-        "fusion_ms": 329.1006999788806,
-        "rerank_ms": 319.61219996446744,
-        "esel_ms": 2.526500087697059
-      }
-    },
-    {
-      "query_id": "E3",
-      "category": "multi_hop",
-      "question": "The inspection robot integrates with which distribution center, and that integration depends on which Atlas feature?",
-      "gold_facts": [
-        "Memphis",
-        "Delta Sync"
-      ],
-      "expected_behavior": "answer_with_citations",
-      "is_absent": false,
-      "is_conflict": false,
-      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- ## Robotics (new)\n- Acme enters robotics for the first time with an inspection robot, scheduled Q4 2026.\n- The inspection robot is designed for warehouse inventory counting and integrates with the Memphis distribution center systems.\n\n## Key dependencies\n- The robotics line depends on the Atlas data [1]\n- Important naming note: Atlas \"Delta Sync\" and Atlas \"Incremental Sync\" are DIFFERENT features. Delta Sync copies only changed range partitions. Incremental Sync applies append-only log records. They are not interchangeable.\n\nAtlas ships a CLI tool whose command for rebuilding an index is `atlas inde [2]\n- # Northwind Supply Network \u2014 Dependencies\n\nThe Northwind supply network connects raw-material suppliers to component plants and onward to distribution centers. [3]",
-      "answer_length": 938,
-      "evidence_count": 3,
-      "cited_indices": [
-        1,
-        2,
-        3
-      ],
-      "claim_support_rate": 0.11666666666666667,
-      "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.1,
-      "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.2,
-      "citation_precision": 0.6666666666666666,
-      "gold_fact_coverage": 0.0,
-      "gold_facts_found": [],
-      "gold_facts_missing": [],
-      "numerical_consistency_rate": null,
+      "numerical_consistency_rate": 0.0,
       "query_relevance": 0.7777777777777778,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
       "conflict_acknowledged": false,
-      "hallucination_rate": 0.125,
+      "hallucination_rate": 0.09090909090909091,
       "hallucinated_count": 1,
       "hallucinated_claims": [
         "Synthesis is temporarily unavailable, so I could not produce a polished answer."
       ],
-      "total_e2e_ms": 3184.3,
-      "llm_calls": 4,
-      "llm_ms": 2282,
-      "total_tokens": 574,
-      "llm_by_type": {
-        "query_analysis": {
-          "count": 1,
-          "total_ms": 642,
-          "total_tokens": 574
-        },
-        "research_planning": {
-          "count": 1,
-          "total_ms": 604,
-          "total_tokens": 0
-        },
-        "evidence_extraction": {
-          "count": 2,
-          "total_ms": 1036,
-          "total_tokens": 0
-        }
-      },
-      "fallback_count": 3,
-      "is_clean": false,
-      "providers": [
-        "groq",
-        "zen"
-      ],
-      "iterations": 1,
-      "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
-      "outcome": "Outcome.ANSWERED_DEGRADED",
-      "warnings": [
-        "research_plan_fallback: research_planning call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
-        "assessment_fallback: evidence_extraction call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
-        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
-        "synthesis_degraded_to_raw_evidence",
-        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
-        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- ## Robotics (new)\n- Acme enters robotic...",
-        "unsupported_claim: - The inspection robot is designed for warehouse inventory counting and integrates with the Memphis distribution center ...",
-        "unsupported_claim: Delta Sync copies only changed range partitions.",
-        "unsupported_claim: Incremental Sync applies append-only log records.",
-        "unsupported_claim: They are not interchangeable."
-      ],
-      "retrieval": {
-        "bm25_ms": 2.54990003304556,
-        "vector_ms": 0.26189995696768165,
-        "embedding_ms": 65.15480001689866,
-        "fusion_ms": 224.7404000372626,
-        "rerank_ms": 486.8271999876015,
-        "esel_ms": 1.5663999947719276
-      }
-    },
-    {
-      "query_id": "F1",
-      "category": "conflict",
-      "question": "What was Acme's annual revenue?",
-      "gold_facts": [
-        "4.7",
-        "billion"
-      ],
-      "expected_behavior": "acknowledge_conflict",
-      "is_absent": false,
-      "is_conflict": true,
-      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Acme Revenue \u2014 2023 Legacy Report (SUPERSEDED)\n\nThis document is the 2023 annual revenue report. It is historical and has been superseded by the 2025 figures.\n\nIn 2023, Acme Corporation reported annual revenue of $3.1 billion USD.\n\nIn 2023, Acme employed approximately 10,800 people, and its indust [1]\n- # Acme Revenue \u2014 2025 Current Report (AUTHORITATIVE)\n\nThis is the current and authoritative annual report for Acme Corporation's 2025 fiscal year.\n\nIn 2025, Acme Corporation reported annual revenue of $4.7 billion USD.\n\nIn 2025, Acme employed approximately 12,400 people.\n\nThe 2025 report notes that  [2]\n- # Acme Corporation \u2014 Company Fact File\n\nAcme Corporation was founded in 1987 and is headquartered in New York City.\n\n- Founded: 1987\n- Headquarters: New York City\n- Number of employees (2025): 12,400\n- Annual revenue (2025): $4.7 billion USD\n- Primary industry: Industrial adhesives and fasteners\n- P [3]",
-      "answer_length": 1079,
-      "evidence_count": 3,
-      "cited_indices": [
-        1,
-        2,
-        3
-      ],
-      "claim_support_rate": 0.05357142857142857,
-      "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.21428571428571427,
-      "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.21428571428571427,
-      "citation_precision": 1.0,
-      "gold_fact_coverage": 0.5,
-      "gold_facts_found": [
-        "4.7"
-      ],
-      "gold_facts_missing": [],
-      "numerical_consistency_rate": 0.5,
-      "query_relevance": 1.0,
-      "abstention_correct": true,
-      "abstention_type": "not_applicable",
-      "conflict_correct": false,
-      "conflict_acknowledged": false,
-      "hallucination_rate": 0.1111111111111111,
-      "hallucinated_count": 1,
-      "hallucinated_claims": [
-        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
-      ],
-      "total_e2e_ms": 2751.27,
-      "llm_calls": 2,
-      "llm_ms": 1812,
-      "total_tokens": 2410,
-      "llm_by_type": {
-        "query_analysis": {
-          "count": 1,
-          "total_ms": 623,
-          "total_tokens": 492
-        },
-        "verification": {
-          "count": 1,
-          "total_ms": 1189,
-          "total_tokens": 1918
-        }
-      },
-      "fallback_count": 1,
-      "is_clean": false,
-      "providers": [
-        "groq"
-      ],
-      "iterations": 1,
-      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
-      "outcome": "Outcome.ANSWERED_DEGRADED",
-      "warnings": [
-        "research_plan_fallback: research_planning call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'research_planning'",
-        "assessment_fallback: evidence_extraction call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'evidence_extraction'",
-        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
-        "synthesis_degraded_to_raw_evidence",
-        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
-        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Acme Revenue \u2014 2023 Legacy Report (SU...",
-        "unsupported_claim: It is historical and has been superseded by the 2025 figures.",
-        "unsupported_claim: In 2023, Acme Corporation reported annual revenue of $3.1 billion USD.",
-        "unsupported_claim: In 2025, Acme Corporation reported annual revenue of $4.7 billion USD.",
-        "unsupported_claim: In 2025, Acme employed approximately 12,400 people."
-      ],
-      "retrieval": {
-        "bm25_ms": 0.8149999775923789,
-        "vector_ms": 0.22819999139755964,
-        "embedding_ms": 69.53869998687878,
-        "fusion_ms": 188.86819999897853,
-        "rerank_ms": 418.7190000084229,
-        "esel_ms": 1.4563000295311213
-      }
-    },
-    {
-      "query_id": "F2",
-      "category": "conflict",
-      "question": "How many employees does Acme have?",
-      "gold_facts": [
-        "12,400"
-      ],
-      "expected_behavior": "acknowledge_conflict",
-      "is_absent": false,
-      "is_conflict": true,
-      "answer": "* **Claim:** In 2025, Acme employed approximately 12,400 people. \n  * **Supporting Evidence:** [1], [2]\n\n***\n\nIn 2025, Acme employed approximately 12,400 people [1][2].",
-      "answer_length": 168,
-      "evidence_count": 2,
-      "cited_indices": [
-        1,
-        2
-      ],
-      "claim_support_rate": 0.5,
-      "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.0,
-      "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.5,
-      "citation_precision": 1.0,
-      "gold_fact_coverage": 1.0,
-      "gold_facts_found": [
-        "12,400"
-      ],
-      "gold_facts_missing": [],
-      "numerical_consistency_rate": 1.0,
-      "query_relevance": 0.3333333333333333,
-      "abstention_correct": true,
-      "abstention_type": "not_applicable",
-      "conflict_correct": false,
-      "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 7265.84,
-      "llm_calls": 5,
-      "llm_ms": 5922,
-      "total_tokens": 2569,
-      "llm_by_type": {
-        "query_analysis": {
-          "count": 1,
-          "total_ms": 803,
-          "total_tokens": 483
-        },
-        "research_planning": {
-          "count": 1,
-          "total_ms": 1840,
-          "total_tokens": 319
-        },
-        "synthesis": {
-          "count": 2,
-          "total_ms": 1660,
-          "total_tokens": 1108
-        },
-        "verification": {
-          "count": 1,
-          "total_ms": 1619,
-          "total_tokens": 659
-        }
-      },
-      "fallback_count": 2,
-      "is_clean": false,
-      "providers": [
-        "gemini",
-        "groq"
-      ],
-      "iterations": 1,
-      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
-      "outcome": "Outcome.ANSWERED",
-      "warnings": [
-        "unsupported_claim: * **Claim:** In 2025, Acme employed approximately 12,400 people."
-      ],
-      "retrieval": {
-        "bm25_ms": 0.652100017759949,
-        "vector_ms": 0.2405999694019556,
-        "embedding_ms": 63.94200003705919,
-        "fusion_ms": 661.5910999826156,
-        "rerank_ms": 484.26900000777096,
-        "esel_ms": 0.7792999967932701
-      }
-    },
-    {
-      "query_id": "F3",
-      "category": "conflict",
-      "question": "What was the Ohio plant utilization?",
-      "gold_facts": [
-        "91%"
-      ],
-      "expected_behavior": "acknowledge_conflict",
-      "is_absent": false,
-      "is_conflict": true,
-      "answer": "* **Annual utilization rate (2025):** 91% [1][5]\n* **Quarterly utilization rate (Q3 2025):** 90% [3]\n\n**Mapping of evidence supporting key claims:**\n* Annual utilization of 91%: [1], [5]\n* Q3 utilization of 90%: [3]\n\nThe annual utilization rate of the Ohio plant for the 2025 fiscal year was 91% [1][5]. Additionally, the plant's specific utilization rate recorded for the third quarter of 2025 was 90% [3].",
-      "answer_length": 407,
-      "evidence_count": 3,
-      "cited_indices": [
-        1,
-        5,
-        3
-      ],
-      "claim_support_rate": 0.0,
-      "unsupported_claim_rate": 0.5,
-      "partially_supported_rate": 0.0,
-      "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 1.0,
-      "citation_precision": 0.6666666666666666,
-      "gold_fact_coverage": 1.0,
-      "gold_facts_found": [
-        "91%"
-      ],
-      "gold_facts_missing": [],
-      "numerical_consistency_rate": 0.0,
-      "query_relevance": 1.0,
-      "abstention_correct": true,
-      "abstention_type": "not_applicable",
-      "conflict_correct": false,
-      "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 7779.92,
-      "llm_calls": 5,
-      "llm_ms": 6460,
-      "total_tokens": 4144,
-      "llm_by_type": {
-        "query_analysis": {
-          "count": 1,
-          "total_ms": 739,
-          "total_tokens": 662
-        },
-        "research_planning": {
-          "count": 1,
-          "total_ms": 1536,
-          "total_tokens": 359
-        },
-        "evidence_extraction": {
-          "count": 1,
-          "total_ms": 1451,
-          "total_tokens": 1145
-        },
-        "synthesis": {
-          "count": 1,
-          "total_ms": 1311,
-          "total_tokens": 1244
-        },
-        "verification": {
-          "count": 1,
-          "total_ms": 1423,
-          "total_tokens": 734
-        }
-      },
-      "fallback_count": 2,
-      "is_clean": false,
-      "providers": [
-        "gemini",
-        "groq"
-      ],
-      "iterations": 1,
-      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
-      "outcome": "Outcome.ANSWERED",
-      "warnings": [],
-      "retrieval": {
-        "bm25_ms": 1.2009000056423247,
-        "vector_ms": 0.24010002380236983,
-        "embedding_ms": 84.49909999035299,
-        "fusion_ms": 663.6151000275277,
-        "rerank_ms": 462.8897000220604,
-        "esel_ms": 3.660299989860505
-      }
-    },
-    {
-      "query_id": "G1",
-      "category": "absent_info",
-      "question": "What is the capital cost of the room-temperature fusion reactor?",
-      "gold_facts": [
-        "not",
-        "available",
-        "no data"
-      ],
-      "expected_behavior": "abstain",
-      "is_absent": true,
-      "is_conflict": false,
-      "answer": "**Evidence Mapping:**\n* Capital cost of the room-temperature fusion reactor: Document [1] explicitly states that the document does not state the cost of building the reactor and lists \"reactor capital cost\" as a topic for which there is no data.\n\n**Answer:**\nBased on the provided evidence, the capital cost of the room-temperature fusion reactor is not stated or known [1].",
-      "answer_length": 374,
-      "evidence_count": 1,
-      "cited_indices": [
-        1
-      ],
-      "claim_support_rate": 0.22395833333333331,
-      "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 1.0,
-      "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 1.0,
-      "citation_precision": 1.0,
-      "gold_fact_coverage": 0.0,
-      "gold_facts_found": [],
-      "gold_facts_missing": [
-        "available"
-      ],
-      "numerical_consistency_rate": null,
-      "query_relevance": 1.0,
-      "abstention_correct": true,
-      "abstention_type": "correct_abstention",
-      "conflict_correct": true,
-      "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 8398.72,
+      "total_e2e_ms": 27650.28,
       "llm_calls": 6,
-      "llm_ms": 6424,
-      "total_tokens": 3488,
+      "llm_ms": 26941,
+      "total_tokens": 580,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 918,
-          "total_tokens": 514
+          "total_ms": 1272,
+          "total_tokens": 163
         },
         "research_planning": {
           "count": 1,
-          "total_ms": 1331,
-          "total_tokens": 362
+          "total_ms": 1531,
+          "total_tokens": 417
         },
         "evidence_extraction": {
-          "count": 2,
-          "total_ms": 1344,
-          "total_tokens": 953
-        },
-        "synthesis": {
-          "count": 1,
-          "total_ms": 1520,
-          "total_tokens": 994
-        },
-        "verification": {
-          "count": 1,
-          "total_ms": 1311,
-          "total_tokens": 665
-        }
-      },
-      "fallback_count": 2,
-      "is_clean": false,
-      "providers": [
-        "gemini",
-        "groq"
-      ],
-      "iterations": 1,
-      "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
-      "outcome": "Outcome.ANSWERED",
-      "warnings": [],
-      "retrieval": {
-        "bm25_ms": 4.353500029537827,
-        "vector_ms": 0.6989999674260616,
-        "embedding_ms": 239.22059999313205,
-        "fusion_ms": 1524.4414000189863,
-        "rerank_ms": 746.726099983789,
-        "esel_ms": 2.561999950557947
-      }
-    },
-    {
-      "query_id": "G2",
-      "category": "absent_info",
-      "question": "What were the results of the Holton lattice cold-fusion experiments?",
-      "gold_facts": [
-        "not",
-        "available",
-        "no data"
-      ],
-      "expected_behavior": "abstain",
-      "is_absent": true,
-      "is_conflict": false,
-      "answer": "*(Mapping key claims to evidence)*\n- No information available on Holton lattice cold-fusion experiments: [1]\n\n---\n\nBased on the provided evidence, the available documents explicitly state that they do not contain any information regarding cold-fusion lattice experiments or the Holton lattice group [1]. Therefore, the results and outcomes of these experiments cannot be determined from the provided data.",
-      "answer_length": 405,
-      "evidence_count": 1,
-      "cited_indices": [
-        1
-      ],
-      "claim_support_rate": 0.13095238095238096,
-      "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.5,
-      "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.5,
-      "citation_precision": 1.0,
-      "gold_fact_coverage": 0.3333333333333333,
-      "gold_facts_found": [
-        "not"
-      ],
-      "gold_facts_missing": [],
-      "numerical_consistency_rate": null,
-      "query_relevance": 1.0,
-      "abstention_correct": true,
-      "abstention_type": "correct_abstention",
-      "conflict_correct": true,
-      "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 6435.89,
-      "llm_calls": 4,
-      "llm_ms": 4846,
-      "total_tokens": 2658,
-      "llm_by_type": {
-        "query_analysis": {
-          "count": 1,
-          "total_ms": 773,
-          "total_tokens": 542
-        },
-        "research_planning": {
-          "count": 1,
-          "total_ms": 1348,
-          "total_tokens": 367
-        },
-        "evidence_extraction": {
-          "count": 1,
-          "total_ms": 1219,
-          "total_tokens": 861
-        },
-        "synthesis": {
-          "count": 1,
-          "total_ms": 1506,
-          "total_tokens": 888
-        }
-      },
-      "fallback_count": 2,
-      "is_clean": false,
-      "providers": [
-        "gemini",
-        "groq"
-      ],
-      "iterations": 1,
-      "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
-      "outcome": "Outcome.ANSWERED",
-      "warnings": [
-        "unsupported_claim: Therefore, the results and outcomes of these experiments cannot be determined from the provided data."
-      ],
-      "retrieval": {
-        "bm25_ms": 7.646199956070632,
-        "vector_ms": 1.047200057655573,
-        "embedding_ms": 246.8724999926053,
-        "fusion_ms": 1498.0692999670282,
-        "rerank_ms": 365.14900001930073,
-        "esel_ms": 2.4028000188991427
-      }
-    },
-    {
-      "query_id": "G3",
-      "category": "absent_info",
-      "question": "Which quarter of 2020 did Acme report its best sales?",
-      "gold_facts": [
-        "not",
-        "available",
-        "no data"
-      ],
-      "expected_behavior": "abstain",
-      "is_absent": true,
-      "is_conflict": false,
-      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Acme Revenue \u2014 2023 Legacy Report (SUPERSEDED)\n\nThis document is the 2023 annual revenue report. It is historical and has been superseded by the 2025 figures.\n\nIn 2023, Acme Corporation reported annual revenue of $3.1 billion USD.\n\nIn 2023, Acme employed approximately 10,800 people, and its indust [1]\n- # Acme Revenue \u2014 2025 Current Report (AUTHORITATIVE)\n\nThis is the current and authoritative annual report for Acme Corporation's 2025 fiscal year.\n\nIn 2025, Acme Corporation reported annual revenue of $4.7 billion USD.\n\nIn 2025, Acme employed approximately 12,400 people.\n\nThe 2025 report notes that  [2]\n- Acme's fastest growing product line in 2025 was the industrial sealant division, which grew 23% year over year.\n\nAcme operates manufacturing plants in New York, Ohio, and Mexico. [3]",
-      "answer_length": 957,
-      "evidence_count": 3,
-      "cited_indices": [
-        1,
-        2,
-        3
-      ],
-      "claim_support_rate": 0.057692307692307696,
-      "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.15384615384615385,
-      "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.15384615384615385,
-      "citation_precision": 0.6666666666666666,
-      "gold_fact_coverage": 0.0,
-      "gold_facts_found": [],
-      "gold_facts_missing": [
-        "no data"
-      ],
-      "numerical_consistency_rate": 0.5,
-      "query_relevance": 0.4,
-      "abstention_correct": false,
-      "abstention_type": "fabrication",
-      "conflict_correct": true,
-      "conflict_acknowledged": false,
-      "hallucination_rate": 0.1111111111111111,
-      "hallucinated_count": 1,
-      "hallucinated_claims": [
-        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
-      ],
-      "total_e2e_ms": 27556.06,
-      "llm_calls": 7,
-      "llm_ms": 26169,
-      "total_tokens": 1023,
-      "llm_by_type": {
-        "query_analysis": {
-          "count": 1,
-          "total_ms": 1119,
-          "total_tokens": 577
-        },
-        "research_planning": {
-          "count": 1,
-          "total_ms": 1632,
-          "total_tokens": 446
-        },
-        "evidence_extraction": {
-          "count": 5,
-          "total_ms": 23418,
+          "count": 4,
+          "total_ms": 24138,
           "total_tokens": 0
         }
       },
@@ -2053,20 +1245,808 @@
         "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
         "synthesis_degraded_to_raw_evidence",
         "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
-        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Acme Revenue \u2014 2023 Legacy Report (SU...",
-        "unsupported_claim: It is historical and has been superseded by the 2025 figures.",
-        "unsupported_claim: In 2023, Acme Corporation reported annual revenue of $3.1 billion USD.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Q3 2025 Operational Metrics\n\nSelected...",
+        "unsupported_claim: All numbers are precise and should be quoted exactly.",
+        "unsupported_claim: The most common failure mode in Q3 reported by support was \"connector seal leakage\", accounting for 41% of all reported ...",
+        "unsupported_claim: Its flagship line was packaging adhesives.",
+        "unsupported_claim: Utilization was 74%.",
+        "unsupported_claim: ## Combined\nCombined regional output across New York, Ohio, and Mexico in 2025 was 3.9 million units.",
+        "unsupported_claim: Ohio had the highest utilization."
+      ],
+      "retrieval": {
+        "bm25_ms": 1.8562999903224409,
+        "vector_ms": 0.2780999639071524,
+        "embedding_ms": 37.09879994858056,
+        "fusion_ms": 443.8446999993175,
+        "rerank_ms": 142.05930003663525,
+        "esel_ms": 0.8577000116929412
+      }
+    },
+    {
+      "query_id": "E1",
+      "category": "multi_hop",
+      "question": "If PetroKem Co. is disrupted, which distribution center is first affected?",
+      "gold_facts": [
+        "Memphis"
+      ],
+      "expected_behavior": "answer_with_citations",
+      "is_absent": false,
+      "is_conflict": false,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Therefore, any disruption at PetroKem Co. propagates first to the Ohio plant, then to the Memphis center, and finally to eastern US retail distributors. The Monterrey plant is downstream of Ohio, so it depends indirectly on PetroKem.\n\nThe Ohio plant relies on a single upstream supplier (PetroKem) fo [1]\n- Chain of dependency:\n1. Crude polymers are supplied by PetroKem Co. to the Ohio plant.\n2. The Ohio plant manufactures adhesives, which are shipped to the Memphis distribution center.\n3. The Memphis distribution center ships finished goods to all retail distributors in the eastern United States.\n4. T [2]\n- # Northwind Supply Network \u2014 Dependencies\n\nThe Northwind supply network connects raw-material suppliers to component plants and onward to distribution centers. [3]",
+      "answer_length": 938,
+      "evidence_count": 3,
+      "cited_indices": [
+        1,
+        2,
+        3
+      ],
+      "claim_support_rate": 0.04,
+      "unsupported_claim_rate": 0.1,
+      "partially_supported_rate": 0.1,
+      "contradicted_claim_rate": 0.0,
+      "citation_presence_rate": 0.2,
+      "citation_precision": 0.6666666666666666,
+      "gold_fact_coverage": 0.0,
+      "gold_facts_found": [],
+      "gold_facts_missing": [],
+      "numerical_consistency_rate": null,
+      "query_relevance": 0.7142857142857143,
+      "abstention_correct": true,
+      "abstention_type": "not_applicable",
+      "conflict_correct": true,
+      "conflict_acknowledged": false,
+      "hallucination_rate": 0.1,
+      "hallucinated_count": 1,
+      "hallucinated_claims": [
+        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
+      ],
+      "total_e2e_ms": 2931.33,
+      "llm_calls": 3,
+      "llm_ms": 2138,
+      "total_tokens": 576,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1071,
+          "total_tokens": 576
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 634,
+          "total_tokens": 0
+        },
+        "evidence_extraction": {
+          "count": 1,
+          "total_ms": 433,
+          "total_tokens": 0
+        }
+      },
+      "fallback_count": 2,
+      "is_clean": false,
+      "providers": [
+        "groq",
+        "zen"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+      "outcome": "Outcome.ANSWERED_DEGRADED",
+      "warnings": [
+        "research_plan_fallback: research_planning call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "assessment_fallback: evidence_extraction call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'evidence_extraction'",
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Therefore, any disruption at PetroKem C...",
+        "unsupported_claim: propagates first to the Ohio plant, then to the Memphis center, and finally to eastern US retail distributors.",
+        "unsupported_claim: The Monterrey plant is downstream of Ohio, so it depends indirectly on PetroKem.",
+        "unsupported_claim: Crude polymers are supplied by PetroKem Co.",
+        "unsupported_claim: to the Ohio plant.",
+        "unsupported_claim: 2.",
+        "unsupported_claim: The Ohio plant manufactures adhesives, which are shipped to the Memphis distribution center.",
+        "unsupported_claim: 3.",
+        "unsupported_claim: The Memphis distribution center ships finished goods to all retail distributors in the eastern United States.",
+        "unsupported_claim: 4."
+      ],
+      "retrieval": {
+        "bm25_ms": 0.6023000460118055,
+        "vector_ms": 0.2628000220283866,
+        "embedding_ms": 42.37520002061501,
+        "fusion_ms": 522.8116000071168,
+        "rerank_ms": 163.98760001175106,
+        "esel_ms": 1.074399973731488
+      }
+    },
+    {
+      "query_id": "E2",
+      "category": "multi_hop",
+      "question": "Which plant is downstream of Ohio and depends indirectly on PetroKem?",
+      "gold_facts": [
+        "Monterrey",
+        "Mexico"
+      ],
+      "expected_behavior": "answer_with_citations",
+      "is_absent": false,
+      "is_conflict": false,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Therefore, any disruption at PetroKem Co. propagates first to the Ohio plant, then to the Memphis center, and finally to eastern US retail distributors. The Monterrey plant is downstream of Ohio, so it depends indirectly on PetroKem.\n\nThe Ohio plant relies on a single upstream supplier (PetroKem) fo [1]\n- Chain of dependency:\n1. Crude polymers are supplied by PetroKem Co. to the Ohio plant.\n2. The Ohio plant manufactures adhesives, which are shipped to the Memphis distribution center.\n3. The Memphis distribution center ships finished goods to all retail distributors in the eastern United States.\n4. T [2]\n- - Acme runs three primary plants: New York, Ohio, and Mexico (Monterrey).\n- Production at the Ohio plant has grown strongly and reached its highest utilization in 2025.\n- Combined regional manufacturing output is tracked in the 2025 Regional Manufacturing Report.\n- Ohio is upstream of the Mexico pla [3]",
+      "answer_length": 1079,
+      "evidence_count": 3,
+      "cited_indices": [
+        1,
+        2,
+        3
+      ],
+      "claim_support_rate": 0.09333333333333332,
+      "unsupported_claim_rate": 0.06666666666666667,
+      "partially_supported_rate": 0.06666666666666667,
+      "contradicted_claim_rate": 0.0,
+      "citation_presence_rate": 0.2,
+      "citation_precision": 1.0,
+      "gold_fact_coverage": 0.0,
+      "gold_facts_found": [],
+      "gold_facts_missing": [],
+      "numerical_consistency_rate": null,
+      "query_relevance": 1.0,
+      "abstention_correct": true,
+      "abstention_type": "not_applicable",
+      "conflict_correct": true,
+      "conflict_acknowledged": false,
+      "hallucination_rate": 0.07692307692307693,
+      "hallucinated_count": 1,
+      "hallucinated_claims": [
+        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
+      ],
+      "total_e2e_ms": 1954.38,
+      "llm_calls": 2,
+      "llm_ms": 1596,
+      "total_tokens": 588,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1092,
+          "total_tokens": 588
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 504,
+          "total_tokens": 0
+        }
+      },
+      "fallback_count": 1,
+      "is_clean": false,
+      "providers": [
+        "groq",
+        "zen"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
+      "outcome": "Outcome.ANSWERED_DEGRADED",
+      "warnings": [
+        "research_plan_fallback: research_planning call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'research_planning'",
+        "assessment_fallback: evidence_extraction call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'evidence_extraction'",
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Therefore, any disruption at PetroKem C...",
+        "unsupported_claim: propagates first to the Ohio plant, then to the Memphis center, and finally to eastern US retail distributors.",
+        "unsupported_claim: The Monterrey plant is downstream of Ohio, so it depends indirectly on PetroKem.",
+        "unsupported_claim: Crude polymers are supplied by PetroKem Co.",
+        "unsupported_claim: to the Ohio plant.",
+        "unsupported_claim: 2.",
+        "unsupported_claim: The Ohio plant manufactures adhesives, which are shipped to the Memphis distribution center.",
+        "unsupported_claim: 3.",
+        "unsupported_claim: The Memphis distribution center ships finished goods to all retail distributors in the eastern United States.",
+        "unsupported_claim: 4.",
+        "unsupported_claim: - Production at the Ohio plant has grown strongly and reached its highest utilization in 2025.",
+        "unsupported_claim: - Combined regional manufacturing output is tracked in the 2025 Regional Manufacturing Report."
+      ],
+      "retrieval": {
+        "bm25_ms": 0.6369000184349716,
+        "vector_ms": 0.3529000096023083,
+        "embedding_ms": 34.46489997440949,
+        "fusion_ms": 112.57860000478104,
+        "rerank_ms": 129.96049999492243,
+        "esel_ms": 0.9267000132240355
+      }
+    },
+    {
+      "query_id": "E3",
+      "category": "multi_hop",
+      "question": "The inspection robot integrates with which distribution center, and that integration depends on which Atlas feature?",
+      "gold_facts": [
+        "Memphis",
+        "Delta Sync"
+      ],
+      "expected_behavior": "answer_with_citations",
+      "is_absent": false,
+      "is_conflict": false,
+      "answer": "**Claim Mapping for Synthesis:**\n- Distribution center the inspection robot integrates with: Supported by Evidence [1].\n- Specific Atlas feature enabling the integration: Supported by Evidence [1].\n\n***\n\n### Answer\n\nBased on the provided evidence, the inspection robot integrates with the **Memphis distribution center** systems [1]. The specific Atlas feature that enables this integration is the **Delta Sync** feature (as the inspection robot project is gated on its completion) [1].",
+      "answer_length": 486,
+      "evidence_count": 1,
+      "cited_indices": [
+        1
+      ],
+      "claim_support_rate": 0.5625,
+      "unsupported_claim_rate": 0.25,
+      "partially_supported_rate": 0.25,
+      "contradicted_claim_rate": 0.0,
+      "citation_presence_rate": 1.0,
+      "citation_precision": 1.0,
+      "gold_fact_coverage": 1.0,
+      "gold_facts_found": [
+        "Memphis",
+        "Delta Sync"
+      ],
+      "gold_facts_missing": [],
+      "numerical_consistency_rate": null,
+      "query_relevance": 0.8888888888888888,
+      "abstention_correct": true,
+      "abstention_type": "not_applicable",
+      "conflict_correct": true,
+      "conflict_acknowledged": false,
+      "hallucination_rate": 0.0,
+      "hallucinated_count": 0,
+      "hallucinated_claims": [],
+      "total_e2e_ms": 6952.27,
+      "llm_calls": 5,
+      "llm_ms": 6198,
+      "total_tokens": 3591,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 986,
+          "total_tokens": 574
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1638,
+          "total_tokens": 398
+        },
+        "evidence_extraction": {
+          "count": 2,
+          "total_ms": 1969,
+          "total_tokens": 1042
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1605,
+          "total_tokens": 1577
+        }
+      },
+      "fallback_count": 2,
+      "is_clean": false,
+      "providers": [
+        "gemini",
+        "groq"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.SUFFICIENT_EVIDENCE",
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [],
+      "retrieval": {
+        "bm25_ms": 0.9240999934263527,
+        "vector_ms": 0.3086999640800059,
+        "embedding_ms": 39.21070002252236,
+        "fusion_ms": 525.3996000392362,
+        "rerank_ms": 143.74100003624335,
+        "esel_ms": 0.9960999595932662
+      }
+    },
+    {
+      "query_id": "F1",
+      "category": "conflict",
+      "question": "What was Acme's annual revenue?",
+      "gold_facts": [
+        "4.7",
+        "billion"
+      ],
+      "expected_behavior": "acknowledge_conflict",
+      "is_absent": false,
+      "is_conflict": true,
+      "answer": "**Claim Mapping:**\n- Annual revenue for 2025 ($4.7 billion USD): Supported by evidence [2].\n- Annual revenue for 2023 ($3.1 billion USD - historical/superseded): Supported by evidence [1].\n\n***\n\n**Answer:**\nAccording to the company's 2025 figures, Acme Corporation's annual revenue is $4.7 billion USD [2]. Previously, in the 2023 legacy report, the annual revenue was reported as $3.1 billion USD, though these figures have been superseded [1].",
+      "answer_length": 445,
+      "evidence_count": 2,
+      "cited_indices": [
+        2,
+        1
+      ],
+      "claim_support_rate": 0.2727272727272727,
+      "unsupported_claim_rate": 0.0,
+      "partially_supported_rate": 1.0,
+      "contradicted_claim_rate": 0.0,
+      "citation_presence_rate": 1.0,
+      "citation_precision": 1.0,
+      "gold_fact_coverage": 1.0,
+      "gold_facts_found": [
+        "4.7",
+        "billion"
+      ],
+      "gold_facts_missing": [],
+      "numerical_consistency_rate": 0.0,
+      "query_relevance": 1.0,
+      "abstention_correct": true,
+      "abstention_type": "not_applicable",
+      "conflict_correct": false,
+      "conflict_acknowledged": false,
+      "hallucination_rate": 0.0,
+      "hallucinated_count": 0,
+      "hallucinated_claims": [],
+      "total_e2e_ms": 5246.3,
+      "llm_calls": 3,
+      "llm_ms": 4327,
+      "total_tokens": 1985,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1680,
+          "total_tokens": 492
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1330,
+          "total_tokens": 323
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1317,
+          "total_tokens": 1170
+        }
+      },
+      "fallback_count": 1,
+      "is_clean": false,
+      "providers": [
+        "gemini",
+        "groq"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [],
+      "retrieval": {
+        "bm25_ms": 1.256300020031631,
+        "vector_ms": 0.472900050226599,
+        "embedding_ms": 129.12249995861202,
+        "fusion_ms": 1071.6034000506625,
+        "rerank_ms": 154.58879998186603,
+        "esel_ms": 0.4873999860137701
+      }
+    },
+    {
+      "query_id": "F2",
+      "category": "conflict",
+      "question": "How many employees does Acme have?",
+      "gold_facts": [
+        "12,400"
+      ],
+      "expected_behavior": "acknowledge_conflict",
+      "is_absent": false,
+      "is_conflict": true,
+      "answer": "**Claim Support Mapping:**\n- Total number of employees (12,400 / approximately 12,400 in 2025): Supported by passages [1] and [2].\n\n***\n\nIn 2025, Acme Corporation had a total of 12,400 employees (or approximately 12,400 people) [1][2].",
+      "answer_length": 235,
+      "evidence_count": 2,
+      "cited_indices": [
+        1,
+        2
+      ],
+      "claim_support_rate": 0.5833333333333334,
+      "unsupported_claim_rate": 0.0,
+      "partially_supported_rate": 0.5,
+      "contradicted_claim_rate": 0.0,
+      "citation_presence_rate": 1.0,
+      "citation_precision": 1.0,
+      "gold_fact_coverage": 1.0,
+      "gold_facts_found": [
+        "12,400"
+      ],
+      "gold_facts_missing": [],
+      "numerical_consistency_rate": 1.0,
+      "query_relevance": 0.6666666666666666,
+      "abstention_correct": true,
+      "abstention_type": "not_applicable",
+      "conflict_correct": false,
+      "conflict_acknowledged": false,
+      "hallucination_rate": 0.0,
+      "hallucinated_count": 0,
+      "hallucinated_claims": [],
+      "total_e2e_ms": 4501.48,
+      "llm_calls": 4,
+      "llm_ms": 3715,
+      "total_tokens": 1927,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 941,
+          "total_tokens": 483
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1330,
+          "total_tokens": 315
+        },
+        "synthesis": {
+          "count": 2,
+          "total_ms": 1444,
+          "total_tokens": 1129
+        }
+      },
+      "fallback_count": 2,
+      "is_clean": false,
+      "providers": [
+        "gemini",
+        "groq"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [],
+      "retrieval": {
+        "bm25_ms": 0.6563999922946095,
+        "vector_ms": 0.25699997786432505,
+        "embedding_ms": 47.90339997271076,
+        "fusion_ms": 492.9573999834247,
+        "rerank_ms": 160.06960003869608,
+        "esel_ms": 0.5135000101290643
+      }
+    },
+    {
+      "query_id": "F3",
+      "category": "conflict",
+      "question": "What was the Ohio plant utilization?",
+      "gold_facts": [
+        "91%"
+      ],
+      "expected_behavior": "acknowledge_conflict",
+      "is_absent": false,
+      "is_conflict": true,
+      "answer": "**Mapping of Claims to Evidence:**\n- Ohio plant utilization rate of 90% for Q3: [1]\n- Ohio plant utilization rate of 91% for the full year 2025: [2], [5]\n\n***\n\nBased on the available documents, the Ohio plant utilization rate varies by the specific time period reported:\n\n* **Q3:** The plant utilization rate for the Ohio plant was 90% [1].\n* **Full Year 2025:** The utilization rate for the Ohio plant was 91% [2][5].",
+      "answer_length": 418,
+      "evidence_count": 3,
+      "cited_indices": [
+        1,
+        2,
+        5
+      ],
+      "claim_support_rate": 0.0,
+      "unsupported_claim_rate": 0.0,
+      "partially_supported_rate": 0.0,
+      "contradicted_claim_rate": 0.0,
+      "citation_presence_rate": 1.0,
+      "citation_precision": 0.6666666666666666,
+      "gold_fact_coverage": 1.0,
+      "gold_facts_found": [
+        "91%"
+      ],
+      "gold_facts_missing": [],
+      "numerical_consistency_rate": 0.0,
+      "query_relevance": 1.0,
+      "abstention_correct": true,
+      "abstention_type": "not_applicable",
+      "conflict_correct": true,
+      "conflict_acknowledged": true,
+      "hallucination_rate": 0.0,
+      "hallucinated_count": 0,
+      "hallucinated_claims": [],
+      "total_e2e_ms": 6828.94,
+      "llm_calls": 5,
+      "llm_ms": 6045,
+      "total_tokens": 4166,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1179,
+          "total_tokens": 662
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1331,
+          "total_tokens": 361
+        },
+        "evidence_extraction": {
+          "count": 1,
+          "total_ms": 1069,
+          "total_tokens": 1184
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1157,
+          "total_tokens": 1262
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1309,
+          "total_tokens": 697
+        }
+      },
+      "fallback_count": 2,
+      "is_clean": false,
+      "providers": [
+        "gemini",
+        "groq"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [],
+      "retrieval": {
+        "bm25_ms": 0.8450000314041972,
+        "vector_ms": 0.23780000628903508,
+        "embedding_ms": 43.269600020721555,
+        "fusion_ms": 505.7488000020385,
+        "rerank_ms": 182.88639996899292,
+        "esel_ms": 1.3215999933890998
+      }
+    },
+    {
+      "query_id": "G1",
+      "category": "absent_info",
+      "question": "What is the capital cost of the room-temperature fusion reactor?",
+      "gold_facts": [
+        "not",
+        "available",
+        "no data"
+      ],
+      "expected_behavior": "abstain",
+      "is_absent": true,
+      "is_conflict": false,
+      "answer": "*Mapping claims to evidence:*\n- The evidence contains a direct contradiction regarding whether the document contains information on the reactor capital cost: Evidence [1] explicitly states that the document does NOT state the cost of building the reactor and has no data for reactor capital cost [1]. However, Evidence [2] states that the document contains publicly confirmed research notes about room-temperature fusion, noting it is intentionally partial and that some topics are covered while others are not [2].\n\n*Synthesis:*\nBased on the provided evidence, the capital cost of the room-temperature fusion reactor cannot be determined due to a contradiction and explicit lack of data in the sources. \n\nSpecifically, one source explicitly states that the document contains **no data** regarding the reactor capital cost and does not state the cost of building the reactor [1]. Meanwhile, a separate document on frontier research for room-temperature fusion notes that it provides publicly confirmed research notes, though it is intentionally partial and does not explicitly disclose the capital cost either [2]. Because the available evidence does not contain this information, the capital cost of the room-temperature fusion reactor is unknown.",
+      "answer_length": 1248,
+      "evidence_count": 2,
+      "cited_indices": [
+        1,
+        2
+      ],
+      "claim_support_rate": 0.4235294117647059,
+      "unsupported_claim_rate": 0.1,
+      "partially_supported_rate": 0.1,
+      "contradicted_claim_rate": 0.0,
+      "citation_presence_rate": 0.6,
+      "citation_precision": 1.0,
+      "gold_fact_coverage": 0.0,
+      "gold_facts_found": [],
+      "gold_facts_missing": [],
+      "numerical_consistency_rate": null,
+      "query_relevance": 1.0,
+      "abstention_correct": true,
+      "abstention_type": "correct_abstention",
+      "conflict_correct": true,
+      "conflict_acknowledged": false,
+      "hallucination_rate": 0.0,
+      "hallucinated_count": 0,
+      "hallucinated_claims": [],
+      "total_e2e_ms": 8322.77,
+      "llm_calls": 6,
+      "llm_ms": 7350,
+      "total_tokens": 3957,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1505,
+          "total_tokens": 514
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1335,
+          "total_tokens": 366
+        },
+        "evidence_extraction": {
+          "count": 2,
+          "total_ms": 1451,
+          "total_tokens": 964
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1563,
+          "total_tokens": 1291
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1496,
+          "total_tokens": 822
+        }
+      },
+      "fallback_count": 2,
+      "is_clean": false,
+      "providers": [
+        "gemini",
+        "groq"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.SUFFICIENT_EVIDENCE",
+      "outcome": "Outcome.ANSWERED",
+      "warnings": [
+        "unsupported_claim: *Synthesis:*\nBased on the provided evidence, the capital cost of the room-temperature fusion reactor cannot be determine...",
+        "unsupported_claim: Because the available evidence does not contain this information, the capital cost of the room-temperature fusion reacto..."
+      ],
+      "retrieval": {
+        "bm25_ms": 1.6923000221140683,
+        "vector_ms": 0.48340001376345754,
+        "embedding_ms": 115.48380000749603,
+        "fusion_ms": 1083.0006999894977,
+        "rerank_ms": 259.8839999991469,
+        "esel_ms": 0.9946000063791871
+      }
+    },
+    {
+      "query_id": "G2",
+      "category": "absent_info",
+      "question": "What were the results of the Holton lattice cold-fusion experiments?",
+      "gold_facts": [
+        "not",
+        "available",
+        "no data"
+      ],
+      "expected_behavior": "abstain",
+      "is_absent": true,
+      "is_conflict": false,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- What is explicitly NOT covered:\n- This document does NOT contain any information about cold-fusion lattice experiments (the Holton lattice group).\n- This document does NOT state the cost of building the reactor.\n- This document does NOT mention the power output in watts.\n\nTopics for which this docum [1]\n- # Frontier Research \u2014 Room-Temperature Fusion\n\nThis document contains publicly confirmed research notes about room-temperature fusion. It is intentionally partial: some topics are covered, others are explicitly NOT covered. [2]\n- What is known:\n- The 2031 \"Helion-DARPA cooperative\" reported a sustained 45-second run at net energy gain ratio (Q) of 1.4.\n- The reactor design uses magnetized target fusion (MTF) rather than tokamak confinement.\n- The group published results for 2029 and 2031 runs; no 2030 paper exists. [3]",
+      "answer_length": 992,
+      "evidence_count": 3,
+      "cited_indices": [
+        1,
+        2,
+        3
+      ],
+      "claim_support_rate": 0.0,
+      "unsupported_claim_rate": 0.2222222222222222,
+      "partially_supported_rate": 0.0,
+      "contradicted_claim_rate": 0.0,
+      "citation_presence_rate": 0.2222222222222222,
+      "citation_precision": 0.3333333333333333,
+      "gold_fact_coverage": 0.0,
+      "gold_facts_found": [],
+      "gold_facts_missing": [
+        "no data"
+      ],
+      "numerical_consistency_rate": null,
+      "query_relevance": 1.0,
+      "abstention_correct": false,
+      "abstention_type": "fabrication",
+      "conflict_correct": true,
+      "conflict_acknowledged": false,
+      "hallucination_rate": 0.1111111111111111,
+      "hallucinated_count": 1,
+      "hallucinated_claims": [
+        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
+      ],
+      "total_e2e_ms": 24986.08,
+      "llm_calls": 6,
+      "llm_ms": 24326,
+      "total_tokens": 542,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 561,
+          "total_tokens": 542
+        },
+        "research_planning": {
+          "count": 4,
+          "total_ms": 23236,
+          "total_tokens": 0
+        },
+        "evidence_extraction": {
+          "count": 1,
+          "total_ms": 529,
+          "total_tokens": 0
+        }
+      },
+      "fallback_count": 5,
+      "is_clean": false,
+      "providers": [
+        "groq",
+        "zai",
+        "zen"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.ASSESSMENT_ERROR",
+      "outcome": "Outcome.ANSWERED_DEGRADED",
+      "warnings": [
+        "research_plan_fallback: research_planning call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "assessment_fallback: evidence_extraction call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- What is explicitly NOT covered:\n- This ...",
+        "unsupported_claim: - This document does NOT state the cost of building the reactor.",
+        "unsupported_claim: - This document does NOT mention the power output in watts.",
+        "unsupported_claim: It is intentionally partial: some topics are covered, others are explicitly NOT covered.",
+        "unsupported_claim: - The reactor design uses magnetized target fusion (MTF) rather than tokamak confinement.",
+        "unsupported_claim: - The group published results for 2029 and 2031 runs; no 2030 paper exists."
+      ],
+      "retrieval": {
+        "bm25_ms": 0.7249000482261181,
+        "vector_ms": 0.20479998784139752,
+        "embedding_ms": 45.634200039785355,
+        "fusion_ms": 334.7457000054419,
+        "rerank_ms": 166.43539996584877,
+        "esel_ms": 1.31430005421862
+      }
+    },
+    {
+      "query_id": "G3",
+      "category": "absent_info",
+      "question": "Which quarter of 2020 did Acme report its best sales?",
+      "gold_facts": [
+        "not",
+        "available",
+        "no data"
+      ],
+      "expected_behavior": "abstain",
+      "is_absent": true,
+      "is_conflict": false,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Acme Revenue \u2014 2025 Current Report (AUTHORITATIVE)\n\nThis is the current and authoritative annual report for Acme Corporation's 2025 fiscal year.\n\nIn 2025, Acme Corporation reported annual revenue of $4.7 billion USD.\n\nIn 2025, Acme employed approximately 12,400 people.\n\nThe 2025 report notes that  [1]\n- # Acme Revenue \u2014 2023 Legacy Report (SUPERSEDED)\n\nThis document is the 2023 annual revenue report. It is historical and has been superseded by the 2025 figures.\n\nIn 2023, Acme Corporation reported annual revenue of $3.1 billion USD.\n\nIn 2023, Acme employed approximately 10,800 people, and its indust [2]\n- Acme's fastest growing product line in 2025 was the industrial sealant division, which grew 23% year over year.\n\nAcme operates manufacturing plants in New York, Ohio, and Mexico. [3]",
+      "answer_length": 957,
+      "evidence_count": 3,
+      "cited_indices": [
+        1,
+        2,
+        3
+      ],
+      "claim_support_rate": 0.044748520710059164,
+      "unsupported_claim_rate": 0.0,
+      "partially_supported_rate": 0.15384615384615385,
+      "contradicted_claim_rate": 0.0,
+      "citation_presence_rate": 0.15384615384615385,
+      "citation_precision": 0.6666666666666666,
+      "gold_fact_coverage": 0.0,
+      "gold_facts_found": [],
+      "gold_facts_missing": [
+        "no data"
+      ],
+      "numerical_consistency_rate": 0.0,
+      "query_relevance": 0.4,
+      "abstention_correct": false,
+      "abstention_type": "fabrication",
+      "conflict_correct": true,
+      "conflict_acknowledged": false,
+      "hallucination_rate": 0.1111111111111111,
+      "hallucinated_count": 1,
+      "hallucinated_claims": [
+        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
+      ],
+      "total_e2e_ms": 2457.44,
+      "llm_calls": 2,
+      "llm_ms": 1627,
+      "total_tokens": 577,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1134,
+          "total_tokens": 577
+        },
+        "evidence_extraction": {
+          "count": 1,
+          "total_ms": 493,
+          "total_tokens": 0
+        }
+      },
+      "fallback_count": 1,
+      "is_clean": false,
+      "providers": [
+        "groq",
+        "zen"
+      ],
+      "iterations": 1,
+      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
+      "outcome": "Outcome.ANSWERED_DEGRADED",
+      "warnings": [
+        "research_plan_fallback: research_planning call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'research_planning'",
+        "assessment_fallback: evidence_extraction call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'evidence_extraction'",
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Acme Revenue \u2014 2025 Current Report (A...",
         "unsupported_claim: In 2025, Acme Corporation reported annual revenue of $4.7 billion USD.",
         "unsupported_claim: In 2025, Acme employed approximately 12,400 people.",
+        "unsupported_claim: It is historical and has been superseded by the 2025 figures.",
+        "unsupported_claim: In 2023, Acme Corporation reported annual revenue of $3.1 billion USD.",
         "unsupported_claim: Acme operates manufacturing plants in New York, Ohio, and Mexico."
       ],
       "retrieval": {
-        "bm25_ms": 2.776700013782829,
-        "vector_ms": 0.2329999697394669,
-        "embedding_ms": 67.22179998178035,
-        "fusion_ms": 613.7337000109255,
-        "rerank_ms": 445.9866000106558,
-        "esel_ms": 2.3495000205002725
+        "bm25_ms": 5.9436000301502645,
+        "vector_ms": 0.3624000237323344,
+        "embedding_ms": 126.72050000401214,
+        "fusion_ms": 866.6150999488309,
+        "rerank_ms": 176.80459999246523,
+        "esel_ms": 1.3634000206366181
       }
     },
     {
@@ -2111,7 +2091,7 @@
       "hallucinated_claims": [
         "Synthesis is temporarily unavailable, so I could not produce a polished answer."
       ],
-      "total_e2e_ms": 1163.63,
+      "total_e2e_ms": 526.81,
       "llm_calls": 0,
       "llm_ms": 0,
       "total_tokens": 0,
@@ -2137,12 +2117,12 @@
         "unsupported_claim: Ohio had the highest utilization."
       ],
       "retrieval": {
-        "bm25_ms": 0.6104999920353293,
-        "vector_ms": 0.2413999754935503,
-        "embedding_ms": 53.90249995980412,
-        "fusion_ms": 705.1442000083625,
-        "rerank_ms": 340.53919999860227,
-        "esel_ms": 0.7137000211514533
+        "bm25_ms": 0.30210003023967147,
+        "vector_ms": 0.18269999418407679,
+        "embedding_ms": 30.218200001399964,
+        "fusion_ms": 257.2047000285238,
+        "rerank_ms": 149.3248000042513,
+        "esel_ms": 0.3250999725423753
       }
     },
     {
@@ -2185,7 +2165,7 @@
       "hallucinated_claims": [
         "Synthesis is temporarily unavailable, so I could not produce a polished answer."
       ],
-      "total_e2e_ms": 1182.24,
+      "total_e2e_ms": 418.86,
       "llm_calls": 0,
       "llm_ms": 0,
       "total_tokens": 0,
@@ -2205,12 +2185,12 @@
         "unsupported_claim: The most common failure mode in Q3 reported by support was \"connector seal leakage\", accounting for 41% of all reported ..."
       ],
       "retrieval": {
-        "bm25_ms": 0.5438000080175698,
-        "vector_ms": 0.24700001813471317,
-        "embedding_ms": 49.11850002827123,
-        "fusion_ms": 641.2106000352651,
-        "rerank_ms": 425.90660002315417,
-        "esel_ms": 0.6472999812103808
+        "bm25_ms": 0.44380000326782465,
+        "vector_ms": 0.13160001253709197,
+        "embedding_ms": 16.69020002009347,
+        "fusion_ms": 143.3359000366181,
+        "rerank_ms": 138.99740000488237,
+        "esel_ms": 0.4409999819472432
       }
     },
     {
@@ -2223,15 +2203,15 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Support Mapping:**\n- Total Q3 output (1,020,000 units) -> [1]\n\n***\n\nThe total Q3 output across all manufacturing plants is 1,020,000 units [1].",
-      "answer_length": 151,
+      "answer": "**Claim Support Mapping:**\n- Total Q3 output across all manufacturing plants (New York, Ohio, Mexico): supported by [1].\n\n**Answer:**\nThe total Q3 output across all manufacturing plants is 1,020,000 units [1]. This comprises the individual plant outputs of 310,000 units for New York, 470,000 units for Ohio, and 240,000 units for Mexico [1].",
+      "answer_length": 342,
       "evidence_count": 1,
       "cited_indices": [
         1
       ],
-      "claim_support_rate": 0.25,
+      "claim_support_rate": 0.7592592592592592,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 1.0,
+      "partially_supported_rate": 0.3333333333333333,
       "contradicted_claim_rate": 0.0,
       "citation_presence_rate": 1.0,
       "citation_precision": 1.0,
@@ -2249,30 +2229,30 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 7264.47,
-      "llm_calls": 5,
-      "llm_ms": 5688,
-      "total_tokens": 3128,
+      "total_e2e_ms": 7024.01,
+      "llm_calls": 6,
+      "llm_ms": 6318,
+      "total_tokens": 3134,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 642,
-          "total_tokens": 503
+          "total_ms": 635,
+          "total_tokens": 510
         },
         "research_planning": {
           "count": 2,
-          "total_ms": 2140,
-          "total_tokens": 360
+          "total_ms": 2538,
+          "total_tokens": 352
         },
         "evidence_extraction": {
-          "count": 1,
-          "total_ms": 1492,
-          "total_tokens": 1145
+          "count": 2,
+          "total_ms": 1676,
+          "total_tokens": 1114
         },
         "synthesis": {
           "count": 1,
-          "total_ms": 1414,
-          "total_tokens": 1120
+          "total_ms": 1469,
+          "total_tokens": 1158
         }
       },
       "fallback_count": 3,
@@ -2287,12 +2267,12 @@
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 0.9804000146687031,
-        "vector_ms": 0.2536000101827085,
-        "embedding_ms": 70.66369999665767,
-        "fusion_ms": 707.1742999833077,
-        "rerank_ms": 600.7430999889039,
-        "esel_ms": 2.3723000194877386
+        "bm25_ms": 0.7869999972172081,
+        "vector_ms": 0.34639996010810137,
+        "embedding_ms": 47.67990001710132,
+        "fusion_ms": 430.472899985034,
+        "rerank_ms": 168.41179999755695,
+        "esel_ms": 1.4198999851942062
       }
     },
     {
@@ -2305,24 +2285,30 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Mapping Claims to Evidence:**\n- Fraction / percentage of reported incidents in Q3 caused by connector seal leakage: Evidence [1]\n\n**Answer:**\nConnector seal leakage was the most common failure mode reported by support in Q3, accounting for 41% of all reported incidents [1].",
-      "answer_length": 276,
-      "evidence_count": 1,
+      "answer": "**Mapping Evidence to Key Claims:**\n- Claim (fraction of reported incidents caused by connector seal leakage in Q3): Supported by [1].\n- Note: Evidence [3], [4], [5], [6], [7], and [8] are unrelated to Q3 incident causes (note that the contradiction flags regarding [3], [7], and [8] pertain to unrelated topics such as fusion reactors and the Polaris probe, and do not present conflicting data about Q3 incidents). \n\n**Answer:**\nBased on the available evidence, connector seal leakage was the most common failure mode reported by support in Q3, accounting for 41% of all reported incidents [1].",
+      "answer_length": 595,
+      "evidence_count": 7,
       "cited_indices": [
-        1
+        1,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
       ],
-      "claim_support_rate": 0.3055555555555556,
+      "claim_support_rate": 0.11619047619047618,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 1.0,
+      "partially_supported_rate": 0.4,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 1.0,
-      "citation_precision": 1.0,
+      "citation_presence_rate": 0.6,
+      "citation_precision": 0.8571428571428571,
       "gold_fact_coverage": 1.0,
       "gold_facts_found": [
         "41%"
       ],
       "gold_facts_missing": [],
-      "numerical_consistency_rate": 0.0,
+      "numerical_consistency_rate": 0.6666666666666666,
       "query_relevance": 1.0,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
@@ -2331,30 +2317,30 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 6843.06,
-      "llm_calls": 5,
-      "llm_ms": 5214,
-      "total_tokens": 3534,
+      "total_e2e_ms": 5529.05,
+      "llm_calls": 4,
+      "llm_ms": 4660,
+      "total_tokens": 3651,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 1634,
+          "total_ms": 769,
           "total_tokens": 564
         },
         "research_planning": {
           "count": 1,
-          "total_ms": 1411,
-          "total_tokens": 389
+          "total_ms": 1473,
+          "total_tokens": 380
         },
         "evidence_extraction": {
-          "count": 2,
-          "total_ms": 1106,
-          "total_tokens": 1280
+          "count": 1,
+          "total_ms": 1092,
+          "total_tokens": 1239
         },
         "synthesis": {
           "count": 1,
-          "total_ms": 1063,
-          "total_tokens": 1301
+          "total_ms": 1326,
+          "total_tokens": 1468
         }
       },
       "fallback_count": 2,
@@ -2364,16 +2350,16 @@
         "groq"
       ],
       "iterations": 1,
-      "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+      "stop_reason": "StopReason.SUFFICIENT_EVIDENCE",
       "outcome": "Outcome.ANSWERED",
       "warnings": [],
       "retrieval": {
-        "bm25_ms": 5.316400027368218,
-        "vector_ms": 1.019700022879988,
-        "embedding_ms": 253.2599000260234,
-        "fusion_ms": 1530.6683999951929,
-        "rerank_ms": 502.5468999519944,
-        "esel_ms": 2.507299999706447
+        "bm25_ms": 2.359699981752783,
+        "vector_ms": 0.3896999987773597,
+        "embedding_ms": 114.33220002800226,
+        "fusion_ms": 1112.8263999707997,
+        "rerank_ms": 176.8158000195399,
+        "esel_ms": 1.115199935156852
       }
     },
     {
@@ -2390,23 +2376,24 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Mapping:**\n* Acme entering robotics / inspection robot for warehouse inventory counting, integration with Memphis distribution center, Q4 2026 schedule: Supported by [1].\n* Robotics line dependency on the Atlas database engine for vision-log storage / project gated on the completion of the Delta Sync feature in Atlas: Supported by [1].\n* Absence of consumer electronics plans on the 2026-2027 roadmap: Supported by [1].\n\n***\n\n### Assessment of Acme's Diversification into Robotics\n\nAcme is diversifying into robotics for the first time with the introduction of an inspection robot scheduled for release in Q4 2026 [1]. This inspection robot is designed for warehouse inventory counting and is built to integrate with the systems at the Memphis distribution center [1]. Furthermore, the 2026-2027 roadmap confirms that this diversification does not include any plans for consumer electronics [1].\n\n### Key Dependencies of the Robotics Line\n\nThe success and development of Acme's new robotics line depend on specific technical requirements:\n* **Database Infrastructure:** The robotics line relies on the Atlas database engine for storing its vision logs [1].\n* **Feature Completion:** The inspection robot project is specifically gated on the completion of the Delta Sync feature within the Atlas database [1].",
-      "answer_length": 1318,
-      "evidence_count": 1,
+      "answer": "**Mapping Claim to Supporting Evidence:**\n* Acme entering robotics for the first time with an inspection robot scheduled for Q4 2026 -> [1]\n* Integration of the inspection robot with the Memphis distribution center -> [1]\n* Robotics line depending on the Atlas database engine and being gated by the Delta Sync feature -> [1]\n* Contradiction regarding product lines/roadmap: Source [1] states that Acme enters robotics with an inspection robot scheduled for Q4 2026 and notes no consumer electronics plans on the 2026-2027 roadmap, whereas Source [7] outlines a 2026-2027 product roadmap covering only Adhesives and Fasteners without mentioning any robotics line.\n\n***\n\n### Assessment of Acme's Diversification into Robotics\n\n**Overview of the Argument:**\nAcme is diversifying into robotics for the first time, introducing an inspection robot designed for warehouse inventory counting, which is scheduled for release in Q4 2026 [1]. This robot is built to integrate directly with the systems at the Memphis distribution center [1]. \n\n*Note on Contradictions:* There is a direct conflict in the provided evidence regarding Acme's product roadmap for 2026\u20132027. Source [1] explicitly details Acme's entry into robotics with the Q4 2026 inspection robot and states that the 2026\u20132027 roadmap excludes consumer electronics [1]. However, Source [7] (an Acme Product Roadmap for 2026\u20132027) lists only two product lines\u2014Adhesives and Fasteners\u2014with no mention or inclusion of a robotics line [7]. \n\n### Key Dependencies\nAccording to the reporting that outlines the robotics initiative, Acme's new robotics line depends on specific technical infrastructure [1]:\n* **Database Engine:** The robotics line relies on the Atlas database engine for storing vision-logs [1].\n* **Project Gate:** The completion and integration of the project are explicitly gated on the completion of the \"Delta Sync\" feature within Atlas [1].",
+      "answer_length": 1910,
+      "evidence_count": 2,
       "cited_indices": [
-        1
+        1,
+        7
       ],
-      "claim_support_rate": 0.6507936507936508,
+      "claim_support_rate": 0.4642857142857143,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.2,
+      "partially_supported_rate": 0.14285714285714285,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.8,
-      "citation_precision": 1.0,
+      "citation_presence_rate": 0.7857142857142857,
+      "citation_precision": 0.5,
       "gold_fact_coverage": 0.0,
       "gold_facts_found": [],
       "gold_facts_missing": [],
       "numerical_consistency_rate": 1.0,
-      "query_relevance": 0.42857142857142855,
+      "query_relevance": 0.7142857142857143,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
@@ -2414,35 +2401,35 @@
       "hallucination_rate": 0.0,
       "hallucinated_count": 0,
       "hallucinated_claims": [],
-      "total_e2e_ms": 15773.01,
+      "total_e2e_ms": 12589.89,
       "llm_calls": 7,
-      "llm_ms": 10597,
-      "total_tokens": 5230,
+      "llm_ms": 10247,
+      "total_tokens": 5545,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 1607,
-          "total_tokens": 157
+          "total_ms": 1383,
+          "total_tokens": 160
         },
         "research_planning": {
           "count": 1,
-          "total_ms": 1736,
-          "total_tokens": 423
+          "total_ms": 1739,
+          "total_tokens": 435
         },
         "evidence_extraction": {
           "count": 3,
-          "total_ms": 3373,
-          "total_tokens": 2374
+          "total_ms": 2933,
+          "total_tokens": 2262
         },
         "synthesis": {
           "count": 1,
-          "total_ms": 1953,
-          "total_tokens": 1410
+          "total_ms": 2662,
+          "total_tokens": 1651
         },
         "verification": {
           "count": 1,
-          "total_ms": 1928,
-          "total_tokens": 866
+          "total_ms": 1530,
+          "total_tokens": 1037
         }
       },
       "fallback_count": 4,
@@ -2454,14 +2441,16 @@
       "iterations": 3,
       "stop_reason": "StopReason.BUDGET_EXHAUSTED",
       "outcome": "Outcome.ANSWERED",
-      "warnings": [],
+      "warnings": [
+        "unsupported_claim: *Note on Contradictions:* There is a direct conflict in the provided evidence regarding Acme's product roadmap for 2026\u2013..."
+      ],
       "retrieval": {
-        "bm25_ms": 6.885600043460727,
-        "vector_ms": 1.9497000030241907,
-        "embedding_ms": 701.6596000758,
-        "fusion_ms": 2754.415700037498,
-        "rerank_ms": 2360.8149999636225,
-        "esel_ms": 2.097699965815991
+        "bm25_ms": 4.275000072084367,
+        "vector_ms": 1.0467999964021146,
+        "embedding_ms": 140.5314999865368,
+        "fusion_ms": 1217.9372000973672,
+        "rerank_ms": 851.588300021831,
+        "esel_ms": 1.5138999442569911
       }
     },
     {
@@ -2478,70 +2467,60 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Support Identification:**\n- Acme operates three primary manufacturing plants in New York, Ohio, and Mexico (Monterrey): Supported by [1], [3].\n- Ohio is positioned upstream of the Mexico plant in the supply network: Supported by [1].\n- Ohio feeds the Memphis distribution center: Supported by [1].\n\n***\n\n### Synthesis of Acme's Supply Network, Distribution, and Manufacturing Regions\n\nAcme operates three primary manufacturing plants located in New York, Ohio, and Monterrey, Mexico [1][3]. Within this network, the Ohio plant functions upstream of the Mexico plant and supplies the Memphis distribution center [1].",
-      "answer_length": 623,
-      "evidence_count": 2,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- - Acme runs three primary plants: New York, Ohio, and Mexico (Monterrey).\n- Production at the Ohio plant has grown strongly and reached its highest utilization in 2025.\n- Combined regional manufacturing output is tracked in the 2025 Regional Manufacturing Report.\n- Ohio is upstream of the Mexico pla [1]\n- # Regional Manufacturing Report \u2014 2025\n\nThis report summarizes manufacturing activity across the three Acme plant regions in 2025.\n\n## New York Region\nThe New York plant produced 1.2 million units in 2025. Its flagship line was fasteners. Utilization was 82%.\n\n## Ohio Region\nThe Ohio plant produced  [2]\n- # Acme Manufacturing Timeline \u2014 Overview\n\nThis document provides a high-level overview of Acme manufacturing. Note that detailed, authoritative figures about Acme plants and regions appear in several SEPARATE documents (the Regional Manufacturing Report, the Operational Metrics report, and the 2025  [3]",
+      "answer_length": 1079,
+      "evidence_count": 3,
       "cited_indices": [
         1,
+        2,
         3
       ],
-      "claim_support_rate": 0.3333333333333333,
+      "claim_support_rate": 0.16071428571428573,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.0,
+      "partially_supported_rate": 0.07142857142857142,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.5555555555555556,
-      "citation_precision": 0.5,
-      "gold_fact_coverage": 0.6,
-      "gold_facts_found": [
-        "Ohio",
-        "Memphis",
-        "Monterrey"
-      ],
+      "citation_presence_rate": 0.21428571428571427,
+      "citation_precision": 0.6666666666666666,
+      "gold_fact_coverage": 0.0,
+      "gold_facts_found": [],
       "gold_facts_missing": [
+        "Memphis",
         "PetroKem",
         "eastern"
       ],
-      "numerical_consistency_rate": null,
-      "query_relevance": 0.7,
+      "numerical_consistency_rate": 1.0,
+      "query_relevance": 0.3,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
       "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 36699.72,
-      "llm_calls": 10,
-      "llm_ms": 32993,
-      "total_tokens": 5240,
+      "hallucination_rate": 0.1,
+      "hallucinated_count": 1,
+      "hallucinated_claims": [
+        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
+      ],
+      "total_e2e_ms": 27343.73,
+      "llm_calls": 9,
+      "llm_ms": 26986,
+      "total_tokens": 559,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 972,
-          "total_tokens": 603
+          "total_ms": 1388,
+          "total_tokens": 559
         },
         "research_planning": {
-          "count": 1,
-          "total_ms": 1598,
-          "total_tokens": 434
+          "count": 7,
+          "total_ms": 24971,
+          "total_tokens": 0
         },
         "evidence_extraction": {
-          "count": 3,
-          "total_ms": 2623,
-          "total_tokens": 2250
-        },
-        "synthesis": {
-          "count": 4,
-          "total_ms": 26325,
-          "total_tokens": 1221
-        },
-        "verification": {
           "count": 1,
-          "total_ms": 1475,
-          "total_tokens": 732
+          "total_ms": 627,
+          "total_tokens": 0
         }
       },
-      "fallback_count": 6,
+      "fallback_count": 7,
       "is_clean": false,
       "providers": [
         "gemini",
@@ -2549,17 +2528,29 @@
         "zai",
         "zen"
       ],
-      "iterations": 3,
-      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
-      "outcome": "Outcome.ANSWERED",
-      "warnings": [],
+      "iterations": 1,
+      "stop_reason": "StopReason.ASSESSMENT_ERROR",
+      "outcome": "Outcome.ANSWERED_DEGRADED",
+      "warnings": [
+        "research_plan_fallback: research_planning call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "assessment_fallback: evidence_extraction call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- - Acme runs three primary plants: New Y...",
+        "unsupported_claim: - Production at the Ohio plant has grown strongly and reached its highest utilization in 2025.",
+        "unsupported_claim: - Combined regional manufacturing output is tracked in the 2025 Regional Manufacturing Report.",
+        "unsupported_claim: ## New York Region\nThe New York plant produced 1.2 million units in 2025.",
+        "unsupported_claim: Its flagship line was fasteners.",
+        "unsupported_claim: Utilization was 82%."
+      ],
       "retrieval": {
-        "bm25_ms": 6.246799952350557,
-        "vector_ms": 0.7397999288514256,
-        "embedding_ms": 313.0036999937147,
-        "fusion_ms": 2165.2677999809384,
-        "rerank_ms": 1203.800700022839,
-        "esel_ms": 2.37649999326095
+        "bm25_ms": 0.528200005646795,
+        "vector_ms": 0.35829999251291156,
+        "embedding_ms": 38.49700000137091,
+        "fusion_ms": 109.54480001237243,
+        "rerank_ms": 138.7209999957122,
+        "esel_ms": 0.7297999691218138
       }
     },
     {
@@ -2574,88 +2565,86 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Evidence Mapping:**\n- 2025 performance (23% year-over-year growth, fastest-growing product line, Ohio plant utilization at 91% with industrial sealants as its flagship line): [1], [2], [3]\n- 2023 performance: The provided evidence does not contain specific performance metrics for Acme's industrial sealant line in 2023 (legacy 2023 figures are mentioned as existing in a legacy report, but the data itself is absent) [7]. \n- Explanation for the change: The provided evidence notes that the industrial sealant division grew 23% year over year in 2025 making it the fastest growing product line [1], but it does not provide an explicit causal explanation for *why* this change occurred, other than noting high manufacturing activity at the Ohio plant (where industrial sealants are the flagship line, reaching 91% utilization) [3].\n\n***\n\n### Answer\n\n**2023 vs. 2025 Performance:**\nThe provided evidence contains detailed metrics for Acme's industrial sealant line in 2025, but lacks specific numerical performance data for 2023 [7]. In 2025, the industrial sealant division grew by 23% year-over-year, making it Acme's fastest-growing product line [1][2]. Additionally, the Ohio plant\u2014whose flagship product line is industrial sealants\u2014reached a utilization rate of 91% and produced 1.8 million units in 2025 [3]. \n\n**Explanation for the Change:**\nThe provided evidence states that the industrial sealant division achieved 23% year-over-year growth in 2025 [1][2], supported by high manufacturing output and a 91% plant utilization rate at its primary production facility in Ohio [3]. However, the evidence does not provide a comprehensive causal explanation detailing the underlying drivers that caused this change.",
-      "answer_length": 1717,
-      "evidence_count": 4,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Acme's fastest growing product line in 2025 was the industrial sealant division, which grew 23% year over year.\n\nAcme operates manufacturing plants in New York, Ohio, and Mexico. [1]\n- # Acme Product Roadmap \u2014 2026-2027\n\nThis roadmap covers three product lines. It is a planning document and contains forward-looking commitments.\n\n## Adhesives (existing)\n- V2 of the industrial sealant, scheduled Q2 2026.\n- The V2 sealant improves curing speed by 35% versus V1.\n\n## Fasteners (existin [2]\n- # Acme Revenue \u2014 2025 Current Report (AUTHORITATIVE)\n\nThis is the current and authoritative annual report for Acme Corporation's 2025 fiscal year.\n\nIn 2025, Acme Corporation reported annual revenue of $4.7 billion USD.\n\nIn 2025, Acme employed approximately 12,400 people.\n\nThe 2025 report notes that  [3]",
+      "answer_length": 957,
+      "evidence_count": 3,
       "cited_indices": [
         1,
         2,
-        3,
-        7
+        3
       ],
-      "claim_support_rate": 0.08928571428571427,
-      "unsupported_claim_rate": 0.3076923076923077,
-      "partially_supported_rate": 0.23076923076923078,
+      "claim_support_rate": 0.07692307692307693,
+      "unsupported_claim_rate": 0.15384615384615385,
+      "partially_supported_rate": 0.0,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.6923076923076923,
-      "citation_precision": 0.75,
-      "gold_fact_coverage": 0.0,
-      "gold_facts_found": [],
-      "gold_facts_missing": [
-        "9%"
+      "citation_presence_rate": 0.23076923076923078,
+      "citation_precision": 1.0,
+      "gold_fact_coverage": 0.3333333333333333,
+      "gold_facts_found": [
+        "23%"
       ],
-      "numerical_consistency_rate": 0.0,
-      "query_relevance": 0.7777777777777778,
+      "gold_facts_missing": [
+        "9%",
+        "growth"
+      ],
+      "numerical_consistency_rate": 0.3333333333333333,
+      "query_relevance": 0.5555555555555556,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
       "conflict_acknowledged": false,
-      "hallucination_rate": 0.125,
+      "hallucination_rate": 0.09090909090909091,
       "hallucinated_count": 1,
       "hallucinated_claims": [
-        "However, the evidence does not provide a comprehensive causal explanation detailing the underlying drivers that caused t"
+        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
       ],
-      "total_e2e_ms": 14580.09,
-      "llm_calls": 7,
-      "llm_ms": 10666,
-      "total_tokens": 5587,
+      "total_e2e_ms": 2650.99,
+      "llm_calls": 2,
+      "llm_ms": 1688,
+      "total_tokens": 1890,
       "llm_by_type": {
-        "query_analysis": {
-          "count": 1,
-          "total_ms": 1307,
-          "total_tokens": 175
-        },
         "research_planning": {
           "count": 1,
-          "total_ms": 1609,
-          "total_tokens": 495
-        },
-        "evidence_extraction": {
-          "count": 3,
-          "total_ms": 3557,
-          "total_tokens": 2379
-        },
-        "synthesis": {
-          "count": 1,
-          "total_ms": 2676,
-          "total_tokens": 1496
+          "total_ms": 435,
+          "total_tokens": 0
         },
         "verification": {
           "count": 1,
-          "total_ms": 1517,
-          "total_tokens": 1042
+          "total_ms": 1253,
+          "total_tokens": 1890
         }
       },
-      "fallback_count": 4,
+      "fallback_count": 2,
       "is_clean": false,
       "providers": [
-        "gemini",
-        "groq"
+        "groq",
+        "zen"
       ],
-      "iterations": 3,
-      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
-      "outcome": "Outcome.ANSWERED",
+      "iterations": 1,
+      "stop_reason": "StopReason.CLAIMS_SUPPORTED",
+      "outcome": "Outcome.ANSWERED_DEGRADED",
       "warnings": [
-        "unsupported_claim: ***\n\n### Answer\n\n**2023 vs.",
-        "unsupported_claim: However, the evidence does not provide a comprehensive causal explanation detailing the underlying drivers that caused t..."
+        "query_analysis_fallback: query_analysis call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'query_analysis'",
+        "research_plan_fallback: research_planning call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'research_planning'",
+        "assessment_fallback: evidence_extraction call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'evidence_extraction'",
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Acme's fastest growing product line in ...",
+        "unsupported_claim: Acme operates manufacturing plants in New York, Ohio, and Mexico.",
+        "unsupported_claim: It is a planning document and contains forward-looking commitments.",
+        "unsupported_claim: ## Adhesives (existing)\n- V2 of the industrial sealant, scheduled Q2 2026.",
+        "unsupported_claim: - The V2 sealant improves curing speed by 35% versus V1.",
+        "unsupported_claim: In 2025, Acme Corporation reported annual revenue of $4.7 billion USD.",
+        "unsupported_claim: In 2025, Acme employed approximately 12,400 people."
       ],
       "retrieval": {
-        "bm25_ms": 8.297499967738986,
-        "vector_ms": 2.3890999727882445,
-        "embedding_ms": 489.2218998866156,
-        "fusion_ms": 3286.3750000251457,
-        "rerank_ms": 1390.3907999047078,
-        "esel_ms": 1.839800039306283
+        "bm25_ms": 2.3243000032380223,
+        "vector_ms": 0.8451999165117741,
+        "embedding_ms": 111.11200001323596,
+        "fusion_ms": 649.6115000336431,
+        "rerank_ms": 188.15790000371635,
+        "esel_ms": 0.9484000038355589
       }
     },
     {
@@ -2668,57 +2657,72 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**(Claim Mapping)**\n- Network switch layer code is \"L3-Edge\" -> Supported by [1].\n\n***\n\nThe code for the network switch layer is \"L3-Edge\" (not \"L3-Core\") [1].",
-      "answer_length": 159,
-      "evidence_count": 1,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Data Center Infrastructure Codes\n\nThis document defines the asset codes used at Acme's data center. The codes are deliberately confusable and appear in multiple places, so answers should quote the exact code.\n\n- Rack cooling unit: code \"CRAC-7\", not \"CRAH-7\".\n- UPS battery station: code \"UPS-B\", n [1]\n- Sensor telemetry wiring conventions:\n- Temperature sensor on rack 3 connects to port \"T-03\".\n- There is no sensor wired to rack 9; rack 9 is a placeholder rack with no active instrumentation.\n\nAsset counts: 14 cooling units, 28 network switches, 9 UPS battery stations.\n\nThe data center uses code \"DC [2]\n- # Northwind Supply Network \u2014 Dependencies\n\nThe Northwind supply network connects raw-material suppliers to component plants and onward to distribution centers. [3]",
+      "answer_length": 938,
+      "evidence_count": 3,
       "cited_indices": [
-        1
+        1,
+        2,
+        3
       ],
-      "claim_support_rate": 1.0,
+      "claim_support_rate": 0.043827160493827164,
       "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 0.0,
+      "partially_supported_rate": 0.2222222222222222,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 1.0,
-      "citation_precision": 1.0,
+      "citation_presence_rate": 0.2222222222222222,
+      "citation_precision": 0.6666666666666666,
       "gold_fact_coverage": 0.0,
       "gold_facts_found": [],
-      "gold_facts_missing": [],
+      "gold_facts_missing": [
+        "L3-Edge"
+      ],
       "numerical_consistency_rate": 1.0,
-      "query_relevance": 1.0,
+      "query_relevance": 0.5,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
       "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 2158.02,
+      "hallucination_rate": 0.125,
+      "hallucinated_count": 1,
+      "hallucinated_claims": [
+        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
+      ],
+      "total_e2e_ms": 1430.91,
       "llm_calls": 1,
-      "llm_ms": 931,
-      "total_tokens": 1100,
+      "llm_ms": 771,
+      "total_tokens": 0,
       "llm_by_type": {
         "synthesis": {
           "count": 1,
-          "total_ms": 931,
-          "total_tokens": 1100
+          "total_ms": 771,
+          "total_tokens": 0
         }
       },
       "fallback_count": 1,
       "is_clean": false,
       "providers": [
-        "gemini"
+        "zen"
       ],
       "iterations": 1,
       "stop_reason": "StopReason.BUDGET_EXHAUSTED",
-      "outcome": "Outcome.ANSWERED",
-      "warnings": [],
+      "outcome": "Outcome.ANSWERED_DEGRADED",
+      "warnings": [
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Data Center Infrastructure Codes\n\nThi...",
+        "unsupported_claim: The codes are deliberately confusable and appear in multiple places, so answers should quote the exact code.",
+        "unsupported_claim: - Rack cooling unit: code \"CRAC-7\", not \"CRAH-7\".",
+        "unsupported_claim: - There is no sensor wired to rack 9; rack 9 is a placeholder rack with no active instrumentation.",
+        "unsupported_claim: Asset counts: 14 cooling units, 28 network switches, 9 UPS battery stations."
+      ],
       "retrieval": {
-        "bm25_ms": 0.5470000323839486,
-        "vector_ms": 0.21130003733560443,
-        "embedding_ms": 106.80850001517683,
-        "fusion_ms": 586.7472999962047,
-        "rerank_ms": 397.8891999577172,
-        "esel_ms": 0.5970000056549907
+        "bm25_ms": 0.27540000155568123,
+        "vector_ms": 0.12280000373721123,
+        "embedding_ms": 24.242700019385666,
+        "fusion_ms": 451.6628999845125,
+        "rerank_ms": 156.34420001879334,
+        "esel_ms": 0.26920001255348325
       }
     },
     {
@@ -2731,60 +2735,65 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "**Claim Support Mapping:**\n- Code of the power distribution unit is \"PDU-9\" -> Evidence [1]\n\n**Answer:**\nThe code of the power distribution unit is \"PDU-9\" [1].",
-      "answer_length": 160,
-      "evidence_count": 1,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Data Center Infrastructure Codes\n\nThis document defines the asset codes used at Acme's data center. The codes are deliberately confusable and appear in multiple places, so answers should quote the exact code.\n\n- Rack cooling unit: code \"CRAC-7\", not \"CRAH-7\".\n- UPS battery station: code \"UPS-B\", n [1]\n- Sensor telemetry wiring conventions:\n- Temperature sensor on rack 3 connects to port \"T-03\".\n- There is no sensor wired to rack 9; rack 9 is a placeholder rack with no active instrumentation.\n\nAsset counts: 14 cooling units, 28 network switches, 9 UPS battery stations.\n\nThe data center uses code \"DC [2]\n- # Q3 2025 Operational Metrics\n\nSelected operational metrics for Q3 2025 across Acme plants. All numbers are precise and should be quoted exactly.\n\n- New York plant unit output (Q3): 310,000\n- Ohio plant unit output (Q3): 470,000\n- Mexico plant unit output (Q3): 240,000\n- Total Q3 output: 1,020,000\n- [3]",
+      "answer_length": 1079,
+      "evidence_count": 3,
       "cited_indices": [
-        1
+        1,
+        2,
+        3
       ],
-      "claim_support_rate": 0.25,
-      "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 1.0,
+      "claim_support_rate": 0.10909090909090909,
+      "unsupported_claim_rate": 0.09090909090909091,
+      "partially_supported_rate": 0.09090909090909091,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 1.0,
+      "citation_presence_rate": 0.2727272727272727,
       "citation_precision": 1.0,
-      "gold_fact_coverage": 1.0,
-      "gold_facts_found": [
+      "gold_fact_coverage": 0.0,
+      "gold_facts_found": [],
+      "gold_facts_missing": [
         "PDU-9"
       ],
-      "gold_facts_missing": [],
-      "numerical_consistency_rate": 1.0,
-      "query_relevance": 1.0,
+      "numerical_consistency_rate": 0.6666666666666666,
+      "query_relevance": 0.5,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
       "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 3168.37,
-      "llm_calls": 2,
-      "llm_ms": 1862,
-      "total_tokens": 1207,
-      "llm_by_type": {
-        "synthesis": {
-          "count": 2,
-          "total_ms": 1862,
-          "total_tokens": 1207
-        }
-      },
-      "fallback_count": 2,
-      "is_clean": false,
-      "providers": [
-        "gemini",
-        "groq"
+      "hallucination_rate": 0.1,
+      "hallucinated_count": 1,
+      "hallucinated_claims": [
+        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
       ],
+      "total_e2e_ms": 564.26,
+      "llm_calls": 0,
+      "llm_ms": 0,
+      "total_tokens": 0,
+      "llm_by_type": {},
+      "fallback_count": 0,
+      "is_clean": true,
+      "providers": [],
       "iterations": 1,
       "stop_reason": "StopReason.BUDGET_EXHAUSTED",
-      "outcome": "Outcome.ANSWERED",
-      "warnings": [],
+      "outcome": "Outcome.ANSWERED_DEGRADED",
+      "warnings": [
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- # Data Center Infrastructure Codes\n\nThi...",
+        "unsupported_claim: The codes are deliberately confusable and appear in multiple places, so answers should quote the exact code.",
+        "unsupported_claim: - Rack cooling unit: code \"CRAC-7\", not \"CRAH-7\".",
+        "unsupported_claim: - There is no sensor wired to rack 9; rack 9 is a placeholder rack with no active instrumentation.",
+        "unsupported_claim: Asset counts: 14 cooling units, 28 network switches, 9 UPS battery stations.",
+        "unsupported_claim: All numbers are precise and should be quoted exactly."
+      ],
       "retrieval": {
-        "bm25_ms": 1.3307000044733286,
-        "vector_ms": 0.2870000316761434,
-        "embedding_ms": 65.43149997014552,
-        "fusion_ms": 672.1023000427522,
-        "rerank_ms": 410.39430000819266,
-        "esel_ms": 0.6890000076964498
+        "bm25_ms": 0.6843999726697803,
+        "vector_ms": 0.18720002844929695,
+        "embedding_ms": 21.306300011929125,
+        "fusion_ms": 251.4326999662444,
+        "rerank_ms": 141.01329998811707,
+        "esel_ms": 0.7029999978840351
       }
     },
     {
@@ -2798,17 +2807,19 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "- There is no temperature sensor wired to rack 9 because rack 9 is a placeholder rack with no active instrumentation [1].",
-      "answer_length": 121,
-      "evidence_count": 1,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Sensor telemetry wiring conventions:\n- Temperature sensor on rack 3 connects to port \"T-03\".\n- There is no sensor wired to rack 9; rack 9 is a placeholder rack with no active instrumentation.\n\nAsset counts: 14 cooling units, 28 network switches, 9 UPS battery stations.\n\nThe data center uses code \"DC [1]\n- # Data Center Infrastructure Codes\n\nThis document defines the asset codes used at Acme's data center. The codes are deliberately confusable and appear in multiple places, so answers should quote the exact code.\n\n- Rack cooling unit: code \"CRAC-7\", not \"CRAH-7\".\n- UPS battery station: code \"UPS-B\", n [2]\n- - The Polaris probe is deployed at a fixed depth of 1,400 meters in the North Atlantic.\n- It samples water temperature, salinity, and dissolved oxygen once every 30 minutes.\n- It transmits data via acoustic link every 6 hours.\n- The probe entered service on 2024-03-11.\n- Battery life is rated at 36  [3]",
+      "answer_length": 1079,
+      "evidence_count": 3,
       "cited_indices": [
-        1
+        1,
+        2,
+        3
       ],
-      "claim_support_rate": 0.5,
-      "unsupported_claim_rate": 0.0,
-      "partially_supported_rate": 1.0,
+      "claim_support_rate": 0.0521978021978022,
+      "unsupported_claim_rate": 0.07142857142857142,
+      "partially_supported_rate": 0.14285714285714285,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 1.0,
+      "citation_presence_rate": 0.21428571428571427,
       "citation_precision": 1.0,
       "gold_fact_coverage": 0.0,
       "gold_facts_found": [],
@@ -2821,52 +2832,69 @@
       "abstention_type": "not_applicable",
       "conflict_correct": true,
       "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 5986.34,
-      "llm_calls": 4,
-      "llm_ms": 4138,
-      "total_tokens": 3150,
+      "hallucination_rate": 0.08333333333333333,
+      "hallucinated_count": 1,
+      "hallucinated_claims": [
+        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
+      ],
+      "total_e2e_ms": 4508.43,
+      "llm_calls": 6,
+      "llm_ms": 3657,
+      "total_tokens": 495,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 681,
+          "total_ms": 1242,
           "total_tokens": 495
         },
         "research_planning": {
-          "count": 1,
-          "total_ms": 1426,
-          "total_tokens": 341
+          "count": 2,
+          "total_ms": 698,
+          "total_tokens": 0
         },
         "evidence_extraction": {
-          "count": 1,
-          "total_ms": 1229,
-          "total_tokens": 1151
+          "count": 2,
+          "total_ms": 1255,
+          "total_tokens": 0
         },
         "synthesis": {
           "count": 1,
-          "total_ms": 802,
-          "total_tokens": 1163
+          "total_ms": 462,
+          "total_tokens": 0
         }
       },
-      "fallback_count": 2,
+      "fallback_count": 5,
       "is_clean": false,
       "providers": [
         "gemini",
-        "groq"
+        "groq",
+        "zen"
       ],
       "iterations": 1,
-      "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
-      "outcome": "Outcome.ANSWERED",
-      "warnings": [],
+      "stop_reason": "StopReason.ASSESSMENT_ERROR",
+      "outcome": "Outcome.ANSWERED_DEGRADED",
+      "warnings": [
+        "research_plan_fallback: research_planning call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "assessment_fallback: evidence_extraction call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Sensor telemetry wiring conventions:\n- ...",
+        "unsupported_claim: - There is no sensor wired to rack 9; rack 9 is a placeholder rack with no active instrumentation.",
+        "unsupported_claim: Asset counts: 14 cooling units, 28 network switches, 9 UPS battery stations.",
+        "unsupported_claim: The codes are deliberately confusable and appear in multiple places, so answers should quote the exact code.",
+        "unsupported_claim: - Rack cooling unit: code \"CRAC-7\", not \"CRAH-7\".",
+        "unsupported_claim: - It samples water temperature, salinity, and dissolved oxygen once every 30 minutes.",
+        "unsupported_claim: - It transmits data via acoustic link every 6 hours.",
+        "unsupported_claim: - The probe entered service on 2024-03-11."
+      ],
       "retrieval": {
-        "bm25_ms": 5.396399996243417,
-        "vector_ms": 1.0939000057987869,
-        "embedding_ms": 226.7730999737978,
-        "fusion_ms": 1557.0360000128858,
-        "rerank_ms": 583.4972000448033,
-        "esel_ms": 2.24910001270473
+        "bm25_ms": 1.109300006646663,
+        "vector_ms": 0.3008000203408301,
+        "embedding_ms": 57.42500000633299,
+        "fusion_ms": 803.2637999858707,
+        "rerank_ms": 169.98479998437688,
+        "esel_ms": 1.3720000279136002
       }
     },
     {
@@ -2881,7 +2909,7 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Acme's fastest growing product line in 2025 was the industrial sealant division, which grew 23% year over year.\n\nAcme operates manufacturing plants in New York, Ohio, and Mexico. [1]\n- # Acme Product Roadmap \u2014 2026-2027\n\nThis roadmap covers three product lines. It is a planning document and contains forward-looking commitments.\n\n## Adhesives (existing)\n- V2 of the industrial sealant, scheduled Q2 2026.\n- The V2 sealant improves curing speed by 35% versus V1.\n\n## Fasteners (existin [2]\n- ## Robotics (new)\n- Acme enters robotics for the first time with an inspection robot, scheduled Q4 2026.\n- The inspection robot is designed for warehouse inventory counting and integrates with the Memphis distribution center systems.\n\n## Key dependencies\n- The robotics line depends on the Atlas data [3]",
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- ## Robotics (new)\n- Acme enters robotics for the first time with an inspection robot, scheduled Q4 2026.\n- The inspection robot is designed for warehouse inventory counting and integrates with the Memphis distribution center systems.\n\n## Key dependencies\n- The robotics line depends on the Atlas data [1]\n- Acme's fastest growing product line in 2025 was the industrial sealant division, which grew 23% year over year.\n\nAcme operates manufacturing plants in New York, Ohio, and Mexico. [2]\n- # Acme Product Roadmap \u2014 2026-2027\n\nThis roadmap covers three product lines. It is a planning document and contains forward-looking commitments.\n\n## Adhesives (existing)\n- V2 of the industrial sealant, scheduled Q2 2026.\n- The V2 sealant improves curing speed by 35% versus V1.\n\n## Fasteners (existin [3]",
       "answer_length": 957,
       "evidence_count": 3,
       "cited_indices": [
@@ -2889,9 +2917,9 @@
         2,
         3
       ],
-      "claim_support_rate": 0.08333333333333333,
+      "claim_support_rate": 0.020833333333333332,
       "unsupported_claim_rate": 0.16666666666666666,
-      "partially_supported_rate": 0.0,
+      "partially_supported_rate": 0.08333333333333333,
       "contradicted_claim_rate": 0.0,
       "citation_presence_rate": 0.25,
       "citation_precision": 1.0,
@@ -2912,33 +2940,33 @@
       "hallucinated_claims": [
         "Synthesis is temporarily unavailable, so I could not produce a polished answer."
       ],
-      "total_e2e_ms": 27903.75,
-      "llm_calls": 7,
-      "llm_ms": 26513,
-      "total_tokens": 2021,
+      "total_e2e_ms": 29225.15,
+      "llm_calls": 8,
+      "llm_ms": 28415,
+      "total_tokens": 2504,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 545,
+          "total_ms": 815,
           "total_tokens": 532
         },
         "research_planning": {
           "count": 1,
-          "total_ms": 1499,
-          "total_tokens": 392
+          "total_ms": 507,
+          "total_tokens": 0
         },
         "evidence_extraction": {
-          "count": 2,
-          "total_ms": 1107,
-          "total_tokens": 1097
-        },
-        "synthesis": {
-          "count": 3,
-          "total_ms": 23362,
+          "count": 5,
+          "total_ms": 25770,
           "total_tokens": 0
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1323,
+          "total_tokens": 1972
         }
       },
-      "fallback_count": 4,
+      "fallback_count": 6,
       "is_clean": false,
       "providers": [
         "gemini",
@@ -2950,23 +2978,25 @@
       "stop_reason": "StopReason.CLAIMS_SUPPORTED",
       "outcome": "Outcome.ANSWERED_DEGRADED",
       "warnings": [
-        "synthesis_fallback: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "research_plan_fallback: research_planning call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'research_planning'",
+        "assessment_fallback: evidence_extraction call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
         "synthesis_degraded_to_raw_evidence",
         "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
-        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- Acme's fastest growing product line in ...",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- ## Robotics (new)\n- Acme enters robotic...",
+        "unsupported_claim: - The inspection robot is designed for warehouse inventory counting and integrates with the Memphis distribution center ...",
         "unsupported_claim: Acme operates manufacturing plants in New York, Ohio, and Mexico.",
         "unsupported_claim: It is a planning document and contains forward-looking commitments.",
         "unsupported_claim: ## Adhesives (existing)\n- V2 of the industrial sealant, scheduled Q2 2026.",
-        "unsupported_claim: - The V2 sealant improves curing speed by 35% versus V1.",
-        "unsupported_claim: - The inspection robot is designed for warehouse inventory counting and integrates with the Memphis distribution center ..."
+        "unsupported_claim: - The V2 sealant improves curing speed by 35% versus V1."
       ],
       "retrieval": {
-        "bm25_ms": 4.133300040848553,
-        "vector_ms": 0.4668000037781894,
-        "embedding_ms": 280.6566000217572,
-        "fusion_ms": 683.5999999893829,
-        "rerank_ms": 354.85340002924204,
-        "esel_ms": 2.1856999956071377
+        "bm25_ms": 1.1885000276379287,
+        "vector_ms": 0.4208000609651208,
+        "embedding_ms": 62.740599969401956,
+        "fusion_ms": 465.4533000430092,
+        "rerank_ms": 158.90340000623837,
+        "esel_ms": 0.9829999762587249
       }
     },
     {
@@ -3009,34 +3039,39 @@
       "hallucinated_claims": [
         "Synthesis is temporarily unavailable, so I could not produce a polished answer."
       ],
-      "total_e2e_ms": 2560.59,
-      "llm_calls": 2,
-      "llm_ms": 1224,
+      "total_e2e_ms": 2516.2,
+      "llm_calls": 3,
+      "llm_ms": 1773,
       "total_tokens": 0,
       "llm_by_type": {
         "research_planning": {
           "count": 1,
-          "total_ms": 598,
+          "total_ms": 662,
           "total_tokens": 0
         },
         "evidence_extraction": {
           "count": 1,
-          "total_ms": 626,
+          "total_ms": 545,
+          "total_tokens": 0
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 566,
           "total_tokens": 0
         }
       },
-      "fallback_count": 2,
+      "fallback_count": 3,
       "is_clean": false,
       "providers": [
         "zen"
       ],
       "iterations": 1,
-      "stop_reason": "StopReason.NO_UNRESOLVED_CONTRADICTION",
+      "stop_reason": "StopReason.ASSESSMENT_ERROR",
       "outcome": "Outcome.ANSWERED_DEGRADED",
       "warnings": [
         "query_analysis_fallback: query_analysis call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'query_analysis'",
         "research_plan_fallback: research_planning call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
-        "assessment_fallback: evidence_extraction call failed: [PROVIDER_ERROR] Error from provider (Console): OpenCode's free tier can only be used in OpenCode",
+        "assessment_fallback: evidence_extraction call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'evidence_extraction'",
         "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
         "synthesis_degraded_to_raw_evidence",
         "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
@@ -3048,12 +3083,12 @@
         "unsupported_claim: It is intentionally partial: some topics are covered, others are explicitly NOT covered."
       ],
       "retrieval": {
-        "bm25_ms": 0.859099964145571,
-        "vector_ms": 0.24150003446266055,
-        "embedding_ms": 59.558500011917204,
-        "fusion_ms": 674.3233000161126,
-        "rerank_ms": 472.91449998738244,
-        "esel_ms": 1.7322999774478376
+        "bm25_ms": 0.6765999714843929,
+        "vector_ms": 0.5725999944843352,
+        "embedding_ms": 50.342599977739155,
+        "fusion_ms": 494.62280003353953,
+        "rerank_ms": 175.29539996758103,
+        "esel_ms": 2.122499980032444
       }
     },
     {
@@ -3067,75 +3102,78 @@
       "expected_behavior": "answer_with_citations",
       "is_absent": false,
       "is_conflict": false,
-      "answer": "* **Key claim 1:** The provided evidence does not contain information about the total watt output of the 2031 Helion-DARPA reactor.\n  * *Supporting evidence:* [2]\n\nBased on the available evidence, the provided documents explicitly state that they do not contain any information regarding the power output in watts for the 2031 Helion-DARPA reactor [2].",
-      "answer_length": 352,
-      "evidence_count": 1,
+      "answer": "Synthesis is temporarily unavailable, so I could not produce a polished answer. Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- What is known:\n- The 2031 \"Helion-DARPA cooperative\" reported a sustained 45-second run at net energy gain ratio (Q) of 1.4.\n- The reactor design uses magnetized target fusion (MTF) rather than tokamak confinement.\n- The group published results for 2029 and 2031 runs; no 2030 paper exists. [1]\n- What is explicitly NOT covered:\n- This document does NOT contain any information about cold-fusion lattice experiments (the Holton lattice group).\n- This document does NOT state the cost of building the reactor.\n- This document does NOT mention the power output in watts.\n\nTopics for which this docum [2]\n- # Q3 2025 Operational Metrics\n\nSelected operational metrics for Q3 2025 across Acme plants. All numbers are precise and should be quoted exactly.\n\n- New York plant unit output (Q3): 310,000\n- Ohio plant unit output (Q3): 470,000\n- Mexico plant unit output (Q3): 240,000\n- Total Q3 output: 1,020,000\n- [3]",
+      "answer_length": 1069,
+      "evidence_count": 3,
       "cited_indices": [
-        2
+        1,
+        2,
+        3
       ],
-      "claim_support_rate": 0.0,
-      "unsupported_claim_rate": 0.0,
+      "claim_support_rate": 0.1,
+      "unsupported_claim_rate": 0.2,
       "partially_supported_rate": 0.0,
       "contradicted_claim_rate": 0.0,
-      "citation_presence_rate": 0.5,
-      "citation_precision": 0.0,
+      "citation_presence_rate": 0.3,
+      "citation_precision": 1.0,
       "gold_fact_coverage": 0.0,
       "gold_facts_found": [],
       "gold_facts_missing": [],
-      "numerical_consistency_rate": null,
-      "query_relevance": 1.0,
+      "numerical_consistency_rate": 0.5,
+      "query_relevance": 0.8333333333333334,
       "abstention_correct": true,
       "abstention_type": "not_applicable",
       "conflict_correct": true,
       "conflict_acknowledged": false,
-      "hallucination_rate": 0.0,
-      "hallucinated_count": 0,
-      "hallucinated_claims": [],
-      "total_e2e_ms": 6790.66,
-      "llm_calls": 4,
-      "llm_ms": 4722,
-      "total_tokens": 3240,
+      "hallucination_rate": 0.1,
+      "hallucinated_count": 1,
+      "hallucinated_claims": [
+        "Synthesis is temporarily unavailable, so I could not produce a polished answer."
+      ],
+      "total_e2e_ms": 1755.77,
+      "llm_calls": 2,
+      "llm_ms": 1110,
+      "total_tokens": 525,
       "llm_by_type": {
         "query_analysis": {
           "count": 1,
-          "total_ms": 611,
+          "total_ms": 677,
           "total_tokens": 525
-        },
-        "research_planning": {
-          "count": 1,
-          "total_ms": 1638,
-          "total_tokens": 397
         },
         "evidence_extraction": {
           "count": 1,
-          "total_ms": 1398,
-          "total_tokens": 1164
-        },
-        "synthesis": {
-          "count": 1,
-          "total_ms": 1075,
-          "total_tokens": 1154
+          "total_ms": 433,
+          "total_tokens": 0
         }
       },
-      "fallback_count": 2,
+      "fallback_count": 1,
       "is_clean": false,
       "providers": [
-        "gemini",
         "groq"
       ],
-      "iterations": 2,
-      "stop_reason": "StopReason.BUDGET_EXHAUSTED",
-      "outcome": "Outcome.ANSWERED",
+      "iterations": 1,
+      "stop_reason": "StopReason.ASSESSMENT_ERROR",
+      "outcome": "Outcome.ANSWERED_DEGRADED",
       "warnings": [
-        "unsupported_claim: * **Key claim 1:** The provided evidence does not contain information about the total watt output of the 2031 Helion-DAR..."
+        "research_plan_fallback: research_planning call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'research_planning'",
+        "assessment_fallback: evidence_extraction call failed: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'evidence_extraction'",
+        "synthesis_fallback: [CONFIGURATION_ERROR] All routing attempts failed for call_type 'synthesis'",
+        "synthesis_degraded_to_raw_evidence",
+        "unsupported_claim: Synthesis is temporarily unavailable, so I could not produce a polished answer.",
+        "unsupported_claim: Here is the grounded evidence I retrieved (correctness not fully synthesized):\n- What is known:\n- The 2031 \"Helion-DARPA...",
+        "unsupported_claim: - The reactor design uses magnetized target fusion (MTF) rather than tokamak confinement.",
+        "unsupported_claim: - The group published results for 2029 and 2031 runs; no 2030 paper exists.",
+        "unsupported_claim: - This document does NOT state the cost of building the reactor.",
+        "unsupported_claim: - This document does NOT mention the power output in watts.",
+        "unsupported_claim: All numbers are precise and should be quoted exactly."
       ],
       "retrieval": {
-        "bm25_ms": 2.5885000359266996,
-        "vector_ms": 0.5119999404996634,
-        "embedding_ms": 189.84140001703054,
-        "fusion_ms": 788.4954999317415,
-        "rerank_ms": 915.0964999571443,
-        "esel_ms": 1.3184000854380429
+        "bm25_ms": 0.9080999880097806,
+        "vector_ms": 0.15080004232004285,
+        "embedding_ms": 30.74049996212125,
+        "fusion_ms": 346.7928000027314,
+        "rerank_ms": 159.09690002445132,
+        "esel_ms": 1.8184000509791076
       }
     }
   ]

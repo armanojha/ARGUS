@@ -48,6 +48,117 @@ from app.reranking.reranker import NoOpReranker, Reranker
 from app.retrieval.evidence_selector import EvidenceSelector, SelectionMetrics
 from app.retrieval.hybrid import HybridRetriever
 
+
+# ---------------------------------------------------------------------------
+# Deterministic contradiction detection (Phase 39)
+# ---------------------------------------------------------------------------
+
+# Negation patterns that signal factual opposition
+_NEGATION_PAIRS = [
+    ("is", "is not"), ("is", "isn't"),
+    ("was", "was not"), ("was", "wasn't"),
+    ("are", "are not"), ("are", "aren't"),
+    ("can", "can not"), ("can", "can't"),
+    ("will", "will not"), ("will", "won't"),
+    ("does", "does not"), ("does", "doesn't"),
+    ("did", "did not"), ("did", "didn't"),
+    ("has", "has not"), ("has", "hasn't"),
+    ("have", "have not"), ("have", "haven't"),
+    ("no ", "yes "), ("not ", ""),
+    ("true", "false"), ("confirmed", "denied"),
+    ("possible", "impossible"), ("safe", "unsafe"),
+    ("increase", "decrease"), ("rise", "fall"),
+    ("higher", "lower"), ("more", "less"),
+    ("supports", "contradicts"), ("contains", "does not contain"),
+]
+
+
+def _detect_contradictions(
+    evidence: list[EvidenceRef],
+    query: str = "",
+) -> list[dict]:
+    """Deterministically detect pairwise contradictions in evidence chunks.
+
+    Compares evidence chunks using keyword-based negation detection.
+    Returns a list of contradiction signal dicts suitable for
+    ``state["contradiction_signals"]``.
+    """
+    if len(evidence) < 2:
+        return []
+
+    contradictions: list[dict] = []
+    seen_pairs: set[tuple[int, int]] = set()
+
+    for i in range(len(evidence)):
+        for j in range(i + 1, len(evidence)):
+            text_i = evidence[i].text.lower()
+            text_j = evidence[j].text.lower()
+
+            # Check for direct negation pairs across chunks
+            for neg_a, neg_b in _NEGATION_PAIRS:
+                if (neg_a in text_i and neg_b in text_j) or (neg_b in text_i and neg_a in text_j):
+                    # Verify same topic: shared significant words (4+ chars)
+                    words_i = set(re.findall(r"\b\w{4,}\b", text_i))
+                    words_j = set(re.findall(r"\b\w{4,}\b", text_j))
+                    shared = words_i & words_j
+                    # Remove generic words
+                    shared -= {"this", "that", "with", "from", "have", "been", "were", "their", "which", "about"}
+                    if len(shared) >= 2:
+                        pair = (min(i, j), max(i, j))
+                        if pair not in seen_pairs:
+                            seen_pairs.add(pair)
+                            contradictions.append({
+                                "severity": 1.0,
+                                "description": (
+                                    f"Evidence [{i+1}] and [{j+1}] appear to contradict: "
+                                    f"shared terms: {', '.join(sorted(shared)[:5])}"
+                                ),
+                                "evidence_indices": [i + 1, j + 1],
+                                "resolved": False,
+                                "critical": True,
+                            })
+                        break  # One contradiction per pair is enough
+
+    return contradictions
+
+
+def _is_evidence_absent(
+    evidence: list[EvidenceRef],
+    query: str,
+    *,
+    score_threshold: float = 0.15,
+) -> bool:
+    """Deterministically detect if retrieved evidence contains no relevant content.
+
+    Returns True when evidence was retrieved but is irrelevant to the query
+    (all scores below threshold and low keyword overlap). This signals that
+    the corpus genuinely lacks the requested information.
+    """
+    if not evidence:
+        return True
+
+    # Check if all evidence scores are very low
+    low_score_count = sum(1 for e in evidence if e.score > 0 and e.score < score_threshold)
+    if low_score_count == len(evidence):
+        # All scored evidence is low — likely irrelevant
+        return True
+
+    # Check keyword overlap between query and evidence
+    query_words = set(re.findall(r"\b\w{4,}\b", query.lower()))
+    query_words -= {"what", "which", "when", "where", "does", "that", "have", "been", "from", "about", "what's"}
+    if not query_words:
+        return False
+
+    evidence_text = " ".join(e.text.lower() for e in evidence)
+    evidence_words = set(re.findall(r"\b\w{4,}\b", evidence_text))
+
+    overlap = query_words & evidence_words
+    overlap_ratio = len(overlap) / len(query_words) if query_words else 0
+
+    # Very low overlap with the query suggests irrelevant evidence
+    return overlap_ratio < 0.2
+
+
 logger = get_logger("argus.orchestration.nodes")
 
 NodeFn = Callable[[OrchestrationState], Coroutine[Any, Any, dict]]
@@ -298,6 +409,38 @@ def make_assess_node(
         if state["iteration"] >= state["max_iterations"] or state["tokens_used"] >= state["token_budget"]:
             return {"sufficient": True, "stop_reason": StopReason.BUDGET_EXHAUSTED.value}
 
+        # Phase 39: Deterministic contradiction detection.
+        # Detect pairwise contradictions in evidence and populate
+        # contradiction_signals so synthesis can acknowledge conflicts.
+        evidence = state["evidence"]
+        contradiction_signals = list(state.get("contradiction_signals") or [])
+        if evidence and not contradiction_signals:
+            detected = _detect_contradictions(evidence, query=state["query"])
+            if detected:
+                contradiction_signals = detected
+                logger.info(
+                    "contradictions_detected",
+                    count=len(detected),
+                    request_id=state["request_id"],
+                )
+
+        # Phase 39: Deterministic absent-info detection.
+        # When evidence exists but is all irrelevant (low scores, low overlap),
+        # signal that information is genuinely absent from the corpus.
+        if evidence and not state.get("sufficient"):
+            if _is_evidence_absent(evidence, state["query"]):
+                logger.info(
+                    "absent_info_deterministic",
+                    evidence_count=len(evidence),
+                    request_id=state["request_id"],
+                )
+                return {
+                    "sufficient": True,
+                    "stop_reason": StopReason.NO_NEW_EVIDENCE.value,
+                    "contradiction_signals": contradiction_signals,
+                    "warnings": list(state["warnings"]) + ["absent_info_deterministic"],
+                }
+
         # Phase 24.1: Adaptive research policy pre-check.
         # When enabled, the deterministic policy can short-circuit the LLM
         # assess call if evidence is clearly sufficient or clearly needs
@@ -325,6 +468,7 @@ def make_assess_node(
                 return {
                     "sufficient": True,
                     "stop_reason": StopReason.SUFFICIENT_EVIDENCE.value,
+                    "contradiction_signals": contradiction_signals,
                     "warnings": list(state["warnings"]) + [f"adaptive_synthesize: {decision.reason}"],
                 }
 
@@ -353,6 +497,7 @@ def make_assess_node(
             return {
                 "sufficient": True,
                 "stop_reason": StopReason.ASSESSMENT_ERROR.value,
+                "contradiction_signals": contradiction_signals,
                 "warnings": warnings,
             }
 
@@ -403,6 +548,7 @@ def make_assess_node(
                         "sufficient": False,
                         "pending_subquestions": pending,
                         "evidence_tasks": evidence_tasks,
+                        "contradiction_signals": contradiction_signals,
                         "warnings": warnings,
                     }
 
@@ -414,6 +560,7 @@ def make_assess_node(
             return {
                 "sufficient": True,
                 "stop_reason": stop_reason,
+                "contradiction_signals": contradiction_signals,
                 "warnings": warnings,
                 "evidence_tasks": evidence_tasks,
                 "complexity_tier": updated_tier,
@@ -431,6 +578,7 @@ def make_assess_node(
             return {
                 "sufficient": True,
                 "stop_reason": StopReason.NO_SUBQUESTIONS.value,
+                "contradiction_signals": contradiction_signals,
                 "warnings": warnings,
                 "evidence_tasks": evidence_tasks,
                 "complexity_tier": updated_tier,
@@ -439,6 +587,7 @@ def make_assess_node(
         return {
             "sufficient": False,
             "pending_subquestions": pending,
+            "contradiction_signals": contradiction_signals,
             "warnings": warnings,
             "evidence_tasks": evidence_tasks,
             "complexity_tier": updated_tier,
