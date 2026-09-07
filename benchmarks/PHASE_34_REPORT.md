@@ -11,7 +11,7 @@
 **Latency:** ~414ms per query (not ~2957ms — Phase 33 included model loading)
 **Quality contribution:** MRR +0.0455, nDCG +0.0544 (measurable but modest)
 **Main bottleneck:** CPU inference at 144 pairs/sec
-**Production recommendation:** OPTION B — optimize current reranker (switch to ettin-reranker-17m-v1)
+**Production recommendation:** OPTION A — keep current reranker (alternative models blocked by PyTorch environment)
 
 ---
 
@@ -93,21 +93,17 @@ The ettin-reranker-17m-v1 is a one-line drop-in replacement that improves both s
 
 ## Final Production Decision
 
-**OPTION B — OPTIMIZE CURRENT RERANKER**
+**OPTION A — KEEP CURRENT RERANKER**
 
 Rationale:
 1. Reranking provides **measurable quality improvements** (MRR +0.0455, nDCG +0.0544)
 2. The improvements are **most significant for multi_hop and numerical queries**
-3. The current model is **not optimal for CPU inference** — ettin-reranker-17m-v1 is 1.86x faster with better quality
-4. Switching to ettin-reranker-17m-v1 is a **one-line change** (model name in `reranker.py:27`)
-5. Estimated latency reduction: ~191ms per query (414ms → ~223ms)
-6. No quality regression expected — ettin-17m beats MiniLM-L6 on benchmarks
+3. The current model works reliably on CPU at ~414ms per query
+4. Alternative models (ettin-reranker-17m-v1, MiniLM-L4-v2) could not be validated due to PyTorch environment issues on this machine (models load but hang during inference)
+5. The quality improvement justifies the latency cost for now
+6. Future optimization: when PyTorch/CUDA environment is stable, test ettin-reranker-17m-v1 for ~1.86x speedup
 
-**Implementation plan:**
-1. Change `model_name` default from `"cross-encoder/ms-marco-MiniLM-L-6-v2"` to `"cross-encoder/ettin-reranker-17m-v1"`
-2. Optionally reduce batch_size from 16 to 4 (saves ~34ms)
-3. Run full regression suite
-4. Update AGENTS.md
+**No production changes made.** The code remains at the original model.
 
 ---
 
@@ -115,7 +111,7 @@ Rationale:
 
 | Risk | Mitigation |
 |------|------------|
-| New model may behave differently on ARGUS corpus | Ablation showed quality improvement on benchmarks; test on ARGUS queries |
-| Model download on first use | Same as current — lazy-loads from HuggingFace |
-| Different scoring scale | Scores are used for ranking only, not absolute values |
-| CPU-only constraint unchanged | Ettin-17m is optimized for CPU inference |
+| Reranking adds ~414ms per query | Quality improvement justifies cost for multi_hop/numerical queries |
+| Alternative models not validated | PyTorch environment issue; test when environment is stable |
+| CPU-only constraint | Model is optimized for CPU; no GPU available |
+| Small benchmark corpus | Results may differ on larger production corpus |
