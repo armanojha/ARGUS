@@ -1,0 +1,839 @@
+{
+  "benchmark": "phase36_clean_e2e",
+  "cold_start_ms": 12195.66,
+  "total_queries": 8,
+  "clean_queries": 0,
+  "contaminated_queries": 8,
+  "clean_avg_e2e_ms": 0,
+  "all_avg_e2e_ms": 13566.28,
+  "contaminated_details": [
+    {
+      "id": "P36-Q01",
+      "fallbacks": 1,
+      "details": [
+        {
+          "call_type": "synthesis",
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "reason": "fallback_1"
+        }
+      ]
+    },
+    {
+      "id": "P36-Q02",
+      "fallbacks": 1,
+      "details": [
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ]
+    },
+    {
+      "id": "P36-Q03",
+      "fallbacks": 2,
+      "details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ]
+    },
+    {
+      "id": "P36-Q04",
+      "fallbacks": 1,
+      "details": [
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ]
+    },
+    {
+      "id": "P36-Q05",
+      "fallbacks": 2,
+      "details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ]
+    },
+    {
+      "id": "P36-Q06",
+      "fallbacks": 4,
+      "details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        },
+        {
+          "call_type": "verification",
+          "provider": "groq",
+          "model": "openai/gpt-oss-20b",
+          "reason": "fallback_1"
+        }
+      ]
+    },
+    {
+      "id": "P36-Q07",
+      "fallbacks": 3,
+      "details": [
+        {
+          "call_type": "research_planning",
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "zai",
+          "model": "glm-4.5-flash",
+          "reason": "fallback_3"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "reason": "fallback_1"
+        }
+      ]
+    },
+    {
+      "id": "P36-Q08",
+      "fallbacks": 3,
+      "details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ]
+    }
+  ],
+  "per_query": [
+    {
+      "query_id": "P36-Q01",
+      "pattern": "simple_lookup",
+      "query": "Where is Acme Corporation headquartered?",
+      "total_latency_ms": 4945.62,
+      "is_clean": false,
+      "bm25_ms": 0.35,
+      "embedding_ms": 25.65,
+      "vector_ms": 0.2,
+      "fusion_ms": 401.84,
+      "rerank_ms": 172.93,
+      "esel_ms": 0.44,
+      "llm_calls": 2,
+      "llm_total_ms": 4263,
+      "llm_by_type": {
+        "synthesis": {
+          "count": 1,
+          "total_ms": 2346,
+          "latencies_ms": [
+            2346
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1917,
+          "latencies_ms": [
+            1917
+          ]
+        }
+      },
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b"
+      ],
+      "fallback_count": 1,
+      "rate_limit_events": 0,
+      "fallback_details": [
+        {
+          "call_type": "synthesis",
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "reason": "fallback_1"
+        }
+      ],
+      "iterations": 0,
+      "stop_reason": "budget_exhausted",
+      "evidence_count": 1,
+      "answer_length": 233,
+      "outcome": "answered",
+      "warnings": [],
+      "answer": "**Evidence supporting the claim**\n\n- Passage\u202f[1] explicitly lists Acme Corporation\u2019s headquarters as \u201cNew York City.\u201d No other passage provides a different location.\n\n**Answer**\n\nAcme Corporation is headquartered in New\u202fYork\u202fCity\u30101\u3011."
+    },
+    {
+      "query_id": "P36-Q02",
+      "pattern": "normal_qa",
+      "query": "How does Acme Corporation generate revenue?",
+      "total_latency_ms": 11736.65,
+      "is_clean": false,
+      "bm25_ms": 3.53,
+      "embedding_ms": 134.29,
+      "vector_ms": 1.03,
+      "fusion_ms": 1576.01,
+      "rerank_ms": 758.4,
+      "esel_ms": 1.42,
+      "llm_calls": 5,
+      "llm_total_ms": 9169,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 987,
+          "latencies_ms": [
+            987
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1532,
+          "latencies_ms": [
+            1532
+          ]
+        },
+        "evidence_extraction": {
+          "count": 2,
+          "total_ms": 2836,
+          "latencies_ms": [
+            1069,
+            1767
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 3814,
+          "latencies_ms": [
+            3814
+          ]
+        }
+      },
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b"
+      ],
+      "fallback_count": 1,
+      "rate_limit_events": 0,
+      "fallback_details": [
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ],
+      "iterations": 0,
+      "stop_reason": "budget_exhausted",
+      "evidence_count": 7,
+      "answer_length": 1517,
+      "outcome": "answered",
+      "warnings": [
+        "unsupported_claim: *Note: The provided evidence states the total annual revenue and highlights the growth of the industrial sealant divisio..."
+      ],
+      "answer": "**Evidence Mapping:**\n* Annual revenue of $4.7 billion USD (2025): Supported by [3], [4].\n* Primary industry/products generating revenue (industrial adhesives, sealants, and fasteners): Supported by [3], [5], [6].\n* Fastest growing product line (industrial sealant division, growing 23% year over year): Supported by [1], [4].\n* Manufacturing and distribution operations supporting revenue generation (plants in New York, Ohio, and Mexico; distribution via Memphis): Supported by [1], [2], [8].\n\n***\n\n### Answer\n\nAcme Corporation operates in the primary industry of industrial adhesives and fasteners [3]. In the 2025 fiscal year, the company reported an annual revenue of $4.7 billion USD [3][4]. \n\nAcme's revenue is driven by its manufacturing and product lines, which include:\n* **Industrial Sealants:** This division was Acme's fastest-growing product line in 2025, expanding by 23% year over year [1][4]. The Ohio plant's flagship product line is industrial sealants [6].\n* **Fasteners:** Fasteners served as the flagship product line for the New York plant in 2025 [6]. \n\nThe products are manufactured across Acme's primary plants located in New York, Ohio, and Mexico [1][2], and distributed through operations such as the Memphis distribution center [2][8]. \n\n*Note: The provided evidence states the total annual revenue and highlights the growth of the industrial sealant division, but it does not contain a detailed breakdown of specific revenue figures generated by each individual product line or region.*"
+    },
+    {
+      "query_id": "P36-Q03",
+      "pattern": "technical_explanation",
+      "query": "How does the Atlas database achieve low latency?",
+      "total_latency_ms": 16586.92,
+      "is_clean": false,
+      "bm25_ms": 6.92,
+      "embedding_ms": 225.4,
+      "vector_ms": 1.31,
+      "fusion_ms": 2019.21,
+      "rerank_ms": 952.37,
+      "esel_ms": 1.65,
+      "llm_calls": 6,
+      "llm_total_ms": 13697,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 1142,
+          "latencies_ms": [
+            1142
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 3784,
+          "latencies_ms": [
+            3784
+          ]
+        },
+        "evidence_extraction": {
+          "count": 2,
+          "total_ms": 4250,
+          "latencies_ms": [
+            2682,
+            1568
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1658,
+          "latencies_ms": [
+            1658
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 2863,
+          "latencies_ms": [
+            2863
+          ]
+        }
+      },
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b"
+      ],
+      "fallback_count": 2,
+      "rate_limit_events": 0,
+      "fallback_details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ],
+      "iterations": 0,
+      "stop_reason": "budget_exhausted",
+      "evidence_count": 2,
+      "answer_length": 507,
+      "outcome": "answered",
+      "warnings": [
+        "unsupported_claim: Based on the provided evidence, there is no information explaining the architectural and operational features that enabl...",
+        "unsupported_claim: The provided evidence is incomplete regarding the database's latency-related features."
+      ],
+      "answer": "Based on the provided evidence, there is no information explaining the architectural and operational features that enable the Atlas database to achieve low latency. The evidence only notes that Atlas is a self-hosted SQL database engine optimized for analytical workloads, uses a relational model rather than NoSQL or a document model [1], and serves as a dependency for vision-log storage in Acme's robotics line [2]. \n\nThe provided evidence is incomplete regarding the database's latency-related features."
+    },
+    {
+      "query_id": "P36-Q04",
+      "pattern": "multi_hop",
+      "query": "Who manages the team that developed Atlas?",
+      "total_latency_ms": 8295.85,
+      "is_clean": false,
+      "bm25_ms": 1.89,
+      "embedding_ms": 53.83,
+      "vector_ms": 0.99,
+      "fusion_ms": 1100.96,
+      "rerank_ms": 635.15,
+      "esel_ms": 1.31,
+      "llm_calls": 5,
+      "llm_total_ms": 6380,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 945,
+          "latencies_ms": [
+            945
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1533,
+          "latencies_ms": [
+            1533
+          ]
+        },
+        "evidence_extraction": {
+          "count": 1,
+          "total_ms": 1024,
+          "latencies_ms": [
+            1024
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1141,
+          "latencies_ms": [
+            1141
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1737,
+          "latencies_ms": [
+            1737
+          ]
+        }
+      },
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b"
+      ],
+      "fallback_count": 1,
+      "rate_limit_events": 0,
+      "fallback_details": [
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ],
+      "iterations": 0,
+      "stop_reason": "budget_exhausted",
+      "evidence_count": 3,
+      "answer_length": 111,
+      "outcome": "answered",
+      "warnings": [
+        "unsupported_claim: Based on the provided evidence, there is no information regarding the manager of the team that developed Atlas.",
+        "citation_fallback: LLM produced no bracket citations; top evidence auto-attached as citations"
+      ],
+      "answer": "Based on the provided evidence, there is no information regarding the manager of the team that developed Atlas."
+    },
+    {
+      "query_id": "P36-Q05",
+      "pattern": "numerical",
+      "query": "What was Acme's revenue growth rate from 2022 to 2023?",
+      "total_latency_ms": 9520.19,
+      "is_clean": false,
+      "bm25_ms": 1.5,
+      "embedding_ms": 92.72,
+      "vector_ms": 0.6,
+      "fusion_ms": 947.83,
+      "rerank_ms": 307.73,
+      "esel_ms": 1.92,
+      "llm_calls": 6,
+      "llm_total_ms": 8126,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 871,
+          "latencies_ms": [
+            871
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1525,
+          "latencies_ms": [
+            1525
+          ]
+        },
+        "evidence_extraction": {
+          "count": 2,
+          "total_ms": 2987,
+          "latencies_ms": [
+            1688,
+            1299
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1421,
+          "latencies_ms": [
+            1421
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 1322,
+          "latencies_ms": [
+            1322
+          ]
+        }
+      },
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b"
+      ],
+      "fallback_count": 2,
+      "rate_limit_events": 0,
+      "fallback_details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ],
+      "iterations": 0,
+      "stop_reason": "negligible_evidence_gain",
+      "evidence_count": 1,
+      "answer_length": 468,
+      "outcome": "answered",
+      "warnings": [
+        "unsupported_claim: - Revenue figures or growth rates for the year 2022 are not present in the provided evidence.",
+        "unsupported_claim: However, the evidence does not contain information regarding Acme's revenue for the year 2022; therefore, the revenue gr..."
+      ],
+      "answer": "*Claim mapping:*\n- Acme's 2023 revenue ($3.1 billion USD) is supported by evidence [1].\n- Revenue figures or growth rates for the year 2022 are not present in the provided evidence.\n\nBased on the provided evidence, Acme's annual revenue in 2023 was $3.1 billion USD [1]. However, the evidence does not contain information regarding Acme's revenue for the year 2022; therefore, the revenue growth rate between 2022 and 2023 cannot be determined from the available data."
+    },
+    {
+      "query_id": "P36-Q06",
+      "pattern": "conflict",
+      "query": "What were Acme's revenue figures for 2023 according to different sources?",
+      "total_latency_ms": 12392.21,
+      "is_clean": false,
+      "bm25_ms": 5.07,
+      "embedding_ms": 246.71,
+      "vector_ms": 1.11,
+      "fusion_ms": 2390.26,
+      "rerank_ms": 533.99,
+      "esel_ms": 1.38,
+      "llm_calls": 7,
+      "llm_total_ms": 9955,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 760,
+          "latencies_ms": [
+            760
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1636,
+          "latencies_ms": [
+            1636
+          ]
+        },
+        "evidence_extraction": {
+          "count": 3,
+          "total_ms": 2674,
+          "latencies_ms": [
+            170,
+            1229,
+            1275
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1716,
+          "latencies_ms": [
+            1716
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 3169,
+          "latencies_ms": [
+            3169
+          ]
+        }
+      },
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b"
+      ],
+      "fallback_count": 4,
+      "rate_limit_events": 1,
+      "fallback_details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        },
+        {
+          "call_type": "verification",
+          "provider": "groq",
+          "model": "openai/gpt-oss-20b",
+          "reason": "fallback_1"
+        }
+      ],
+      "iterations": 0,
+      "stop_reason": "budget_exhausted",
+      "evidence_count": 2,
+      "answer_length": 867,
+      "outcome": "answered",
+      "warnings": [
+        "unsupported_claim: Therefore, multiple 2023 revenue figures across different sources are not available to compare.",
+        "unsupported_claim: The provided evidence does not contain multiple 2023 revenue figures from different sources to compare."
+      ],
+      "answer": "* **Key Claim Mapping:**\n  * Acme's 2023 annual revenue figure ($3.1 billion USD) is supported by evidence [1].\n  * Comparison across different sources: The provided evidence only contains a single revenue figure for the year 2023 (reported as $3.1 billion USD in the historical 2023 legacy report) [1]. Other provided revenue figures pertain to 2025 ($4.7 billion USD) [2] rather than 2023. Therefore, multiple 2023 revenue figures across different sources are not available to compare.\n\n* **Synthesis Answer:**\nIn 2023, Acme Corporation reported an annual revenue of $3.1 billion USD according to its historical legacy report [1]. \n\nThe provided evidence does not contain multiple 2023 revenue figures from different sources to compare. (Note: A separate annual revenue figure of $4.7 billion USD is provided, but it pertains to the year 2025 rather than 2023 [2].)"
+    },
+    {
+      "query_id": "P36-Q07",
+      "pattern": "complex_research",
+      "query": "What is Acme's competitive advantage in the analytics market?",
+      "total_latency_ms": 33695.43,
+      "is_clean": false,
+      "bm25_ms": 6.75,
+      "embedding_ms": 285.13,
+      "vector_ms": 1.62,
+      "fusion_ms": 1519.36,
+      "rerank_ms": 810.75,
+      "esel_ms": 1.7,
+      "llm_calls": 7,
+      "llm_total_ms": 31116,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 975,
+          "latencies_ms": [
+            975
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 1531,
+          "latencies_ms": [
+            1531
+          ]
+        },
+        "evidence_extraction": {
+          "count": 3,
+          "total_ms": 23233,
+          "latencies_ms": [
+            20909,
+            1295,
+            1029
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1793,
+          "latencies_ms": [
+            1793
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 3584,
+          "latencies_ms": [
+            3584
+          ]
+        }
+      },
+      "providers_used": [
+        "gemini",
+        "groq",
+        "zai"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "glm-4.5-flash",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b"
+      ],
+      "fallback_count": 3,
+      "rate_limit_events": 0,
+      "fallback_details": [
+        {
+          "call_type": "research_planning",
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "zai",
+          "model": "glm-4.5-flash",
+          "reason": "fallback_3"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "reason": "fallback_1"
+        }
+      ],
+      "iterations": 0,
+      "stop_reason": "budget_exhausted",
+      "evidence_count": 8,
+      "answer_length": 784,
+      "outcome": "answered",
+      "warnings": [
+        "unsupported_claim: - None of the eight passages mention Acme\u2019s activities, capabilities, or positioning in the analytics market.",
+        "unsupported_claim: **Answer**\n\nThe supplied evidence does not contain any information about Acme\u2019s competitive advantage in the analytics m...",
+        "unsupported_claim: Consequently, Acme\u2019s competitive advantage in the analytics market cannot be identified from the provided evidence."
+      ],
+      "answer": "**Evidence assessment**\n\n- Passages\u202f[1]\u2013[7] describe Acme\u2019s manufacturing plants, product\u2011line growth, operational metrics, and supply\u2011chain dependencies.  \n- Passage\u202f[8] concerns a marine probe unrelated to Acme.  \n- None of the eight passages mention Acme\u2019s activities, capabilities, or positioning in the analytics market.\n\n**Answer**\n\nThe supplied evidence does not contain any information about Acme\u2019s competitive advantage in the analytics market. All available passages focus on manufacturing output, product\u2011line performance, and operational metrics ([1][2][3][4][5][6][7][8]), and none address analytics services, data capabilities, or market differentiation. Consequently, Acme\u2019s competitive advantage in the analytics market cannot be identified from the provided evidence."
+    },
+    {
+      "query_id": "P36-Q08",
+      "pattern": "absent_info",
+      "query": "What is Acme's market share in the European robotics market?",
+      "total_latency_ms": 11357.37,
+      "is_clean": false,
+      "bm25_ms": 1.82,
+      "embedding_ms": 83.88,
+      "vector_ms": 0.79,
+      "fusion_ms": 1020.59,
+      "rerank_ms": 414.24,
+      "esel_ms": 2.09,
+      "llm_calls": 6,
+      "llm_total_ms": 9807,
+      "llm_by_type": {
+        "query_analysis": {
+          "count": 1,
+          "total_ms": 965,
+          "latencies_ms": [
+            965
+          ]
+        },
+        "research_planning": {
+          "count": 1,
+          "total_ms": 2256,
+          "latencies_ms": [
+            2256
+          ]
+        },
+        "evidence_extraction": {
+          "count": 2,
+          "total_ms": 2715,
+          "latencies_ms": [
+            1137,
+            1578
+          ]
+        },
+        "synthesis": {
+          "count": 1,
+          "total_ms": 1729,
+          "latencies_ms": [
+            1729
+          ]
+        },
+        "verification": {
+          "count": 1,
+          "total_ms": 2142,
+          "latencies_ms": [
+            2142
+          ]
+        }
+      },
+      "providers_used": [
+        "gemini",
+        "groq"
+      ],
+      "models_used": [
+        "gemini-3.5-flash-lite",
+        "openai/gpt-oss-120b"
+      ],
+      "fallback_count": 3,
+      "rate_limit_events": 0,
+      "fallback_details": [
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "evidence_extraction",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_1"
+        },
+        {
+          "call_type": "synthesis",
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "reason": "fallback_2"
+        }
+      ],
+      "iterations": 0,
+      "stop_reason": "claims_supported",
+      "evidence_count": 1,
+      "answer_length": 606,
+      "outcome": "answered",
+      "warnings": [
+        "unsupported_claim: *Claim-to-Evidence Mapping:*\n- Acme's market share in the European robotics market is not mentioned in the provided evid...",
+        "unsupported_claim: Based on the provided evidence, there is no information available regarding Acme's market share in the European robotics..."
+      ],
+      "answer": "*Claim-to-Evidence Mapping:*\n- Acme's market share in the European robotics market is not mentioned in the provided evidence. The evidence mentions that Acme is entering the robotics market for the first time with an inspection robot scheduled for Q4 2026 [5], but contains no information regarding market share or operations in Europe.\n\nBased on the provided evidence, there is no information available regarding Acme's market share in the European robotics market. The evidence only notes that Acme plans to enter the robotics market for the first time with an inspection robot scheduled for Q4 2026 [5]."
+    }
+  ]
+}
