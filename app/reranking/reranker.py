@@ -24,7 +24,7 @@ class Reranker:
 
     _model: Any | None = None
 
-    def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
+    def __init__(self, model_name: str = "cross-encoder/ettin-reranker-17m-v1"):
         self.model_name = model_name
         self.settings = get_settings()
         self._lock = threading.Lock()

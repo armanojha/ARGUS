@@ -1,0 +1,31 @@
+{
+  "cuda_available": false,
+  "gpu_name": "N/A",
+  "gpu_memory_gb": 0,
+  "cpu_avg_ms": 406.8,
+  "gpu_avg_ms": null,
+  "speedup": null,
+  "batch_sizes": {
+    "1": {
+      "avg_ms": 481.89,
+      "per_pair_ms": 24.09
+    },
+    "4": {
+      "avg_ms": 372.55,
+      "per_pair_ms": 18.63
+    },
+    "8": {
+      "avg_ms": 419.99,
+      "per_pair_ms": 21.0
+    },
+    "16": {
+      "avg_ms": 437.69,
+      "per_pair_ms": 21.88
+    },
+    "32": {
+      "avg_ms": 394.46,
+      "per_pair_ms": 19.72
+    }
+  },
+  "candidate_count": 20
+}
