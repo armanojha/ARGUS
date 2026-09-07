@@ -413,6 +413,113 @@
   .cit-chip:hover { color: var(--accent-2); border-color: var(--accent); }
   .chat-status { display: flex; gap: 10px; align-items: center; color: var(--text-dim); font-size: 13px; padding: 10px 0; }
   .chat-status .spinner { width: 16px; height: 16px; border-width: 2px; }
+
+  /* ------- Pipeline view ------- */
+  #view-pipeline { background: transparent; }
+  .pipeline-wrap { position: relative; flex: 1; overflow: hidden; }
+  #pipeline-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  #pipeline-canvas:active { cursor: grabbing; }
+
+  #pipeline-empty {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    text-align: center; flex-direction: column; gap: 14px; z-index: 8; padding: 30px;
+  }
+  #pipeline-empty .pe-icon { font-size: 48px; margin-bottom: 4px; opacity: .8; }
+  #pipeline-empty .pe-title { font-size: 20px; font-weight: 700; }
+  #pipeline-empty .pe-sub { color: var(--text-dim); font-size: 13px; max-width: 480px; line-height: 1.6; }
+  #pipeline-empty .pe-examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; max-width: 600px; }
+  #pipeline-empty .pe-example {
+    padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text-dim); font-size: 12.5px; cursor: pointer;
+    transition: all .15s; max-width: 280px; text-align: left;
+  }
+  #pipeline-empty .pe-example:hover { border-color: var(--accent); color: var(--text); background: var(--panel-2); }
+
+  #pipeline-status {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 12;
+    display: none; align-items: center; gap: 10px;
+    padding: 8px 16px; border-radius: 20px;
+    background: rgba(19,24,32,.88); backdrop-filter: blur(10px);
+    border: 1px solid var(--border); box-shadow: var(--shadow);
+    font-size: 12.5px; color: var(--text-dim);
+  }
+  #pipeline-status .ps-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .6; } 50% { opacity: 1; } }
+  #pipeline-status.active { display: flex; }
+
+  #pipeline-controls {
+    position: absolute; right: 18px; bottom: 18px; z-index: 10;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+
+  .pipeline-tooltip {
+    position: absolute; z-index: 30; display: none; pointer-events: none;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; box-shadow: var(--shadow); max-width: 280px;
+  }
+  .pipeline-tooltip .ptt-label { font-size: 12px; font-weight: 600; }
+  .pipeline-tooltip .ptt-type { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-2); margin-top: 2px; }
+  .pipeline-tooltip .ptt-desc { font-size: 11.5px; color: var(--text-dim); margin-top: 4px; line-height: 1.4; }
+
+  #pipeline-inspector {
+    position: absolute; top: 12px; right: 12px; bottom: 12px; width: 380px; z-index: 25;
+    background: rgba(19,24,32,.92); backdrop-filter: blur(12px);
+    border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow);
+    transform: translateX(calc(100% + 16px)); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #pipeline-inspector.open { transform: translateX(0); }
+  .pi-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--border-soft); }
+  .pi-type { font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px; font-weight: 700; color: var(--accent-2); }
+  .pi-title { font-size: 15px; font-weight: 700; line-height: 1.3; margin-top: 5px; word-break: break-word; }
+  .pi-close { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 8px; border: none; background: var(--panel-2); color: var(--text-dim); cursor: pointer; font-size: 14px; }
+  .pi-close:hover { color: var(--text); }
+  .pi-body { flex: 1; overflow-y: auto; padding: 12px 16px 16px; }
+  .pi-body::-webkit-scrollbar { width: 6px; }
+  .pi-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .pi-section { margin-bottom: 16px; }
+  .pi-section-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px; color: var(--text-faint); font-weight: 700; margin-bottom: 7px; }
+  .pi-explain {
+    padding: 10px 12px; border-radius: 8px; border-left: 3px solid var(--accent);
+    background: rgba(110,168,254,.06); font-size: 12px; color: var(--text-dim); line-height: 1.55;
+  }
+  .pi-explain strong { color: var(--text); }
+  .pi-kv { display: flex; gap: 8px; padding: 4px 0; font-size: 12.5px; }
+  .pi-kv .k { color: var(--text-faint); flex: 0 0 100px; }
+  .pi-kv .v { color: var(--text); word-break: break-word; }
+  .pi-chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .pi-chip { padding: 3px 9px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--border-soft); font-size: 11.5px; color: var(--text-dim); cursor: pointer; }
+  .pi-chip:hover { color: var(--accent-2); border-color: var(--accent); }
+  .pi-pill { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .pi-btn {
+    width: 100%; padding: 9px; margin-top: 4px; border-radius: 9px;
+    background: rgba(110,168,254,.14); border: 1px solid rgba(110,168,254,.35); color: var(--accent-2);
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+  }
+  .pi-btn:hover { background: rgba(110,168,254,.24); }
+  .pi-btn.disabled { opacity: .5; cursor: not-allowed; background: var(--panel-2); border-color: var(--border); color: var(--text-faint); }
+  .pi-evidence-card {
+    padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel); margin-bottom: 8px; cursor: pointer; transition: border-color .15s;
+  }
+  .pi-evidence-card:hover { border-color: var(--accent); }
+  .pi-evidence-card .ec-source { font-size: 11px; color: var(--accent-2); font-weight: 600; }
+  .pi-evidence-card .ec-text { font-size: 12px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .pi-evidence-card .ec-score { font-size: 11px; color: var(--text-faint); margin-top: 4px; }
+  .pi-conflict-card {
+    padding: 10px 12px; border-radius: 8px; border: 1px solid var(--danger);
+    background: rgba(248,113,113,.06); margin-bottom: 8px;
+  }
+  .pi-conflict-card .cc-type { font-size: 11px; color: var(--danger); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+  .pi-conflict-card .cc-desc { font-size: 12px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
+  .pi-timeline { margin-top: 8px; }
+  .pi-timeline-item { display: flex; gap: 10px; padding: 4px 0; font-size: 12px; }
+  .pi-timeline-time { color: var(--text-faint); flex: 0 0 50px; font-family: var(--mono); }
+  .pi-timeline-event { color: var(--text-dim); }
+  .pi-technical { display: none; margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--panel-2); font-size: 11.5px; color: var(--text-faint); line-height: 1.5; }
+  .pi-technical.show { display: block; }
+  .pi-toggle-tech { font-size: 11px; color: var(--accent-2); cursor: pointer; margin-top: 6px; }
+  .pi-toggle-tech:hover { text-decoration: underline; }
 </style>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='42' fill='%236ea8fe' opacity='.25'/%3E%3Ccircle cx='50' cy='50' r='22' fill='%236ea8fe'/%3E%3C/svg%3E">
 </head>
@@ -429,13 +536,15 @@
     </div>
     <nav>
       <div class="nav-group">Explore</div>
+      <a class="nav-item brain" data-view="pipeline" href="#pipeline"><span class="ic">◉</span> ARGUS Brain</a>
       <a class="nav-item" data-view="research" href="#research"><span class="ic">⌁</span> Research</a>
       <a class="nav-item" data-view="knowledge" href="#knowledge"><span class="ic">▤</span> Knowledge Base</a>
-      <a class="nav-item brain" data-view="brain" href="#brain"><span class="ic">◉</span> ARGUS Brain</a>
+      <a class="nav-item" data-view="graph" href="#graph"><span class="ic">◎</span> Knowledge Graph</a>
       <a class="nav-item" data-view="argusbrain" href="#argusbrain"><span class="ic">🧠</span> Memory</a>
       <a class="nav-item" data-view="documents" href="#documents"><span class="ic">▤</span> Documents</a>
       <a class="nav-item" data-view="evidence" href="#evidence"><span class="ic">✓</span> Evidence</a>
       <div class="nav-group">System</div>
+      <a class="nav-item" data-view="architecture" href="#architecture"><span class="ic">⊞</span> Architecture</a>
       <a class="nav-item" data-view="obsidian" href="#obsidian"><span class="ic">🏛</span> Obsidian Brain</a>
       <a class="nav-item" data-view="settings" href="#settings"><span class="ic">⚙</span> Settings</a>
     </nav>
@@ -487,6 +596,32 @@
           <div class="d-body" id="d-body"></div>
         </div>
         <div id="toast"></div>
+      </div>
+    </section>
+
+    <!-- PIPELINE: Research flow visualization -->
+    <section id="view-pipeline" class="view" data-view="pipeline">
+      <div class="pipeline-wrap">
+        <canvas id="pipeline-canvas"></canvas>
+        <div id="pipeline-empty">
+          <div class="pe-icon">◉</div>
+          <div class="pe-title">ARGUS Brain</div>
+          <div class="pe-sub">Evidence-grounded research intelligence. Ask a question to see how ARGUS thinks, retrieves, verifies, and constructs an answer.</div>
+          <div class="pe-examples" id="pipeline-examples"></div>
+          <div style="margin-top:12px;font-size:11px;color:var(--text-faint)">Or type a question in the Research tab</div>
+        </div>
+        <div id="pipeline-status"><div class="ps-dot"></div><span id="pipeline-status-text">Processing…</span></div>
+        <div id="pipeline-controls">
+          <button class="ctl-btn" id="pipeline-zoom-in" title="Zoom in">+</button>
+          <button class="ctl-btn" id="pipeline-zoom-out" title="Zoom out">−</button>
+          <button class="ctl-btn" id="pipeline-zoom-fit" title="Fit to screen">⛶</button>
+        </div>
+        <div class="pipeline-tooltip" id="pipeline-tooltip"></div>
+        <div id="pipeline-inspector">
+          <button class="pi-close" title="Close">✕</button>
+          <div class="pi-head" id="pi-head"></div>
+          <div class="pi-body" id="pi-body"></div>
+        </div>
       </div>
     </section>
 
@@ -628,6 +763,21 @@
         <div class="panel">
           <div class="panel-title">Recent run traces</div>
           <div id="settings-telemetry"><div class="loading-row"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section id="view-architecture" class="view" data-view="architecture">
+      <div class="view-scroll" style="max-width:1100px">
+        <div class="view-intro">
+          <h2>ARGUS Architecture</h2>
+          <p>How ARGUS processes queries through its evidence-grounded research pipeline. Click any component to learn more.</p>
+        </div>
+        <div id="architecture-diagram" style="position:relative;min-height:600px"></div>
+        <div id="architecture-detail" class="panel" style="display:none;margin-top:18px">
+          <div class="panel-title" id="arch-detail-title">Component</div>
+          <div id="arch-detail-body"></div>
         </div>
       </div>
     </section>
@@ -1561,14 +1711,16 @@ function hexA(hex, a) {
    ARGUS API endpoints through API_BASE.
    ============================================================ */
 const VIEWS = {
-  brain:     { title: "ARGUS Brain",    sub: "Explore connected knowledge" },
-  research:  { title: "Research",       sub: "Ask ARGUS a research question" },
-  knowledge: { title: "Knowledge Base", sub: "Manage the document corpus" },
-  argusbrain:{ title: "Memory",         sub: "Persistent machine memory" },
-  documents: { title: "Documents",      sub: "Browse graph documents & sources" },
-  evidence:  { title: "Evidence",       sub: "Knowledge graph summary" },
-  obsidian:  { title: "Obsidian Brain", sub: "Dedicated Obsidian vault" },
-  settings:  { title: "Settings",       sub: "System status & configuration" },
+  pipeline:   { title: "ARGUS Brain",    sub: "Evidence-grounded research intelligence" },
+  research:   { title: "Research",       sub: "Ask ARGUS a research question" },
+  knowledge:  { title: "Knowledge Base", sub: "Manage the document corpus" },
+  graph:      { title: "Knowledge Graph",sub: "Explore connected knowledge" },
+  argusbrain: { title: "Memory",         sub: "Persistent machine memory" },
+  documents:  { title: "Documents",      sub: "Browse graph documents & sources" },
+  evidence:   { title: "Evidence",       sub: "Knowledge graph summary" },
+  architecture:{ title: "Architecture",  sub: "How ARGUS works" },
+  obsidian:   { title: "Obsidian Brain", sub: "Dedicated Obsidian vault" },
+  settings:   { title: "Settings",       sub: "System status & configuration" },
 };
 let currentView = "brain";
 const loaded = {};
@@ -1577,7 +1729,7 @@ const pageTitle = document.getElementById("page-title");
 const pageSub = document.getElementById("page-sub");
 
 function switchView(id) {
-  if (!VIEWS[id]) id = "brain";
+  if (!VIEWS[id]) id = "pipeline";
   currentView = id;
   document.querySelectorAll("#main .view").forEach(s => s.classList.toggle("active", s.dataset.view === id));
   document.querySelectorAll("#sidebar .nav-item[data-view]").forEach(a => {
@@ -1589,38 +1741,44 @@ function switchView(id) {
   pageTitle.textContent = VIEWS[id].title;
   pageSub.textContent = VIEWS[id].sub;
 
-  if (id === "brain") {
+  if (id === "graph") {
     requestAnimationFrame(() => { resize(); requestDraw(); });
+  }
+  if (id === "pipeline") {
+    requestAnimationFrame(() => { resizePipeline(); drawPipeline(); });
   }
   if (loaded[id] == null && loaders[id]) loaded[id] = loaders[id]();
 }
 
 const loaders = {
-  research()   { renderResearchLanding(); },
-  knowledge()  { renderKnowledge(); },
-  argusbrain() { renderArgusBrain(); },
-  documents()  { renderDocuments(); },
-  evidence()   { renderEvidence(); },
-  obsidian()   { renderObsidian(); },
-  settings()   { renderSettings(); },
+  pipeline()    { renderPipelineEmpty(); },
+  research()    { renderResearchLanding(); },
+  knowledge()   { renderKnowledge(); },
+  graph()       { /* already loaded */ },
+  argusbrain()  { renderArgusBrain(); },
+  documents()   { renderDocuments(); },
+  evidence()    { renderEvidence(); },
+  architecture(){ renderArchitecture(); },
+  obsidian()    { renderObsidian(); },
+  settings()    { renderSettings(); },
 };
 
 document.querySelectorAll("#sidebar .nav-item[data-view]").forEach(a => {
   a.addEventListener("click", (ev) => {
     const v = a.dataset.view;
-    if (v === "brain") history.replaceState(null, "", "#brain");
+    if (v === "pipeline") history.replaceState(null, "", "#pipeline");
     else history.pushState(null, "", "#" + v);
     switchView(v);
   });
 });
 window.addEventListener("popstate", () => {
-  const h = (location.hash || "#brain").replace("#", "");
-  switchView(VIEWS[h] ? h : "brain");
+  const h = (location.hash || "#pipeline").replace("#", "");
+  switchView(VIEWS[h] ? h : "pipeline");
 });
-// Initial view from hash (defaults to brain)
+// Initial view from hash (defaults to pipeline)
 (function initView() {
-  const h = (location.hash || "#brain").replace("#", "");
-  switchView(VIEWS[h] ? h : "brain");
+  const h = (location.hash || "#pipeline").replace("#", "");
+  switchView(VIEWS[h] ? h : "pipeline");
 })();
 
 /* ---------------- Research (chat) ---------------- */

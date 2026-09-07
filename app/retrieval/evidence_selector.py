@@ -310,4 +310,14 @@ class EvidenceSelector:
             remove_ids = {r.chunk_id for r in by_score[:removed]}
             result = [r for r in evidence if r.chunk_id not in remove_ids]
 
+        # Warn if min_chunks still exceeds budget (unavoidable with current evidence)
+        final_tokens = sum(_estimate_tokens(r.text) for r in result)
+        if final_tokens > self.max_tokens:
+            logger.warning(
+                "evidence_token_budget_exceeded",
+                final_tokens=final_tokens,
+                max_tokens=self.max_tokens,
+                min_chunks=self.min_chunks,
+            )
+
         return result

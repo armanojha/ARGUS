@@ -17,6 +17,7 @@ from app.config import Settings, load_providers_config
 from app.llm_gateway.providers import cerebras as _cerebras  # noqa: F401
 from app.llm_gateway.providers import gemini as _gemini  # noqa: F401
 from app.llm_gateway.providers import get_provider_factory
+from app.llm_gateway.providers import nvidia_nim as _nvidia_nim  # noqa: F401
 
 # Import side effect: registers providers in the provider registry. Add
 # further `import app.llm_gateway.providers.<name>` lines here as new

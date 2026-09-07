@@ -671,7 +671,10 @@ def make_retrieve_node(
 
         issued = list(state["issued_subqueries"]) + [subquery]
 
-        tokens_used = state["tokens_used"] + sum(_estimate_tokens(r.text) for r in results)
+        # Token accounting: only count tokens from NEW evidence (not already accumulated)
+        new_evidence_ids = {ref.chunk_id for ref in merged_evidence} - {ref.chunk_id for ref in state["evidence"]}
+        new_evidence_tokens = sum(_estimate_tokens(r.text) for r in results if r.chunk_id in new_evidence_ids)
+        tokens_used = state["tokens_used"] + new_evidence_tokens
 
         consecutive_empty = state["consecutive_empty_retrievals"] + 1 if new_count == 0 else 0
 

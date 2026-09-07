@@ -106,8 +106,8 @@ class FAISSVectorStore:
         Score is cosine similarity (inner product of normalized vectors).
         """
         if self._index is None and not self.load_index():
-                logger.warning("faiss_search_no_index")
-                return []
+            logger.warning("faiss_search_no_index")
+            return []
 
         if self._index is None:
             raise RuntimeError("FAISS index not loaded")

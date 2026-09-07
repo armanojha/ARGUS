@@ -279,10 +279,10 @@ class HybridRetriever:
         else:
             # Original max-normalization (backward compatible)
             fused_results = []
+            max_bm25 = max(bm25_scores.values()) if bm25_scores else 1.0
             for chunk_id in all_chunk_ids:
                 bm25_score = bm25_scores.get(chunk_id, 0.0)
                 vector_score = vector_scores.get(chunk_id, 0.0)
-                max_bm25 = max(bm25_scores.values()) if bm25_scores else 1.0
                 norm_bm25 = bm25_score / max_bm25 if max_bm25 > 0 else 0.0
                 norm_vector = vector_score
                 fused_score = bm25_weight * norm_bm25 + vector_weight * norm_vector
@@ -298,11 +298,19 @@ class HybridRetriever:
 
         evidence_refs = store.get_evidence_refs(chunk_ids, fused_scores)
 
-        for i, ref in enumerate(evidence_refs):
-            _, _, bm25_s, vec_s = top_results[i]
-            ref.metadata["bm25_score"] = bm25_s
-            ref.metadata["vector_score"] = vec_s
-            ref.metadata["fused_score"] = fused_scores[i]
+        # Build lookup from chunk_id → (bm25_score, vector_score, fused_score)
+        # so metadata assignment survives orphaned-chunk filtering in get_evidence_refs.
+        _meta_lookup: dict[str, tuple[float, float, float]] = {}
+        for cid, _, bm25_s, vec_s in top_results:
+            _meta_lookup[str(cid)] = (bm25_s, vec_s, fused_scores[chunk_ids.index(cid)] if cid in chunk_ids else 0.0)
+
+        for ref in evidence_refs:
+            key = str(ref.chunk_id)
+            if key in _meta_lookup:
+                bm25_s, vec_s, fused_s = _meta_lookup[key]
+                ref.metadata["bm25_score"] = bm25_s
+                ref.metadata["vector_score"] = vec_s
+                ref.metadata["fused_score"] = fused_s
 
         logger.info("hybrid_search", query=query[:50], results=len(evidence_refs))
         return evidence_refs

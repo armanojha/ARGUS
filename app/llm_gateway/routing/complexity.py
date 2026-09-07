@@ -156,12 +156,12 @@ def adjust_tier_for_evidence(
 
     avg_score = sum(evidence_scores[:min_scores]) / min_scores
 
-    # Strong evidence (avg > 0.6) → can safely use BALANCED tier
-    if avg_score >= 0.6 and current_tier == ComplexityTier.STRONG:
-        return ComplexityTier.BALANCED
-
-    # Very strong evidence (avg > 0.75) → can use FAST tier for remaining calls
+    # Very strong evidence (avg >= 0.75) → can use FAST tier for remaining calls
     if avg_score >= 0.75 and current_tier in (ComplexityTier.STRONG, ComplexityTier.BALANCED):
         return ComplexityTier.FAST
+
+    # Strong evidence (avg >= 0.6) → can safely use BALANCED tier
+    if avg_score >= 0.6 and current_tier == ComplexityTier.STRONG:
+        return ComplexityTier.BALANCED
 
     return current_tier

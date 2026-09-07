@@ -439,7 +439,17 @@ def _derive_outcome(final_state: OrchestrationState) -> Outcome:
 
 def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
     plan = final_state["plan"]
-    assert plan is not None
+    if plan is None:
+        # Degraded path: plan missing (e.g., fast-path edge case). Build a
+        # minimal result without plan-derived fields.
+        return OrchestrationResult(
+            answer=final_state["answer"] or "",
+            citations=[],
+            evidence_count=len(final_state["evidence"]),
+            outcome=Outcome.ANSWERED_DEGRADED,
+            stop_reason=StopReason.BUDGET_EXHAUSTED,
+            warnings=list(final_state["warnings"]) + ["plan_missing_fallback"],
+        )
     evidence = final_state["evidence"]
     answer = final_state["answer"] or ""
     warnings = list(final_state["warnings"])
