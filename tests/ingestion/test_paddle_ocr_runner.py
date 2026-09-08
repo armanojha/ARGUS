@@ -161,7 +161,9 @@ class TestPaddleOCRRunnerProtocol:
     def test_start_performs_handshake(self, _clean_runner_singleton):
         runner = PaddleOCRRunner()
         proc = self._make_proc()
-        with patch("app.ingestion.ocr.subprocess.Popen", return_value=proc) as popen, \
+        with patch("app.ingestion.ocr._resolve_runner_python", return_value=Path("python")), \
+             patch("app.ingestion.ocr._resolve_runner_script", return_value=Path("runner.py")), \
+             patch("app.ingestion.ocr.subprocess.Popen", return_value=proc) as popen, \
              patch.object(runner, "_read_json_line",
                           return_value={"event": "ready", "version": "paddleocr"}) as rjl:
             runner._drain_thread = MagicMock()
@@ -173,7 +175,9 @@ class TestPaddleOCRRunnerProtocol:
     def test_start_raises_without_ready(self, _clean_runner_singleton):
         runner = PaddleOCRRunner()
         proc = self._make_proc()
-        with patch("app.ingestion.ocr.subprocess.Popen", return_value=proc), \
+        with patch("app.ingestion.ocr._resolve_runner_python", return_value=Path("python")), \
+             patch("app.ingestion.ocr._resolve_runner_script", return_value=Path("runner.py")), \
+             patch("app.ingestion.ocr.subprocess.Popen", return_value=proc), \
              patch.object(runner, "_read_json_line", return_value={"event": "nope"}):
             runner._drain_thread = MagicMock()
             runner._queue = MagicMock()

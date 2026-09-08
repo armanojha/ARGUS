@@ -153,10 +153,10 @@ Overall:                 16/16 (100%)
 
 | Metric | Value |
 |--------|-------|
-| Tests collected | 943 |
-| Tests passed | 914 |
+| Tests collected | 991 |
+| Tests passed | 965 |
 | Tests skipped | 26 |
-| Known failures | 3 (2 pre-existing + 1 flaky) |
+| Known failures | 0 |
 | New regressions | 0 |
 | Contradiction benchmark | 8/8 (100%) |
 

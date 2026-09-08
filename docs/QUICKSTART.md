@@ -104,7 +104,7 @@ curl -X POST http://localhost:8000/api/v1/query \
 python -m pytest tests/ -x -q --ignore=tests/llm_gateway/test_phase07e_recovery.py
 ```
 
-Expected: 943 collected · 914 passed · 26 skipped · 3 known failures.
+Expected: 991 collected · 965 passed · 26 skipped · 0 failures.
 
 ## Troubleshooting
 

@@ -57,6 +57,33 @@ class ScriptedProvider:
         pass
 
 
+def _all_route_paths(app) -> set[str]:
+    """Collect route paths, descending into included routers.
+
+    Newer FastAPI/Starlette versions keep ``include_router()`` entries as
+    opaque ``_IncludedRouter`` markers in ``app.routes`` — they have no
+    ``.path`` themselves. Their real routes live in
+    ``.original_router.routes`` (prefixes already applied at definition).
+    Blindly assuming ``.path`` raises AttributeError.
+    """
+    paths: set[str] = set()
+
+    def _walk(routes) -> None:
+        for r in routes:
+            p = getattr(r, "path", None)
+            if p is not None:
+                paths.add(p)
+            nested = getattr(r, "routes", None)
+            if nested:
+                _walk(nested)
+            original = getattr(r, "original_router", None)
+            if original is not None:
+                _walk(getattr(original, "routes", []))
+
+    _walk(app.routes)
+    return paths
+
+
 @pytest.fixture
 def isolated_telemetry(tmp_path: Path) -> Path:
     telemetry_mod._completed_runs.clear()
@@ -144,7 +171,7 @@ def test_telemetry_endpoints_query_integration(
     client = TestClient(create_app(), raise_server_exceptions=False)
     # The app lifespan points persistence at settings.data_dir; keep test writes in tmp.
     telemetry_mod.set_telemetry_persistence_dir(isolated_telemetry)
-    assert "/api/v1/telemetry" in {r.path for r in client.app.routes}
+    assert "/api/v1/telemetry" in _all_route_paths(client.app)
 
     response = client.post("/api/v1/query", json={"query": "How much is 6x7?"})
     assert response.status_code == 200

@@ -39,11 +39,38 @@ def _make_app_client(tmp: Path, failing_provider: MockProvider) -> TestClient:
     return TestClient(create_app())
 
 
+def _all_route_paths(app) -> set[str]:
+    """Collect route paths, descending into included routers.
+
+    Newer FastAPI/Starlette versions keep ``include_router()`` entries as
+    opaque ``_IncludedRouter`` markers in ``app.routes`` — they have no
+    ``.path`` themselves. Their real routes live in
+    ``.original_router.routes`` (prefixes already applied at definition).
+    Blindly assuming ``.path`` raises AttributeError.
+    """
+    paths: set[str] = set()
+
+    def _walk(routes) -> None:
+        for r in routes:
+            p = getattr(r, "path", None)
+            if p is not None:
+                paths.add(p)
+            nested = getattr(r, "routes", None)
+            if nested:
+                _walk(nested)
+            original = getattr(r, "original_router", None)
+            if original is not None:
+                _walk(getattr(original, "routes", []))
+
+    _walk(app.routes)
+    return paths
+
+
 def test_verify_route_registered():
     from app.api.main import create_app
 
     client = TestClient(create_app())
-    paths = {r.path for r in client.app.routes}
+    paths = _all_route_paths(client.app)
     assert "/api/v1/verify" in paths
 
 
