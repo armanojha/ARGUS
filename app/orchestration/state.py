@@ -76,3 +76,6 @@ class OrchestrationState(TypedDict):
     # consulted persistent memory (derived knowledge, distinct from document
     # evidence). Additive visibility for the user-facing control layer.
     memory_consulted: NotRequired[list[str]]
+
+    # Per-node runtime traces for Brain UI cognitive debugger
+    _node_traces: NotRequired[list[dict[str, Any]]]

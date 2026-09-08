@@ -312,6 +312,12 @@ class Settings(BaseSettings):
         "conflicts: presents both sides without choosing one unless evidence "
         "establishes clear authority. Default False.",
     )
+    conflict_semantic_check_enabled: bool = Field(
+        default=False,
+        description="When True, deterministic contradiction candidates are "
+        "verified by an LLM semantic check (ENTailed/CONTRADICTED/NEUTRAL). "
+        "Reduces false positives from heuristic matching. Adds latency. Default False.",
+    )
 
     # --- Obsidian Ingestion (Phase 05) ---
     obsidian_enabled: bool = Field(

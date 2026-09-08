@@ -59,6 +59,8 @@ class EvidenceGraphStore:
         self.evidence_store = evidence_store or get_evidence_store()
         self._graph: nx.MultiDiGraph = nx.MultiDiGraph()
         self._entity_name_index: dict[str, UUID] = {}
+        self._claim_name_index: dict[str, UUID] = {}
+        self._event_name_index: dict[str, UUID] = {}
         self.version_manager = version_manager
         self._load_graph()
 
@@ -78,15 +80,26 @@ class EvidenceGraphStore:
             self._graph = nx.MultiDiGraph()
 
     def _rebuild_entity_name_index(self) -> None:
-        """Rebuild the entity name lookup index from the graph."""
+        """Rebuild the entity/claim/event name lookup indexes from the graph."""
         self._entity_name_index.clear()
+        self._claim_name_index.clear()
+        self._event_name_index.clear()
         for node_key in self._graph.nodes:
             node_data = self._graph.nodes[node_key]
-            if node_data.get("node_type") == "entity":
-                data = json.loads(node_data.get("data", "{}"))
+            node_type = node_data.get("node_type")
+            data = json.loads(node_data.get("data", "{}"))
+            if node_type == "entity":
                 name = data.get("canonical_name", "")
                 if name:
                     self._entity_name_index[name.lower()] = UUID(data["id"])
+            elif node_type == "claim":
+                text = data.get("text", "")
+                if text:
+                    self._claim_name_index[text.lower()] = UUID(data["id"])
+            elif node_type == "event":
+                name = data.get("name", "")
+                if name:
+                    self._event_name_index[name.lower()] = UUID(data["id"])
 
     def save(self) -> None:
         """Persist graph to disk."""
@@ -292,6 +305,7 @@ class EvidenceGraphStore:
         previous_state = self._get_node_data("claim", claim.id)
         self._add_node("claim", claim.id, claim.model_dump(mode="json"))
         if was_created:
+            self._claim_name_index[claim.text.lower()] = claim.id
             delta_type = DeltaType.CLAIM_CREATED
         elif claim.contradicting_chunk_ids:
             delta_type = DeltaType.CLAIM_CONTRADICTED
@@ -345,6 +359,8 @@ class EvidenceGraphStore:
         was_created = not self._node_exists("event", event.id)
         previous_state = self._get_node_data("event", event.id)
         self._add_node("event", event.id, event.model_dump(mode="json"))
+        if was_created:
+            self._event_name_index[event.name.lower()] = event.id
         self._record_delta(
             delta_type=DeltaType.EVENT_CREATED if was_created else DeltaType.EVENT_UPDATED,
             target_id=event.id,
@@ -461,6 +477,14 @@ class EvidenceGraphStore:
             edge = GraphEdge(**json.loads(edge_data.get("data", "{}")))
             results.append(edge)
 
+        return results
+
+    def get_all_edges(self) -> list[GraphEdge]:
+        """Return every edge in the graph."""
+        results = []
+        for _source_key, _target_key, _edge_key, edge_data in self._graph.edges(keys=True, data=True):
+            edge = GraphEdge(**json.loads(edge_data.get("data", "{}")))
+            results.append(edge)
         return results
 
     # -- Graph query operations ----------------------------------------------

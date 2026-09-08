@@ -113,7 +113,12 @@ async def populate_graph(
 
     batches = [chunks[i : i + batch_size] for i in range(0, len(chunks), batch_size)]
     for batch in batches:
-        extraction = await extract_from_chunks(batch, router, settings, request_id="brain-populate")
+        # Pass the store's entity index so cross-batch relations resolve correctly
+        extraction = await extract_from_chunks(
+            batch, router, settings,
+            request_id="brain-populate",
+            existing_entity_index=graph_store._entity_name_index,
+        )
         graph_store.apply_extraction(extraction)
 
     # Populate entity/relation embeddings

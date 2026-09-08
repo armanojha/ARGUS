@@ -252,6 +252,14 @@ class OrchestrationResult(BaseModel):
         description="Selective claim verification metadata for this query, when the 07b "
         "verification stage fired. Verification annotates but never replaces the answer.",
     )
+    # Per-node runtime traces for Brain UI cognitive debugger
+    node_traces: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Per-node runtime trace objects showing what each orchestration "
+        "node thought, decided, and produced. Each trace includes: node name, "
+        "status, why (reasoning), input summary, decision, evidence used, "
+        "confidence, alternatives considered, next transition, and latency_ms.",
+    )
 
 
 def sanitize_result_for_user(result: OrchestrationResult) -> OrchestrationResult:

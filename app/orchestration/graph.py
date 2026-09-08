@@ -68,6 +68,52 @@ from app.retrieval.seeking import get_adaptive_gap_detector
 logger = get_logger("argus.orchestration.graph")
 
 
+def _timed_node(node_name: str, node_fn: Any) -> Any:
+    """Wrap a graph node function with per-node timing instrumentation.
+
+    Records start/end timestamps and appends a trace entry to
+    ``state["_node_traces"]`` so the Brain UI can show what each node
+    actually did during the run.
+    """
+    import time as _time
+
+    _NODE_DESCRIPTIONS = {
+        "analyze": "Classify query complexity and suggest decomposition strategy",
+        "plan": "Create structured research plan with subquestions and budgets",
+        "memory_enhance": "Consult persistent memory for relevant prior knowledge",
+        "retrieve": "Hybrid retrieval with policy-driven dispatch and reranking",
+        "assess": "Evaluate evidence sufficiency, detect contradictions, seek gaps",
+        "stop_check": "Evaluate stopping conditions against current evidence state",
+        "debate": "Multi-agent debate for high-risk/uncertainty questions",
+        "synthesize": "Generate grounded answer with bracket citations",
+        "verified_synthesize": "Two-pass synthesis with cross-model verification",
+    }
+
+    async def _wrapper(state: OrchestrationState) -> dict:
+        start = _time.monotonic()
+        result = await node_fn(state)
+        elapsed_ms = round((_time.monotonic() - start) * 1000)
+
+        traces = list(state.get("_node_traces") or [])
+        traces.append({
+            "node": node_name,
+            "status": "completed",
+            "why": _NODE_DESCRIPTIONS.get(node_name, node_name),
+            "latency_ms": elapsed_ms,
+            "evidence_count": len(state.get("evidence") or []),
+            "iteration": state.get("iteration", 0),
+            "tokens_used": state.get("tokens_used", 0),
+            **{k: v for k, v in result.items() if k in (
+                "sufficient", "stop_reason", "question_pattern",
+                "stop_condition_fired", "contradiction_signals",
+            )},
+        })
+        result["_node_traces"] = traces
+        return result
+
+    return _wrapper
+
+
 def _is_simple_query(query: str) -> bool:
     """Whether a query is simple enough to skip the analyze/plan/assess LLM calls.
 
@@ -204,11 +250,11 @@ def build_graph(
     """
     workflow = StateGraph(OrchestrationState)
 
-    workflow.add_node("analyze", make_analyze_node(router, settings))  # type: ignore
-    workflow.add_node("plan", make_plan_node(router, settings))  # type: ignore
+    workflow.add_node("analyze", _timed_node("analyze", make_analyze_node(router, settings)))  # type: ignore
+    workflow.add_node("plan", _timed_node("plan", make_plan_node(router, settings)))  # type: ignore
     if memory_store is not None:
-        workflow.add_node("memory_enhance", partial(_memory_enhance_node, memory_store=memory_store))  # type: ignore
-    workflow.add_node("retrieve", make_retrieve_node(retriever, reranker, settings, policy_router=policy_router))  # type: ignore
+        workflow.add_node("memory_enhance", _timed_node("memory_enhance", partial(_memory_enhance_node, memory_store=memory_store)))  # type: ignore
+    workflow.add_node("retrieve", _timed_node("retrieve", make_retrieve_node(retriever, reranker, settings, policy_router=policy_router)))  # type: ignore
 
     # Evidence selector: minimal high-coverage subset for LLM context
     evidence_selector = EvidenceSelector(
@@ -227,16 +273,16 @@ def build_graph(
         adaptive_policy = create_adaptive_research_policy(settings)
         logger.info("adaptive_research_enabled", request_id=None)
 
-    workflow.add_node("assess", make_assess_node(  # type: ignore
+    workflow.add_node("assess", _timed_node("assess", make_assess_node(  # type: ignore
         router, settings,
         gap_detector=gap_detector,
         evidence_selector=evidence_selector,
         adaptive_research_policy=adaptive_policy,
-    ))
-    workflow.add_node("stop_check", make_stop_check_node(stopping_logic))  # type: ignore
+    )))
+    workflow.add_node("stop_check", _timed_node("stop_check", make_stop_check_node(stopping_logic)))  # type: ignore
     if agent_coordinator is not None:
-        workflow.add_node("debate", partial(_debate_node, agent_coordinator=agent_coordinator))  # type: ignore
-    workflow.add_node("synthesize", make_synthesize_node(router, settings, evidence_selector=evidence_selector))  # type: ignore
+        workflow.add_node("debate", _timed_node("debate", partial(_debate_node, agent_coordinator=agent_coordinator)))  # type: ignore
+    workflow.add_node("synthesize", _timed_node("synthesize", make_synthesize_node(router, settings, evidence_selector=evidence_selector)))  # type: ignore
 
     # Phase 29: Two-pass verified synthesis (feature-flagged, default off)
     verified_synthesis_enabled = getattr(settings, "verified_synthesis_enabled", False)
@@ -506,6 +552,8 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
         memory_consulted=final_state.get("memory_consulted") or [],
         # Phase 39 / Phase 40 contradiction signals
         contradiction_signals=final_state.get("contradiction_signals") or [],
+        # Per-node runtime traces for Brain UI cognitive debugger
+        node_traces=final_state.get("_node_traces") or [],
     )
 
 

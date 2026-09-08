@@ -207,10 +207,13 @@ async def extract_from_chunks(
     router: LLMRouter,
     settings: Settings,
     request_id: str | None = None,
+    existing_entity_index: dict[str, UUID] | None = None,
 ) -> ExtractionResult:
     """Extract entities, claims, events from a batch of chunks.
 
     Uses the LLM Gateway with structured output. Handles failures gracefully.
+    If ``existing_entity_index`` is provided (from the graph store), relations
+    can reference entities/claims/events from previous batches.
     """
     if not chunks:
         return ExtractionResult(processed_chunk_ids=[])
@@ -266,6 +269,8 @@ async def extract_from_chunks(
 
     # Process entities
     entity_name_to_id: dict[tuple[str, str], UUID] = {}
+    claim_name_to_id: dict[str, UUID] = {}
+    event_name_to_id: dict[str, UUID] = {}
     for ext_entity in extraction_output.entities:
         entity_type = _map_entity_type(ext_entity.entity_type)
         entity = Entity(
@@ -282,13 +287,23 @@ async def extract_from_chunks(
         for alias in ext_entity.aliases:
             entity_name_to_id[(alias.lower(), entity_type.value)] = entity.id
 
-    # Helper to look up entity by name across all types
+    # Helper to look up entity/claim/event by name across all types
     def _lookup_entity(name: str) -> UUID | None:
         name_lower = name.lower()
+        # Check entity index first (current batch)
         for et in EntityType:
             key = (name_lower, et.value)
             if key in entity_name_to_id:
                 return entity_name_to_id[key]
+        # Check claim index (current batch)
+        if name_lower in claim_name_to_id:
+            return claim_name_to_id[name_lower]
+        # Check event index (current batch)
+        if name_lower in event_name_to_id:
+            return event_name_to_id[name_lower]
+        # Check cross-batch entity index from graph store
+        if existing_entity_index and name_lower in existing_entity_index:
+            return existing_entity_index[name_lower]
         return None
 
     # Process claims
@@ -324,6 +339,7 @@ async def extract_from_chunks(
             published_precision=pub_prec,
         )
         result.claims.append(claim)
+        claim_name_to_id[claim.text.lower()] = claim.id
 
     # Process events
     for ext_event in extraction_output.events:
@@ -353,6 +369,7 @@ async def extract_from_chunks(
             supporting_chunk_ids=[chunk_id_map[i] for i in ext_event.chunk_indices if i in chunk_id_map],
         )
         result.events.append(event)
+        event_name_to_id[event.name.lower()] = event.id
 
     # Process relations
     for ext_rel in extraction_output.relations:

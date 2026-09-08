@@ -465,6 +465,84 @@ def _detect_contradictions(
     return contradictions
 
 
+async def _semantic_contradiction_check(
+    contradictions: list[dict],
+    evidence: list[EvidenceRef],
+    router: LLMRouter,
+    settings: object,
+    request_id: str = "",
+) -> list[dict]:
+    """Stage 3: LLM semantic verification of deterministic contradiction candidates.
+
+    Takes pairs flagged by the deterministic layer and asks an LLM to determine
+    whether they are genuinely CONTRADICTED, ENTAILED, NEUTRAL, or
+    INSUFFICIENT_CONTEXT. Only pairs with a CONTRADICTED verdict are kept.
+
+    This prevents false positives from heuristic matching (e.g., "Revenue
+    increased to $3B" vs "Revenue reached $2.7B" being different time periods).
+    """
+    if not contradictions:
+        return contradictions
+
+    verified = []
+    for sig in contradictions:
+        idx_i = sig.get("evidence_indices", [0, 0])[0] - 1
+        idx_j = sig.get("evidence_indices", [0, 0])[1] - 1
+        if idx_i < 0 or idx_i >= len(evidence) or idx_j < 0 or idx_j >= len(evidence):
+            verified.append(sig)
+            continue
+
+        text_i = evidence[idx_i].text[:500]
+        text_j = evidence[idx_j].text[:500]
+
+        messages = [
+            {"role": "system", "content": (
+                "You are a contradiction detection verifier. Given two text "
+                "passages, determine whether they CONTRADICT each other, are "
+                "ENTAILED (one implies the other), are NEUTRAL (unrelated), or "
+                "have INSUFFICIENT_CONTEXT to determine. Respond with exactly "
+                "one label: CONTRADICTED, ENTAILED, NEUTRAL, or INSUFFICIENT_CONTEXT."
+            )},
+            {"role": "user", "content": (
+                f"Passage A: {text_i}\n\n"
+                f"Passage B: {text_j}\n\n"
+                f"Deterministic flag: {sig.get('conflict_type', 'unknown')} "
+                f"(confidence: {sig.get('confidence', 'LOW')})\n\n"
+                "Verdict:"
+            )},
+        ]
+
+        try:
+            from pydantic import BaseModel
+
+            class ContradictionVerdict(BaseModel):
+                verdict: str  # CONTRADICTED, ENTAILED, NEUTRAL, INSUFFICIENT_CONTEXT
+
+            result = await _safe_structured_call(
+                router,
+                messages=messages,
+                response_model=ContradictionVerdict,
+                call_type="verification",
+                settings=settings,
+                request_id=request_id,
+            )
+            if result[0] and result[0].verdict.upper() == "CONTRADICTED":
+                sig["semantic_verified"] = True
+                verified.append(sig)
+            else:
+                logger.debug(
+                    "semantic_contradiction_rejected",
+                    conflict_type=sig.get("conflict_type"),
+                    verdict=result[0].verdict if result[0] else "error",
+                    request_id=request_id,
+                )
+        except Exception:  # noqa: BLE001 - fail-safe: keep deterministic signal on LLM error
+            # If LLM check fails, keep the deterministic signal (safe default)
+            verified.append(sig)
+
+    return verified
+
+
 def filter_contradictions_by_query(
     contradictions: list[dict],
     evidence: list[EvidenceRef],
@@ -861,6 +939,16 @@ def make_assess_node(
                 query=state["query"],
             )
             if detected:
+                # Stage 3: LLM semantic verification (feature-flagged)
+                semantic_check = getattr(settings, "conflict_semantic_check_enabled", False)
+                if semantic_check and detected and router is not None:
+                    detected = await _semantic_contradiction_check(
+                        detected,
+                        relevant_evidence if relevant_evidence else evidence,
+                        router,
+                        settings,
+                        request_id=state["request_id"],
+                    )
                 # Phase 41: Query-aware filtering (feature-flagged)
                 conflict_filtering = getattr(settings, "conflict_filtering_enabled", False)
                 if conflict_filtering:
