@@ -13,15 +13,59 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Repository root = parent of the `app` package directory.
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+# ---------------------------------------------------------------------------
+# Explicit run modes.
+#
+# ARGUS accumulated ~9 independent opt-in behavioral flags, which lets users
+# combine untested configurations (e.g. safe synthesis without filtering).
+# Modes collapse those into four tested configurations. A mode only supplies
+# DEFAULTS: any flag set explicitly (env var / .env / constructor kwarg)
+# always wins over the mode. Flags needing hardware or external setup
+# (multimodal needs Tesseract, bge_m3 downloads models, obsidian needs a
+# vault path) are False in every mode and must be enabled explicitly.
+# ---------------------------------------------------------------------------
+ARGUS_MODE_FLAGS: tuple[str, ...] = (
+    "adaptive_research_enabled",
+    "conflict_filtering_enabled",
+    "conflict_safe_synthesis_enabled",
+    "conflict_semantic_check_enabled",
+    "verified_synthesis_enabled",
+    "memory_enabled",
+    "multiagent_enabled",
+)
+
+ARGUS_MODES: dict[str, dict[str, bool]] = {
+    "baseline": {},
+    "research": {
+        "adaptive_research_enabled": True,
+    },
+    "verified": {
+        "conflict_filtering_enabled": True,
+        "conflict_safe_synthesis_enabled": True,
+        "conflict_semantic_check_enabled": True,
+        "verified_synthesis_enabled": True,
+    },
+    "full": {
+        "adaptive_research_enabled": True,
+        "conflict_filtering_enabled": True,
+        "conflict_safe_synthesis_enabled": True,
+        "conflict_semantic_check_enabled": True,
+        "verified_synthesis_enabled": True,
+        "memory_enabled": True,
+        "multiagent_enabled": True,
+    },
+}
 
 
 def load_dotenv_file(path: Path | None = None) -> bool:
@@ -56,6 +100,13 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+    )
+
+    mode: Literal["baseline", "research", "verified", "full"] = Field(
+        default="baseline",
+        description="Explicit run mode (ARGUS_MODE). Supplies defaults for the "
+        "opt-in behavioral flags; any flag set explicitly always wins over "
+        "the mode. 'baseline' preserves historical default behavior.",
     )
 
     env: str = Field(default="development", description="Runtime environment name.")
@@ -611,6 +662,21 @@ class Settings(BaseSettings):
         default=None,
         description="Directory where PaddleX stores downloaded models (default: the worker's ~/.paddlex). Set to keep models inside the project and out of the home directory.",
     )
+
+    @model_validator(mode="after")
+    def _apply_mode_defaults(self) -> Settings:
+        """Resolve mode → flag defaults without overriding explicit settings.
+
+        Only flags absent from ``model_fields_set`` (i.e. not provided via
+        env, .env, or constructor) take their value from the mode map.
+        Unknown modes are rejected by the ``Literal`` type above.
+        """
+        target = ARGUS_MODES.get(self.mode, {})
+        explicit = self.model_fields_set
+        for flag in ARGUS_MODE_FLAGS:
+            if flag not in explicit and flag in target:
+                setattr(self, flag, target[flag])
+        return self
 
     @property
     def providers_config_path(self) -> Path:

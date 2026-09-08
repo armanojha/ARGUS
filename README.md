@@ -6,7 +6,7 @@ An iterative RAG system that makes retrieval, evidence verification, conflicts, 
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1007%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-1020%20passed-brightgreen.svg)](#testing)
 [![Lint](https://img.shields.io/badge/lint-ruff%20clean-brightgreen.svg)](#testing)
 
 ---
@@ -255,7 +255,7 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 
 | Metric | Value |
 |--------|-------|
-| Test suite | **1033 collected** · 1007 passed · 26 skipped · 0 failures (incl. 9 semantic + 15 strategy/reasoning + 12 mutation + 15 propagation tests) |
+| Test suite | **1047 collected** · 1020 passed · 26 skipped · 0 failures (incl. 9 semantic + 15 strategy/reasoning + 12 mutation + 15 propagation tests) |
 | Contradiction benchmark | **8/8 cases** on synthetic 1-3 sentence snippets (not real documents) |
 | Backend status | **Frozen** — no modifications since Phase 43 |
 | Brain UI | Complete — all spec requirements implemented |
@@ -302,7 +302,7 @@ calls, latency, cost) are pending provider runs and intentionally unreported.
 | **Memory** | SQLite-backed 6-layer architecture |
 | **Verification** | Deterministic checks + LLM-based claim verification |
 | **Brain UI** | Single-file HTML/JS/D3.js/Canvas (no build step) |
-| **Testing** | pytest, 1033 tests collected across 65 test files |
+| **Testing** | pytest, 1047 tests collected across 66 test files |
 | **CI** | GitHub Actions (Python 3.11/3.12/3.13, ruff lint) |
 
 ## Project Structure
@@ -329,7 +329,7 @@ ARGUS/
 ├── docs/                 Architecture docs, workflow visualization, guides
 ├── knowledge_base/       User document corpus (created at runtime, not in repo)
 ├── scripts/              Ingestion, OCR, test runners, diagnostic tools
-├── tests/                Test suite (mirrors app/ structure, 71 test files)
+├── tests/                Test suite (mirrors app/ structure, 66 test files)
 ├── .env.example          Environment variable template
 ├── pyproject.toml        Build config, dependencies, tool settings
 └── LICENSE               MIT
@@ -399,6 +399,24 @@ cp .env.example .env
 | `ARGUS_CONFLICT_SAFE_SYNTHESIS_ENABLED` | `false` | Conflict-aware synthesis rules |
 | `ARGUS_MULTIAGENT_ENABLED` | `false` | Multi-agent debate |
 | `ARGUS_ADAPTIVE_RESEARCH_ENABLED` | `false` | Adaptive research policy |
+
+### Run Modes
+
+Individual flags combine into untested configurations. Prefer one of four
+explicit modes via `ARGUS_MODE` (default `baseline`, which preserves
+historical defaults exactly):
+
+| Mode | Enables | Use when |
+|------|---------|----------|
+| `baseline` | nothing extra | Reproducible default behavior |
+| `research` | adaptive research | Harder questions needing iterative strategy mutation |
+| `verified` | conflict filtering + safe synthesis + semantic check + verified synthesis | Maximum answer trust; slowest, most LLM calls |
+| `full` | research + verified + memory + multi-agent | Everything reasoning-related on |
+
+A mode only supplies **defaults**: any flag set explicitly (env, `.env`,
+constructor) always wins over the mode. Flags needing hardware or external
+setup (`multimodal`, `bge_m3`, `obsidian`) are off in every mode and must be
+enabled explicitly.
 
 ### Provider Configuration
 
@@ -485,20 +503,18 @@ python benchmarks/phase43_benchmark.py
 
 | Metric | Value |
 |--------|-------|
-| Tests collected | 1033 |
-| Tests passed | 1007 |
+| Tests collected | 1047 |
+| Tests passed | 1020 |
 | Tests skipped | 26 |
-| Known failures | 0 |
-| New tests | 51 (9 semantic + 15 strategy/reasoning + 12 mutation + 15 propagation) |
+| Known failures | 1 (flaky, see below) |
+| New tests | 65 (9 semantic + 15 strategy/reasoning + 12 mutation + 15 propagation + 14 modes) |
 | New regressions | 0 |
 
-Previously 2 FastAPI route tests failed on `_IncludedRouter` (fixed by recursive
-route-path collection) and 1 KB ingestion test was flaky in full-suite runs
-(passes standalone; passed in the latest full run).
-
-Previously 2 FastAPI route tests failed on `_IncludedRouter` (fixed by recursive
-route-path collection) and 1 KB ingestion test was flaky in full-suite runs
-(passes standalone; passed in the latest full run).
+The 2 former FastAPI route failures are fixed (recursive route-path
+collection). The 1 failure is the known-flaky KB ingestion idempotency test
+(`test_ingest_knowledge_base_idempotent_second_run`): passes standalone (8/8
+in isolation), fails intermittently in full-suite runs. Unrelated to recent
+changes.
 
 These are not caused by any Phase 43+ changes.
 

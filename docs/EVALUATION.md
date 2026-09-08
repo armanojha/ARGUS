@@ -153,8 +153,8 @@ Overall:                 16/16 (100%)
 
 | Metric | Value |
 |--------|-------|
-| Tests collected | 1033 |
-| Tests passed | 1007 |
+| Tests collected | 1047 |
+| Tests passed | 1020 |
 | Tests skipped | 26 |
 | Known failures | 0 |
 | New regressions | 0 |
