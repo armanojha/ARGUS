@@ -111,10 +111,11 @@ Fusion weights are configurable per query pattern via `configs/retrieval_policy.
 
 | Query Pattern | BM25 Weight | Dense Weight |
 |---------------|-------------|--------------|
-| Factual | 0.6 | 0.4 |
-| Comparison | 0.5 | 0.5 |
-| Conflict | 0.4 | 0.6 |
-| Summary | 0.3 | 0.7 |
+| Exact term | 0.7 | 0.3 |
+| Conceptual | 0.3 | 0.7 |
+| Comparative | 0.5 | 0.5 |
+| Causal | 0.4 | 0.6 |
+| Procedural | 0.6 | 0.4 |
 
 ### Adaptive Policy Router
 
@@ -462,7 +463,7 @@ These are not caused by any Phase 43+ changes.
 
 ### Brain UI
 
-- **Single-file architecture** — 3,996-line HTML file. Intentional for simplicity (no build step), but limits component reuse.
+- **Single-file architecture** — 3,673-line HTML file. Intentional for simplicity (no build step), but limits component reuse.
 - **Canvas rendering** — Graph performance may degrade with thousands of nodes (current evidence graphs are typically tens to low hundreds).
 
 ### What ARGUS Does NOT Do

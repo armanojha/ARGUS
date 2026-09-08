@@ -69,7 +69,7 @@ Document ingestion processes files sequentially. Large corpora may take signific
 
 ### Single-File Architecture
 
-The Brain UI is a 3,996-line single HTML file. This was intentional for simplicity (no build step, no framework), but:
+The Brain UI is a 3,673-line single HTML file. This was intentional for simplicity (no build step, no framework), but:
 
 - Adding features requires modifying a large file
 - No component reuse across views

@@ -142,16 +142,17 @@ Fusion is configurable per query pattern via `configs/retrieval_policy.yaml`:
 
 | Pattern | BM25 Weight | Dense Weight |
 |---------|-------------|--------------|
-| factual | 0.6 | 0.4 |
-| comparison | 0.5 | 0.5 |
-| conflict | 0.4 | 0.6 |
-| summary | 0.3 | 0.7 |
+| exact_term | 0.7 | 0.3 |
+| conceptual | 0.3 | 0.7 |
+| comparative | 0.5 | 0.5 |
+| causal | 0.4 | 0.6 |
+| procedural | 0.6 | 0.4 |
 
 ### Adaptive Policy Router
 
 The retrieval policy router classifies incoming questions into one of 18+ patterns and selects the optimal retrieval mix, method, and fusion strategy for each.
 
-**Classification patterns:** factual, numerical, exact_term, comparative, causal, procedural, long_report, historical, fresh_missing, entity_relationship, conflict, multi_hop, complex_research, absent_info, adversarial, multimodal, conceptual, summary
+**Classification patterns:** exact_term, conceptual, entity_relationship, historical, long_report, fresh_missing, multimodal, comparative, causal, procedural, simple_lookup, normal_qa, numerical, technical_explanation, multi_doc_synthesis, conflict, complex_research, multi_hop, absent_info, adversarial
 
 **Key file:** `app/retrieval/router.py` → `RetrievalPolicyRouter`
 
