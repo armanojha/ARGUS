@@ -259,10 +259,12 @@ class TestPaddlePdfFallback:
         runner = MagicMock()
         runner.deps = {}
         runner.run_ocr.return_value = ("FIRST OCR TEXT", 0.95)
+        settings = Settings(multimodal_enabled=True, multimodal_ocr_enabled=True)
         with (
             patch("app.ingestion.ocr._get_ocr_cache", return_value=cache),
             patch("app.ingestion.ocr._resolve_ocr_engine", return_value="paddle"),
             patch("app.ingestion.ocr._get_runner", return_value=runner),
+            patch("app.ingestion.ocr.get_settings", return_value=settings),
         ):
             first = list(extract_pdf_with_ocr_fallback(inky_scanned_pdf_path, min_chars_per_page=10))
             runner.run_ocr.reset_mock()

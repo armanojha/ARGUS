@@ -53,9 +53,9 @@ Established the first trustworthy quality baseline for ARGUS answer quality. Mea
 
 - `benchmarks/phase38_quality_baseline.py` — benchmark script
 - `benchmarks/results/phase38_quality_baseline.json` — raw results
-- `benchmarks/PHASE_38_QUALITY_BASELINE.md` — detailed quality metrics
+- `docs/archive/phases/PHASE_38_QUALITY_BASELINE.md` — detailed quality metrics
 - `benchmarks/PHASE_38_GOLD_STANDARD.md` — dataset audit
-- `benchmarks/PHASE_38_DIAGNOSTIC.md` — root cause analysis
+- `docs/archive/phases/PHASE_38_DIAGNOSTIC.md` — root cause analysis
 - `benchmarks/PHASE_38_REPORT.md` — this file
 
 ## Next Steps

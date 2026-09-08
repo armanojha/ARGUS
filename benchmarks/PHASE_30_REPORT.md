@@ -152,6 +152,6 @@ verified_synthesis_enabled: bool = False  # Enable per-query or per-use-case
 
 ### Created
 - `benchmarks/phase30_ablation.py` — 5-strategy ablation benchmark
-- `benchmarks/results/phase30_ablation.json` — Raw results
-- `benchmarks/PHASE_30_DIAGNOSTIC.md` — Diagnostic document
+- `docs/archive/results/phase30_ablation.json` — Raw results
+- `docs/archive/phases/PHASE_30_DIAGNOSTIC.md` — Diagnostic document
 - `benchmarks/PHASE_30_REPORT.md` — This report

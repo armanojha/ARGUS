@@ -36,7 +36,7 @@ ARGUS was developed through 43 phases of measurement, experimentation, and produ
 **Problem:** Different query types need different retrieval strategies.
 
 **Experiments:**
-- Query pattern classification (18+ patterns)
+- Query pattern classification (20 patterns)
 - Adaptive retrieval policy routing
 - Multi-model provider routing with fallback
 - Evidence need planning for complex queries

@@ -77,8 +77,20 @@ benchmarks/ablation_benchmark.py
 benchmarks/analyze_ablation.py
 benchmarks/latency_breakdown.py
 benchmarks/_debug_*.py
+benchmarks/_inspect_*.py
+benchmarks/_test_*.py
+benchmarks/_run_*.py
+benchmarks/analyze_phase*.py
+benchmarks/focused_experiment.py
+benchmarks/provider_health_check.py
+benchmarks/synthesis_ablation.py
+
+# Generated benchmark results (intermediate)
+benchmarks/results/phase28_ablation.json
+benchmarks/results/phase28_focused.json
+benchmarks/results/phase30_ablation.json
+benchmarks/results/phase31_ablation.json
+benchmarks/results/phase32_ablation.json
 
 # Debug/diagnostic scripts
 scripts/debug*.py
-phase16_inspect.py
-check.txt

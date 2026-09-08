@@ -193,7 +193,7 @@ The contradiction type shows 95.83% support because some contradiction answers c
 | `tests/evaluation/__init__.py` | Test package init |
 | `tests/evaluation/test_answer_quality.py` | 29 tests (5 decomposition + 18 edge cases + 3 gold coverage + 3 numerical) |
 | `benchmarks/benchmark_answer_quality.py` | Baseline benchmark runner |
-| `benchmarks/PHASE_26_DIAGNOSTIC.md` | Architecture audit |
+| `docs/archive/phases/PHASE_26_DIAGNOSTIC.md` | Architecture audit |
 | `benchmarks/PHASE_26_REPORT.md` | This file |
 
 ### Files Modified

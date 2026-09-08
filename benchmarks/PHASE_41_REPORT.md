@@ -302,11 +302,11 @@ Both flags default to OFF. No behavioral change without explicit opt-in.
 ### Created
 - `benchmarks/PHASE_41_REPORT.md` — This report
 - `benchmarks/PHASE_41_CONFLICT_PRECISION.md` — Detection precision analysis
-- `benchmarks/PHASE_41_DIAGNOSTIC.md` — Diagnostic data
+- `docs/archive/phases/PHASE_41_DIAGNOSTIC.md` — Diagnostic data
 - `benchmarks/results/phase41_regression_filtered.json` — Filtered regression results
-- `benchmarks/_test_regression_filtered.py` — Filtered regression test
-- `benchmarks/_test_conflict_filtered.py` — Filtered conflict benchmark
-- `benchmarks/_test_filter_direct.py` — Direct filtering test
+- `benchmarks/_test_regression_filtered.py` — (removed from repository)
+- `benchmarks/_test_conflict_filtered.py` — (removed from repository)
+- `benchmarks/_test_filter_direct.py` — (removed from repository)
 - `benchmarks/_debug_filtering.py` — Debug script
 
 ## Remaining Backend Weaknesses

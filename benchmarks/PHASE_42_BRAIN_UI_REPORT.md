@@ -326,7 +326,7 @@ No regressions. Backend remained frozen.
 
 | File | Purpose |
 |------|---------|
-| `benchmarks/PHASE_42_PLAN.md` | Design document and implementation plan |
+| `docs/archive/phases/PHASE_42_PLAN.md` | Design document and implementation plan |
 | `benchmarks/PHASE_42_BRAIN_UI_REPORT.md` | This report |
 
 ## Production Readiness

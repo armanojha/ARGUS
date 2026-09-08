@@ -6,7 +6,7 @@ An AI research system that makes retrieval, evidence verification, conflicts, an
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-903%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-956%20passed-brightgreen.svg)](#testing)
 [![Backend](https://img.shields.io/badge/backend-frozen-blue.svg)](#engineering-decisions)
 
 ---
@@ -27,7 +27,7 @@ ARGUS makes the entire research process observable through the **Brain UI** — 
 | Capability | What It Does |
 |------------|--------------|
 | **Hybrid Retrieval** | BM25 lexical + FAISS dense vector search with configurable fusion weights |
-| **Adaptive Research** | Pattern-aware query classification (18+ patterns) with evidence need planning |
+| **Adaptive Research** | Pattern-aware query classification (20 patterns) with evidence need planning |
 | **Evidence Verification** | Deterministic claim-support checking against retrieved evidence |
 | **Conflict Detection** | Pairwise contradiction detection with temporal, entity, and metric awareness |
 | **Query-Aware Filtering** | Suppresses irrelevant conflicts based on what the user is asking about |
@@ -58,7 +58,7 @@ The Brain is the primary interface. It transforms ARGUS from a black-box RAG sys
 | "Here's an answer" | "Here's the answer, here's where it came from, here's what disagrees" |
 | Black-box retrieval | Click to see which chunks were retrieved and why |
 | Hidden conflicts | Conflict type, confidence, entities, and resolution visible |
-| Trust the system | Inspect every decision, verify every claim |
+| Trust the system | Inspect every decision, verify claims against evidence |
 
 ## End-to-End Architecture
 
@@ -119,7 +119,7 @@ Fusion weights are configurable per query pattern via `configs/retrieval_policy.
 
 ### Adaptive Policy Router
 
-The retrieval policy router classifies incoming questions into one of 18+ patterns (factual, comparison, causal, procedural, multi-hop, conflict, absent-info, adversarial, etc.) and selects the optimal retrieval mix, method, and fusion strategy for each.
+The retrieval policy router classifies incoming questions into one of 20 patterns (exact_term, conceptual, comparative, causal, procedural, multi-hop, conflict, absent-info, adversarial, etc.) and selects the optimal retrieval mix, method, and fusion strategy for each.
 
 ### Evidence Selection
 
@@ -130,7 +130,7 @@ After retrieval, the evidence selector performs:
 
 ## Evidence Verification
 
-Every claim in the answer is checked against retrieved evidence:
+ARGUS performs deterministic and model-assisted checks that evaluate whether generated claims are supported by retrieved evidence:
 
 | Status | Meaning |
 |--------|---------|
@@ -191,13 +191,13 @@ The research loop terminates when:
 
 ### Memory Integration
 
-Persistent 6-layer memory system (Phase 08) allows ARGUS to learn from previous research sessions and enhance future plans.
+Persistent 6-layer memory architecture (Phase 08). Currently disabled by default and not part of the default research path; available for future session-learning use cases.
 
 ## Grounded Synthesis
 
 The synthesis stage generates answers that are:
 
-- **Grounded** — Every claim cites a specific evidence chunk
+- **Grounded** — Synthesis is designed to tie claims to retrieved evidence with inline citations
 - **Conflict-aware** — Contradictions are acknowledged, not hidden
 - **Degraded-safe** — When providers fail, evidence is shown without full synthesis
 - **Citation-validated** — Referenced sources are verified to exist
@@ -336,7 +336,7 @@ cp .env.example .env
 |------|---------|
 | `configs/providers.yaml` | LLM provider definitions (endpoints, models, rate limits) |
 | `configs/model_policy.yaml` | Call-type → model routing (analysis, planning, synthesis, verification) |
-| `configs/retrieval_policy.yaml` | 18+ retrieval patterns with fusion weights |
+| `configs/retrieval_policy.yaml` | 20 retrieval patterns with fusion weights |
 | `configs/obsidian.yaml` | Obsidian vault integration settings |
 
 ### Feature Flags
@@ -393,8 +393,7 @@ http://localhost:8000/brain
 1. Click **Research** in the sidebar
 2. Type a question
 3. Press Enter or click Send
-4. Watch the pipeline build progressively
-5. Click any node to inspect what happened at that stage
+4. Click any node to inspect what happened at that stage
 
 ### Demo Questions
 
@@ -481,7 +480,7 @@ See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for the complete limitations docu
 ### Now (Complete)
 
 - Hybrid retrieval (BM25 + FAISS)
-- Adaptive research policy with 18+ query patterns
+- Adaptive research policy with 20 query patterns
 - Evidence verification with confidence scoring
 - Contradiction detection with query-aware filtering
 - Grounded synthesis with citations

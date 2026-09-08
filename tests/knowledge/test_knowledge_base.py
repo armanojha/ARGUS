@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -21,6 +22,18 @@ from app.ingestion.knowledge_base import (
     kind_of,
     supported_extensions,
 )
+
+
+@pytest.fixture(autouse=True)
+def _enable_multimodal():
+    """Enable multimodal features (spreadsheet/CSV ingestion) for knowledge base tests."""
+    from app.config import Settings
+
+    settings = Settings(_env_file=None, multimodal_enabled=True, multimodal_spreadsheet_enabled=True)
+    with patch("app.ingestion.knowledge_base.get_settings", return_value=settings), \
+         patch("app.ingestion.spreadsheets.get_settings", return_value=settings), \
+         patch("app.ingestion.pipeline.get_settings", return_value=settings):
+        yield
 
 
 @pytest.fixture

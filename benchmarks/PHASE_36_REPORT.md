@@ -244,7 +244,7 @@ Option 4 is the most pragmatic: the fallback state IS the production state. Opti
 ## Files Created
 
 1. `benchmarks/PHASE_36_PROVIDER_AUDIT.md` — Provider configuration audit
-2. `benchmarks/PHASE_36_DIAGNOSTIC.md` — Diagnostic findings
+2. `docs/archive/phases/PHASE_36_DIAGNOSTIC.md` — Diagnostic findings
 3. `benchmarks/PHASE_36_REPORT.md` — This report
 4. `benchmarks/phase36_provider_health.py` — Provider health check
 5. `benchmarks/phase36_clean_e2e.py` — Clean E2E benchmark

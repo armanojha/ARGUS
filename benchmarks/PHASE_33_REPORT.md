@@ -150,12 +150,12 @@ add cache check/store to `search_async()` — a 3-line change in `hybrid.py`.
 
 ## Deliverables
 
-1. `benchmarks/PHASE_33_ARCHITECTURE_AUDIT.md` — Full execution path trace
-2. `benchmarks/PHASE_33_DIAGNOSTIC.md` — 10 diagnostic answers
+1. `docs/archive/phases/PHASE_33_ARCHITECTURE_AUDIT.md` — Full execution path trace
+2. `docs/archive/phases/PHASE_33_DIAGNOSTIC.md` — 10 diagnostic answers
 3. `benchmarks/PHASE_33_REPORT.md` — This file
 4. `benchmarks/phase33_performance.py` — Full pipeline profiler (hit provider limits)
 5. `benchmarks/phase33_retrieval_only.py` — Retrieval-only profiler (successful)
-6. `benchmarks/phase33_cache_diagnostic.py` — Cache bypass diagnostic (successful)
+6. `benchmarks/phase33_cache_diagnostic.py` — (removed from repository)
 7. `benchmarks/results/phase33_retrieval_only.json` — Raw retrieval metrics
 8. `benchmarks/results/phase33_cache_diagnostic.json` — Cache diagnostic results
 

@@ -192,7 +192,7 @@ If Phase 28 is implemented:
 
 | File | Purpose |
 |------|---------|
-| `benchmarks/PHASE_27_DIAGNOSTIC.md` | Detailed diagnostic analysis |
+| `docs/archive/phases/PHASE_27_DIAGNOSTIC.md` | Detailed diagnostic analysis |
 | `benchmarks/PHASE_27_REPORT.md` | This report |
 | `benchmarks/benchmark_phase27.py` | Benchmark runner |
 | `benchmarks/results/phase27_benchmark_results.json` | Raw results |

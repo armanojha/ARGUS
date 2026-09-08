@@ -1,5 +1,8 @@
 # Phase 43 — Showcase, Documentation & GitHub Polish
 
+> **Archived snapshot.** This report documents the repository state at the time of Phase 43.
+> For current status, see [README.md](../README.md).
+
 ## Objective
 
 Prepare ARGUS for open-source showcase. Fix bugs, write documentation, clean stale references, and make the repository immediately understandable to visitors.

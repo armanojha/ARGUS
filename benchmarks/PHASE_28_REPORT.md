@@ -73,11 +73,11 @@ Design and experimentally validate evidence-grounded synthesis strategies to imp
 - No production code changes in Phase 28
 
 ## Files Created/Modified
-- `benchmarks/synthesis_ablation.py` — Ablation framework with 5 strategies
-- `benchmarks/focused_experiment.py` — Focused 5-query experiment
+- `benchmarks/synthesis_ablation.py` — (removed from repository)
+- `benchmarks/focused_experiment.py` — (removed from repository)
 - `benchmarks/analyze_ablation.py` — Analysis script
 - `benchmarks/check_answers.py` — Answer inspection script
-- `benchmarks/results/phase28_ablation.json` — Full ablation results (rate-limited)
-- `benchmarks/results/phase28_focused.json` — Focused experiment results
-- `benchmarks/PHASE_28_DIAGNOSTIC.md` — Diagnostic document
+- `docs/archive/results/phase28_ablation.json` — Full ablation results (rate-limited)
+- `docs/archive/results/phase28_focused.json` — Focused experiment results
+- `docs/archive/phases/PHASE_28_DIAGNOSTIC.md` — Diagnostic document
 - `benchmarks/PHASE_28_REPORT.md` — This report

@@ -182,7 +182,7 @@ Re-run the E2E profiler on a clean provider tier (paid Groq, paid Gemini, or ded
 ## Files Created
 
 1. `benchmarks/PHASE_35_ARCHITECTURE_AUDIT.md` — Complete E2E pipeline trace
-2. `benchmarks/PHASE_35_DIAGNOSTIC.md` — Diagnostic findings
+2. `docs/archive/phases/PHASE_35_DIAGNOSTIC.md` — Diagnostic findings
 3. `benchmarks/PHASE_35_REPORT.md` — This report
 4. `benchmarks/phase35_e2e_profiler.py` — E2E profiler script
 5. `benchmarks/results/phase35_e2e_profiler.json` — Raw results

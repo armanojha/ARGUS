@@ -161,7 +161,11 @@ class TestOCRFallback:
         if shutil.which("tesseract") is None:
             pytest.skip("tesseract OCR engine not installed")
 
-        results = list(extract_pdf_with_ocr_fallback(rendered_word_pdf_path, min_chars_per_page=50))
+        from app.config import Settings
+
+        settings = Settings(multimodal_enabled=True, multimodal_ocr_enabled=True)
+        with patch("app.ingestion.ocr.get_settings", return_value=settings):
+            results = list(extract_pdf_with_ocr_fallback(rendered_word_pdf_path, min_chars_per_page=50))
         assert len(results) == 1
         assert results[0].ocr_used is True
         assert results[0].confidence is not None

@@ -124,8 +124,8 @@ Phase 31 measured the verified-synthesis cost breakdown and tested whether patte
 
 ### Created
 - `benchmarks/phase31_ablation.py` — 5-strategy ablation benchmark with detailed instrumentation
-- `benchmarks/results/phase31_ablation.json` — Raw results
-- `benchmarks/PHASE_31_DIAGNOSTIC.md` — This diagnostic
+- `docs/archive/results/phase31_ablation.json` — Raw results
+- `docs/archive/phases/PHASE_31_DIAGNOSTIC.md` — This diagnostic
 - `benchmarks/PHASE_31_REPORT.md` — This report
 
 ## Test Results

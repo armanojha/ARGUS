@@ -72,8 +72,7 @@ If you don't have an API key yet:
 1. Click **Research** in the sidebar
 2. Type a question (e.g., "What is machine learning?")
 3. Press Enter or click Send
-4. Watch the pipeline build progressively
-5. Click nodes to inspect each stage
+4. Click nodes to inspect each stage
 
 ## Ingest Documents
 

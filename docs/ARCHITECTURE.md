@@ -39,7 +39,7 @@ When a user submits a research question:
 - **Purpose:** Detect question pattern, extract entities, identify time references
 - **Input:** Raw user query string
 - **Output:** `QueryAnalysis` with pattern, entities, time window, risk level
-- **Implementation:** LLM-based classification into 18+ patterns (factual, comparison, causal, procedural, multi-hop, conflict, absent-info, adversarial, etc.)
+- **Implementation:** LLM-based classification into 20 patterns (exact_term, conceptual, comparative, causal, procedural, multi-hop, conflict, absent-info, adversarial, etc.)
 - **Key file:** `app/orchestration/nodes.py` → `make_analyze_node()`
 
 ### 2. Research Policy

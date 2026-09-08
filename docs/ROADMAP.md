@@ -5,7 +5,7 @@
 These capabilities are implemented, tested, and available:
 
 - **Hybrid Retrieval** — BM25 + FAISS with configurable fusion weights
-- **Adaptive Research** — 18+ query patterns with evidence need planning
+- **Adaptive Research** — 20 query patterns with evidence need planning
 - **Evidence Verification** — Deterministic claim-support checking with confidence scoring
 - **Conflict Detection** — Pairwise contradiction detection with temporal/entity/metric awareness
 - **Query-Aware Filtering** — Suppresses irrelevant conflicts based on user intent
