@@ -18,11 +18,22 @@ ARGUS supports 6 LLM providers, most with free tiers. These limits affect:
 
 Some providers have inconsistent availability:
 
-- Z.ai (Zhipu AI) — Occasional timeouts
-- Zen (OpenCode) — 403 errors on some models
-- Cerebras — Requires API key not always available
+- **Z.ai (Zhipu AI)** — Occasional timeouts
+- **Zen (OpenCode)** — 403 errors on some models
+- **Cerebras** — Requires API key not always available
+- **Groq** — 8K tokens per minute limit on free tier
 
 **Mitigation:** ARGUS routes through fallback chains. When a provider fails, the next in the chain is used.
+
+### Provider-Dependent Evaluation
+
+Some benchmarks could not be run cleanly due to provider instability:
+
+- **Phase 36 (Clean Provider Benchmark)** — All runs had provider fallbacks
+- **Phase 37 (LLM Call Minimization)** — Infrastructure-blocked
+- **Phase 40 (Conflict-Aware Synthesis)** — Provider contamination
+
+These results were not used to justify production changes.
 
 ## Backend Limitations
 
@@ -48,11 +59,17 @@ Research results are not persisted. Each query is stateless. There is no "resear
 
 **Future work:** Add research session persistence.
 
+### Synchronous Ingestion
+
+Document ingestion processes files sequentially. Large corpora may take significant time to ingest.
+
+**Future work:** Parallel ingestion for large corpora.
+
 ## Brain UI Limitations
 
 ### Single-File Architecture
 
-The Brain UI is a 3,993-line single HTML file. This was intentional for simplicity (no build step, no framework), but:
+The Brain UI is a 3,996-line single HTML file. This was intentional for simplicity (no build step, no framework), but:
 
 - Adding features requires modifying a large file
 - No component reuse across views
@@ -68,6 +85,10 @@ The Brain UI is single-user. There is no multi-user or collaboration support.
 
 The graph uses Canvas 2D rendering. For graphs with thousands of nodes, performance may degrade. The current evidence graph typically has tens to low hundreds of nodes, which works well.
 
+### Demo Mode is Static
+
+Demo mode shows a pre-recorded research result. It does not execute the actual pipeline. This is clearly labeled "DEMO MODE — Pre-recorded data."
+
 ## Experimental Components
 
 The following components were evaluated but intentionally not promoted to production:
@@ -81,6 +102,24 @@ The following components were evaluated but intentionally not promoted to produc
 
 These are not bugs — they are intentionally feature-flagged experimental work.
 
+## Evaluation Limitations
+
+### No Human Evaluation
+
+Answer quality has not been evaluated by human annotators. All evaluation is automated (citation grounding, claim support, conflict detection).
+
+### Synthetic Gold Standards
+
+Relevance judgments and gold-standard answers were created synthetically, not by domain experts.
+
+### Limited Corpus Size
+
+Evaluation used corpora of 12-20 documents. Real-world performance on larger corpora has not been measured.
+
+### Provider-Contaminated Benchmarks
+
+Some benchmark results were affected by provider fallbacks and could not be trusted as clean measurements.
+
 ## What ARGUS Does NOT Do
 
 - **Real-time web search** — ARGUS queries a local document corpus, not the internet
@@ -88,13 +127,6 @@ These are not bugs — they are intentionally feature-flagged experimental work.
 - **Perfect accuracy** — ARGUS verifies evidence but can still make mistakes
 - **Zero hallucinations** — Grounded synthesis reduces hallucination but does not eliminate it
 - **Commercial production use** — ARGUS is a research project, not a production system
-
-## Validation Honesty
-
-Some benchmark results were affected by provider instability:
-
-- **Phase 36 (Clean Provider Benchmark)** — Infrastructure-limited; all runs had provider fallbacks
-- **Phase 37 (LLM Call Minimization)** — Infrastructure-blocked; could not run clean experiments
-- **Phase 40 (Conflict-Aware Synthesis)** — Provider contamination prevented trustworthy ablation
-
-These results were not used to justify production changes. Core components (retrieval, verification, conflict detection) are independently validated with deterministic tests.
+- **Streaming research events** — Backend processes queries synchronously
+- **Per-stage timing** — Only aggregate telemetry is available
+- **Research history** — Each query is stateless

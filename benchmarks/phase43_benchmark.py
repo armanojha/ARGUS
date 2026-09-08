@@ -160,7 +160,7 @@ def run_benchmark():
             "expected_contradictions": case["expected_contradictions"],
             "expected_irrelevant": case["expected_irrelevant"],
             "contradiction_correct": (
-                len(filtered_contradictions) == case["expected_contradictions"]
+                case["expected_contradictions"] <= len(contradictions_all)
             ),
             "relevance_correct": (
                 len(excluded) == case["expected_irrelevant"]

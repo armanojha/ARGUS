@@ -76,3 +76,9 @@ benchmarks/analyze_failures.py
 benchmarks/ablation_benchmark.py
 benchmarks/analyze_ablation.py
 benchmarks/latency_breakdown.py
+benchmarks/_debug_*.py
+
+# Debug/diagnostic scripts
+scripts/debug*.py
+phase16_inspect.py
+check.txt

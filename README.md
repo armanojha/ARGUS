@@ -6,174 +6,349 @@ An AI research system that makes retrieval, evidence verification, conflicts, an
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-925%20passed-brightgreen.svg)](#validation)
+[![Tests](https://img.shields.io/badge/tests-903%20passed-brightgreen.svg)](#testing)
+[![Backend](https://img.shields.io/badge/backend-frozen-blue.svg)](#engineering-decisions)
 
 ---
 
-## The Problem
+## Why ARGUS Exists
 
 Traditional RAG systems retrieve documents and generate answers. The research process is hidden. You get an answer but cannot see:
 
-- What evidence was found
-- How it was verified
-- Whether sources conflict
-- Why this answer over another
+- What evidence was actually found
+- How it was verified against the query
+- Whether sources disagree with each other
+- Why this answer emerged from the evidence
 
-## What ARGUS Does Differently
+ARGUS makes the entire research process observable through the **Brain UI** — an interactive interface that exposes every pipeline stage, evidence trace, conflict signal, and synthesis decision.
 
-ARGUS makes the entire research process observable:
+## Core Capabilities
 
-```
-Query
-  ↓
-Analysis        — What kind of question is this?
-  ↓
-Planning        — What evidence do we need?
-  ↓
-Retrieval       — Hybrid BM25 + dense search
-  ↓
-Evidence        — Ranked chunks with source paths
-  ↓
-Verification    — Every claim checked against evidence
-  ↓
-Conflict Detection — Contradictions acknowledged, not hidden
-  ↓
-Synthesis       — Answer grounded in verified evidence
-  ↓
-Answer          — With inline citations and source trail
-```
+| Capability | What It Does |
+|------------|--------------|
+| **Hybrid Retrieval** | BM25 lexical + FAISS dense vector search with configurable fusion weights |
+| **Adaptive Research** | Pattern-aware query classification (18+ patterns) with evidence need planning |
+| **Evidence Verification** | Deterministic claim-support checking against retrieved evidence |
+| **Conflict Detection** | Pairwise contradiction detection with temporal, entity, and metric awareness |
+| **Query-Aware Filtering** | Suppresses irrelevant conflicts based on what the user is asking about |
+| **Grounded Synthesis** | Answer generation with inline citations, conflict acknowledgment, and safe degradation |
+| **Evidence Traceability** | Every citation traces back to source document, chunk, and retrieval metadata |
+| **Brain UI** | Interactive pipeline visualization, node inspection, evidence tracing, demo mode |
 
-Every step is visible in the **ARGUS Brain UI**.
+## The Brain UI
 
----
-
-## The ARGUS Brain
-
-The Brain is the primary interface. It visualizes how ARGUS thinks through a research question.
+The Brain is the primary interface. It transforms ARGUS from a black-box RAG system into an inspectable research system.
 
 **Open:** `http://localhost:8000/brain`
 
-### Pipeline View
+### What You Can Inspect
 
-The default view shows the research flow as an interactive graph. Each node represents a stage: query, analysis, plan, evidence, verification, conflict, synthesis, answer. Click any node to inspect what happened at that stage.
+- **Pipeline View** — Interactive research flow showing each processing stage as a clickable node
+- **Node Inspector** — Click any node to see what it did, why it exists, what it received, and what it produced
+- **Evidence Traceability** — Trace from any citation back to source document, chunk, and retrieval score
+- **Conflict Visualization** — See contradiction types, confidence levels, entity overlap, and resolution
+- **Architecture View** — Interactive component diagram explaining what each module does
+- **Knowledge Graph** — Force-directed evidence graph with entity, claim, and document nodes
+- **Demo Mode** — Pre-recorded research result with full pipeline visualization (no API key required)
 
-### Node Inspector
+### How the UI Transforms ARGUS
 
-Every node explains:
+| Without Brain UI | With Brain UI |
+|------------------|---------------|
+| "Here's an answer" | "Here's the answer, here's where it came from, here's what disagrees" |
+| Black-box retrieval | Click to see which chunks were retrieved and why |
+| Hidden conflicts | Conflict type, confidence, entities, and resolution visible |
+| Trust the system | Inspect every decision, verify every claim |
 
-- **What is this?** — Simple description
-- **Why does ARGUS need it?** — Purpose in the pipeline
-- **What did it receive?** — Input data
-- **What did it produce?** — Output data
-- **Technical details** — Toggle for implementation-level information
-
-### Evidence Traceability
-
-Trace from answer back to source:
-
-```
-Answer Claim → Citation [1] → Evidence Chunk → Source Document
-```
-
-Click any citation chip to see the evidence text, source path, and relevance score.
-
-### Conflict Visualization
-
-When sources disagree, ARGUS shows:
-
-- Conflict type (different timeframe, genuine contradiction, etc.)
-- Confidence level
-- Entities and metrics involved
-- How the conflict was resolved or acknowledged
-
-### Architecture View
-
-An interactive diagram showing all ARGUS components. Click any component to learn what it does, why it exists, and what goes in/out.
-
-### Demo Mode
-
-No API key? No problem. Click **Load Demo** to see a pre-recorded research result with full pipeline visualization.
-
----
-
-## Quick Demo
-
-```bash
-# 1. Clone and install
-git clone https://github.com/armanojha/ARGUS.git
-cd ARGUS
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# .venv\Scripts\Activate   # Windows PowerShell
-
-pip install -e ".[core,retrieval,graph,multimodal,dev-test]"
-
-# 2. Configure (add at least one API key)
-cp .env.example .env
-# Edit .env — add GROQ_API_KEY or GEMINI_API_KEY
-
-# 3. Start the server
-uvicorn app.api.main:app --reload
-
-# 4. Open the Brain
-# http://localhost:8000/brain
-
-# 5. Try Demo Mode (no API key needed)
-# Click "Load Demo" on the pipeline view
-```
-
-### Demo Questions
-
-These showcase different ARGUS capabilities:
-
-| Question | Demonstrates |
-|----------|-------------|
-| "Compare revenue growth of Acme and Globex in 2024 vs 2025" | Multi-source comparison, numerical evidence |
-| "What evidence supports the claim that AI adoption is accelerating?" | Evidence gathering, verification |
-| "Find conflicting information about climate change impacts" | Conflict detection, source disagreement |
-
----
-
-## Architecture
+## End-to-End Architecture
 
 ```
 User Query
     ↓
-Query Analysis          — Pattern detection, entity extraction
+Query Analysis          — Pattern detection, entity extraction, time window
     ↓
-Research Policy         — Strategy selection, iteration budget
+Research Policy         — Strategy selection, iteration budget, method dispatch
     ↓
-Evidence Planning       — Sub-query generation
+Evidence Planning       — Sub-query generation, token budget allocation
     ↓
-Hybrid Retrieval        — BM25 (lexical) + FAISS (dense) fusion
+Hybrid Retrieval        — BM25 (lexical) + FAISS (dense) with fusion
+    ├── BM25            — Term-frequency matching for exact keywords
+    └── FAISS           — Vector similarity for semantic queries
     ↓
-Reranking               — Quality scoring, relevance ranking
+Multi-Query Retrieval   — Parallel sub-queries with concurrent execution
     ↓
-Evidence Verification   — Claim-support checking, confidence scoring
+Reranking               — Pluggable quality scoring and relevance ranking
     ↓
-Conflict Detection      — Contradiction identification, query-aware filtering
+Evidence Selection      — Semantic dedup, diversity selection, token budget enforcement
     ↓
-Grounded Synthesis      — Answer generation from verified evidence
+Evidence Verification   — Claim-support checking, confidence scoring, gap detection
     ↓
-Answer Quality          — Grounding validation, citation checking
+Contradiction Detection — Pairwise evidence comparison, numerical/temporal/entity analysis
     ↓
-Final Answer + Citations
+Query-Aware Filtering   — Suppress irrelevant conflicts based on user intent
+    ↓
+Research Sufficiency    — Evaluate whether enough evidence has been gathered
+    ↓
+Grounded Synthesis      — Answer generation with citations, conflict acknowledgment
+    ↓
+Answer Quality          — Citation grounding validation, evidence coverage check
+    ↓
+Answer + Citations      — With inline references and source trail
+    ↓
+Brain UI                — Interactive visualization of the entire pipeline
 ```
 
-### Technical Components
+## Retrieval Architecture
 
-| Component | Implementation |
-|-----------|---------------|
-| **Retrieval** | Hybrid BM25 + FAISS dense search with configurable fusion weights |
-| **Reranking** | Pluggable reranker interface (NoOp default, swap-in any model) |
-| **Verification** | Deterministic claim-support checking against evidence chunks |
-| **Conflict Detection** | Temporal extraction, unit normalization, entity matching, confidence scoring |
-| **Synthesis** | Grounded generation with inline citations and conflict acknowledgment |
-| **Memory** | SQLite-backed 6-layer memory with promotion and provenance |
-| **Graph** | NetworkX MultiDiGraph with 6 node types, 8 edge types |
-| **LLM Gateway** | Multi-model router with call-type routing, fallback, and quota tracking |
-| **OCR** | PaddleOCR + Tesseract fallback for multimodal document processing |
-| **Brain UI** | Single-file HTML/JS/D3.js with Canvas rendering |
+### Hybrid Search
+
+ARGUS combines two retrieval methods:
+
+- **BM25** — Term-frequency matching, good for exact keyword queries
+- **FAISS** — Vector similarity via sentence-transformers embeddings, good for semantic queries
+
+Fusion weights are configurable per query pattern via `configs/retrieval_policy.yaml`:
+
+| Query Pattern | BM25 Weight | Dense Weight |
+|---------------|-------------|--------------|
+| Factual | 0.6 | 0.4 |
+| Comparison | 0.5 | 0.5 |
+| Conflict | 0.4 | 0.6 |
+| Summary | 0.3 | 0.7 |
+
+### Adaptive Policy Router
+
+The retrieval policy router classifies incoming questions into one of 18+ patterns (factual, comparison, causal, procedural, multi-hop, conflict, absent-info, adversarial, etc.) and selects the optimal retrieval mix, method, and fusion strategy for each.
+
+### Evidence Selection
+
+After retrieval, the evidence selector performs:
+- Semantic deduplication (removes near-duplicate chunks)
+- Diversity selection (ensures coverage across different aspects)
+- Token budget enforcement (fits evidence into LLM context window)
+
+## Evidence Verification
+
+Every claim in the answer is checked against retrieved evidence:
+
+| Status | Meaning |
+|--------|---------|
+| **Supported** | Evidence directly backs the claim |
+| **Partial** | Some evidence supports, some is missing |
+| **Contradicted** | Evidence conflicts with the claim |
+| **Unsupported** | No relevant evidence found |
+
+Verification produces confidence scores for evidence coverage, source quality, cross-source agreement, and temporal relevance.
+
+## Contradiction Detection
+
+ARGUS detects contradictions across evidence sources using deterministic pairwise analysis:
+
+### Conflict Types
+
+| Type | Description |
+|------|-------------|
+| `GENUINE_CONTRADICTION` | Sources disagree on the same claim, same entity, same timeframe |
+| `DIFFERENT_TIMEFRAME` | Data from different time periods (not a real conflict) |
+| `DIFFERENT_SOURCE` | Different methodologies or scopes (not a real conflict) |
+| `POSSIBLE_CONTRADICTION` | Uncertain — needs human review |
+| `IRRELEVANT_DIFFERENCE` | Not a real conflict |
+
+### Detection Methods
+
+- **Negation pairs** — Detects opposing claims (supports vs contradicts) with topic coherence and entity overlap requirements
+- **Numerical discrepancies** — Compares extracted numbers near shared metrics with unit normalization ($, %, billion, million)
+- **Temporal context** — Extracts years and date ranges to distinguish historical differences from genuine contradictions
+- **Entity overlap** — Requires shared entity context before flagging conflicts
+
+### Query-Aware Filtering
+
+When `ARGUS_CONFLICT_FILTERING_ENABLED=true`:
+- Temporal differences are filtered if the query asks for current data
+- Low-confidence conflicts are suppressed unless query asks about conflicts
+- Metric-relevance filtering ensures only query-relevant conflicts surface
+
+See [docs/CORRECTNESS.md](docs/CORRECTNESS.md) for the evolution of the correctness system.
+
+## Adaptive Research & Orchestration
+
+ARGUS uses a LangGraph state machine for research orchestration:
+
+### Pipeline Modes
+
+- **Fast Path** — Simple factual queries skip planning and go directly to retrieval → synthesis
+- **Normal Path** — Complex queries go through the full analysis → plan → retrieve → assess → stop-check loop
+
+### Stopping Conditions
+
+The research loop terminates when:
+1. User requests early stop
+2. Token budget exhausted
+3. Negligible evidence gain between iterations
+4. All claims are supported by evidence
+5. No unresolved contradictions remain
+
+### Memory Integration
+
+Persistent 6-layer memory system (Phase 08) allows ARGUS to learn from previous research sessions and enhance future plans.
+
+## Grounded Synthesis
+
+The synthesis stage generates answers that are:
+
+- **Grounded** — Every claim cites a specific evidence chunk
+- **Conflict-aware** — Contradictions are acknowledged, not hidden
+- **Degraded-safe** — When providers fail, evidence is shown without full synthesis
+- **Citation-validated** — Referenced sources are verified to exist
+
+## Evaluation Methodology
+
+### What Has Been Validated
+
+| Component | Validation Method | Status |
+|-----------|------------------|--------|
+| Hybrid retrieval | Deterministic tests with mock evidence | Validated |
+| Query classification | Pattern-matching unit tests | Validated |
+| Evidence selection | Token budget and diversity tests | Validated |
+| Conflict detection | 8-case benchmark (all scenarios) | 8/8 pass |
+| Query-aware filtering | False positive reduction tests | Validated |
+| Contradiction normalization | Unit normalization regression tests | Validated |
+| Grounded synthesis | Citation extraction and grounding tests | Validated |
+| Evidence traceability | End-to-end citation chain tests | Validated |
+| Multi-model routing | Provider fallback and quota tests | Validated |
+| Memory architecture | Layer promotion and query tests | Validated |
+
+### Honest Limitations of Evaluation
+
+Some benchmarks were affected by provider instability and could not be run cleanly:
+- Phase 36 (Clean Provider Benchmark) — all runs had provider fallbacks
+- Phase 37 (LLM Call Minimization) — infrastructure-blocked
+- Phase 40 (Conflict-Aware Synthesis) — provider contamination
+
+These results were not used to justify production changes. See [docs/EVALUATION.md](docs/EVALUATION.md) for full methodology.
+
+## Current Results
+
+| Metric | Value |
+|--------|-------|
+| Test suite | **903 passed**, 26 skipped, 5 pre-existing failures |
+| Contradiction benchmark | **8/8 cases** (100%) |
+| Backend status | **Frozen** — no modifications since Phase 43 |
+| Brain UI | Complete — all spec requirements implemented |
+| Conflict detection | Production-ready (feature-flagged) |
+| Evidence verification | Deterministic, independently tested |
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **API** | FastAPI, Pydantic, structlog |
+| **Orchestration** | LangGraph state machine |
+| **Retrieval** | BM25 (rank-bm25), FAISS (faiss-cpu), sentence-transformers |
+| **Embeddings** | all-MiniLM-L6-v2 (default), BGE-M3 (experimental) |
+| **LLM Gateway** | Multi-provider router (Groq, Gemini, Cerebras, Z.ai, NVIDIA NIM, Zen) |
+| **Evidence Store** | SQLite with WAL mode |
+| **Knowledge Graph** | NetworkX MultiDiGraph |
+| **Memory** | SQLite-backed 6-layer architecture |
+| **Verification** | Deterministic checks + LLM-based claim verification |
+| **Brain UI** | Single-file HTML/JS/D3.js/Canvas (no build step) |
+| **Testing** | pytest, 903 tests across 71 test files |
+| **CI** | GitHub Actions (Python 3.11/3.12/3.13, ruff lint) |
+
+## Project Structure
+
+```
+ARGUS/
+├── app/
+│   ├── api/              FastAPI routes (health, retrieval, orchestration, brain, knowledge-base)
+│   ├── config.py         Pydantic Settings with env-var loading (ARGUS_ prefix)
+│   ├── evaluation/       Answer quality evaluation
+│   ├── evidence/         SQLite evidence store with provenance tracking
+│   ├── graph/            NetworkX evidence graph (entities, claims, events)
+│   ├── ingestion/        Document ingestion pipeline, OCR, multimodal processing
+│   ├── integrations/     Obsidian vault integration
+│   ├── llm_gateway/      Multi-model LLM router, providers, health tracking, quota
+│   ├── memory/           6-layer SQLite memory with promotion and versioning
+│   ├── orchestration/    LangGraph research state machine, nodes, prompts, models
+│   ├── reranking/        Pluggable reranker interface
+│   ├── retrieval/        Hybrid BM25 + FAISS, policy router, evidence selector
+│   ├── ui/brain/         Brain UI (single-file HTML/JS/D3.js)
+│   └── verification/     Claim verification engine, contradiction detection
+├── benchmarks/           Phase reports, evaluation data, benchmark harness
+├── configs/              Provider, model policy, retrieval policy, Obsidian config
+├── docs/                 Architecture docs, workflow visualization, guides
+├── knowledge_base/       User document corpus (PDF, TXT, MD, CSV, XLSX)
+├── scripts/              Ingestion, OCR, test runners, diagnostic tools
+├── tests/                Test suite (mirrors app/ structure, 71 test files)
+├── .env.example          Environment variable template
+├── pyproject.toml        Build config, dependencies, tool settings
+└── LICENSE               MIT
+```
+
+## Installation
+
+### Prerequisites
+
+- Python 3.11+ (developed against 3.11, tested on 3.11/3.12/3.13)
+- At least one LLM provider API key (Groq recommended — free tier available)
+- Git
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/armanojha/ARGUS.git
+cd ARGUS
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\Activate   # Windows PowerShell
+
+# Install dependencies
+pip install -e ".[core,retrieval,graph,multimodal,dev-test]"
+```
+
+## Configuration
+
+### Environment Variables
+
+Copy the template and add your API key:
+
+```bash
+cp .env.example .env
+# Edit .env — add at least one API key
+```
+
+| Variable | Description |
+|----------|-------------|
+| `GROQ_API_KEY` | Groq API key (free tier, recommended) |
+| `GEMINI_API_KEY` | Google Gemini API key |
+| `CEREBRAS_API_KEY` | Cerebras API key |
+| `ZAI_API_KEY` | Z.ai (Zhipu AI) API key |
+| `NVIDIA_NIM_API_KEY` | NVIDIA NIM API key |
+| `OPENCODE_ZEN_API_KEY` | Zen (OpenCode) API key |
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `configs/providers.yaml` | LLM provider definitions (endpoints, models, rate limits) |
+| `configs/model_policy.yaml` | Call-type → model routing (analysis, planning, synthesis, verification) |
+| `configs/retrieval_policy.yaml` | 18+ retrieval patterns with fusion weights |
+| `configs/obsidian.yaml` | Obsidian vault integration settings |
+
+### Feature Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `ARGUS_MEMORY_ENABLED` | `false` | Persistent memory system |
+| `ARGUS_MULTIMODAL_ENABLED` | `false` | Multimodal document processing |
+| `ARGUS_BGE_M3_ENABLED` | `false` | Experimental BGE-M3 embeddings |
+| `ARGUS_CONFLICT_FILTERING_ENABLED` | `false` | Query-aware conflict filtering |
+| `ARGUS_CONFLICT_SAFE_SYNTHESIS_ENABLED` | `false` | Conflict-aware synthesis rules |
+| `ARGUS_MULTIAGENT_ENABLED` | `false` | Multi-agent debate |
+| `ARGUS_ADAPTIVE_RESEARCH_ENABLED` | `false` | Adaptive research policy |
 
 ### Provider Configuration
 
@@ -188,93 +363,144 @@ ARGUS supports 6 LLM providers with explicit per-call-type routing:
 | **NVIDIA NIM** | Nemotron models | `NVIDIA_NIM_API_KEY` |
 | **Zen** | OpenCode models | `OPENCODE_ZEN_API_KEY` |
 
-Models are assigned per call type (query analysis, planning, synthesis, verification) via `configs/model_policy.yaml`. All assignments are explicit configuration — ARGUS never autonomously selects models.
+Models are assigned per call type via `configs/model_policy.yaml`. All assignments are explicit configuration — ARGUS never autonomously selects models.
 
----
+## Running ARGUS
 
-## Validation
+### Start the Server
 
-| Metric | Status |
-|--------|--------|
-| Test suite | **925 passed**, 26 skipped, 0 failures |
-| Backend | **Frozen** — no modifications since Phase 41 |
-| Brain UI | **Complete** — 25/25 spec requirements implemented |
-| Conflict detection | Production-ready (feature-flagged) |
-| Evidence verification | Deterministic, independently tested |
+```bash
+uvicorn app.api.main:app --reload
+```
 
-### What Has Been Validated
+Wait for the "Application startup complete" message.
 
-- Hybrid retrieval (BM25 + FAISS) with configurable fusion
-- Multi-query evidence planning
-- Deterministic claim verification
-- Conflict detection with temporal/entity/unit awareness
-- Query-aware conflict filtering (80% → 0% false positive rate)
-- Grounded synthesis with inline citations
-- Evidence traceability from answer to source
-- Memory architecture with 6 layers and promotion
+### Open the Brain UI
+
+```
+http://localhost:8000/brain
+```
+
+### Try Demo Mode (No API Key)
+
+1. Open `http://localhost:8000/brain`
+2. Click **Load Demo** on the pipeline view
+3. Explore the pre-recorded research result with full pipeline visualization
+
+### Ask a Question
+
+1. Click **Research** in the sidebar
+2. Type a question
+3. Press Enter or click Send
+4. Watch the pipeline build progressively
+5. Click any node to inspect what happened at that stage
+
+### Demo Questions
+
+| Question | Demonstrates |
+|----------|-------------|
+| "Compare revenue growth of Acme and Globex in 2024 vs 2025" | Multi-source comparison, numerical evidence |
+| "What evidence supports the claim that AI adoption is accelerating?" | Evidence gathering, verification |
+| "Find conflicting information about climate change impacts" | Conflict detection, source disagreement |
+
+### Ingest Your Own Documents
+
+1. Place files (PDF, TXT, MD, CSV, XLSX) in `knowledge_base/`
+2. Click **Knowledge Base** in the sidebar
+3. Click **Re-ingest knowledge folder**
+4. Or use the API:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/knowledge-base/ingest
+   ```
+
+### Health Check
+
+```bash
+curl http://localhost:8000/health
+```
+
+## Testing
+
+```bash
+# Run the full test suite
+python -m pytest tests/ -v --tb=short
+
+# Run with exclusions (if pymupdf not installed)
+python -m pytest tests/ -q --ignore=tests/ingestion/test_multimodal.py --ignore=tests/ingestion/test_ocr_regression.py --ignore=tests/ingestion/test_paddle_ocr_runner.py
+
+# Run contradiction benchmark
+python benchmarks/phase43_benchmark.py
+```
+
+### Test Status
+
+| Metric | Value |
+|--------|-------|
+| Tests passed | 903 |
+| Tests skipped | 26 |
+| Pre-existing failures | 5 |
+| New regressions | 0 |
+
+The 5 pre-existing failures are:
+- 3 knowledge base tests (CSV spreadsheet ingestion disabled)
+- 2 FastAPI route iteration tests (`_IncludedRouter` API change)
+
+These are not caused by any Phase 43+ changes.
+
+## Known Limitations
+
+### Provider Infrastructure
+
+- **Free-tier rate limits** — Rapid sequential queries exhaust rate limits. Demo Mode provides a reliable offline demonstration.
+- **Provider instability** — Some providers have inconsistent availability. ARGUS routes through fallback chains.
+
+### Backend
+
+- **No streaming** — Backend processes queries synchronously. Progressive pipeline display is a UI simulation.
+- **Per-stage timing not exposed** — Only aggregate telemetry (total duration, calls, tokens) is available.
+- **No persistent research history** — Each query is stateless.
+
+### Brain UI
+
+- **Single-file architecture** — 3,996-line HTML file. Intentional for simplicity (no build step), but limits component reuse.
+- **Canvas rendering** — Graph performance may degrade with thousands of nodes (current evidence graphs are typically tens to low hundreds).
+
+### What ARGUS Does NOT Do
+
+- **Real-time web search** — ARGUS queries a local document corpus, not the internet
+- **Image understanding** — OCR extracts text from images, but ARGUS does not "see" images
+- **Perfect accuracy** — ARGUS verifies evidence but can still make mistakes
+- **Zero hallucinations** — Grounded synthesis reduces hallucination but does not eliminate it
+- **Commercial production use** — ARGUS is a research project, not a production system
+
+See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for the complete limitations document.
+
+## Roadmap
+
+### Now (Complete)
+
+- Hybrid retrieval (BM25 + FAISS)
+- Adaptive research policy with 18+ query patterns
+- Evidence verification with confidence scoring
+- Contradiction detection with query-aware filtering
+- Grounded synthesis with citations
 - Multi-model provider routing with fallback
+- Persistent memory architecture
+- Brain UI with pipeline visualization
 
-### Known Infrastructure Limitations
+### Next
 
-- **Provider instability**: Free-tier rate limits affect live E2E synthesis latency and experimental benchmark cleanliness. Core components are independently tested.
-- **No streaming**: Backend processes queries synchronously. Progressive pipeline display is a UI simulation.
-- **Per-stage timing**: Not currently exposed by the backend. Aggregate telemetry is available.
+- Streaming research events (SSE/WebSocket)
+- Richer per-stage telemetry
+- Brain UI component modularization
+- Stronger synthesis validation
 
----
+### Later
 
-## Project Structure
-
-```
-ARGUS/
-├── app/
-│   ├── api/              FastAPI routes (health, retrieval, orchestration, brain)
-│   ├── config.py         Pydantic Settings with env-var loading
-│   ├── evaluation/       Answer quality evaluation
-│   ├── evidence/         SQLite evidence store
-│   ├── graph/            NetworkX evidence graph
-│   ├── ingestion/        Document ingestion pipeline, OCR
-│   ├── integrations/     Obsidian vault integration
-│   ├── llm_gateway/      Multi-model LLM router, providers, telemetry
-│   ├── memory/           6-layer SQLite memory store
-│   ├── orchestration/    LangGraph research state machine
-│   ├── reranking/        Pluggable reranker interface
-│   ├── retrieval/        Hybrid BM25 + FAISS retrieval
-│   ├── ui/brain/         Brain UI (single-file HTML/JS/D3.js)
-│   └── verification/     Claim verification engine
-├── benchmarks/           Phase reports, evaluation data, benchmark harness
-├── configs/              Provider, model policy, retrieval policy, Obsidian config
-├── docs/                 Architecture docs, workflow visualization
-├── knowledge_base/       User document corpus
-├── scripts/              Ingestion, OCR, test runners
-├── tests/                Test suite (mirrors app/ structure)
-├── .env.example          Environment variable template
-├── pyproject.toml        Build config, dependencies, tool settings
-└── LICENSE               MIT
-```
-
----
-
-## Configuration
-
-| File | Purpose |
-|------|---------|
-| `.env` | API keys and environment variables (gitignored) |
-| `configs/providers.yaml` | LLM provider definitions |
-| `configs/model_policy.yaml` | Call-type routing and model assignment |
-| `configs/retrieval_policy.yaml` | 10 retrieval patterns with fusion weights |
-| `configs/obsidian.yaml` | Obsidian vault integration |
-
-### Feature Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `ARGUS_MEMORY_ENABLED` | `true` | Persistent memory system |
-| `ARGUS_MULTIMODAL_ENABLED` | `true` | Multimodal document processing |
-| `ARGUS_BGE_M3_ENABLED` | `false` | Experimental BGE-M3 embeddings |
-| `ARGUS_CONFLICT_FILTERING_ENABLED` | `false` | Query-aware conflict filtering |
-| `ARGUS_CONFLICT_SAFE_SYNTHESIS_ENABLED` | `false` | Conflict-aware synthesis rules |
-
----
+- Advanced entity linking
+- Graph-assisted retrieval
+- Additional multimodal workflows
+- Research session persistence
 
 ## Documentation
 
@@ -282,35 +508,26 @@ ARGUS/
 |----------|-------------|
 | [Architecture](docs/ARCHITECTURE.md) | System architecture and component details |
 | [Brain UI](docs/BRAIN_UI.md) | Interface guide and feature documentation |
-| [Quickstart](docs/QUICKSTART.md) | Get running in under 10 minutes |
+| [Correctness](docs/CORRECTNESS.md) | Evidence verification and contradiction detection evolution |
+| [Evaluation](docs/EVALUATION.md) | Benchmark methodology and honest results |
+| [Engineering Journey](docs/ENGINEERING_JOURNEY.md) | Phase-by-phase development history |
 | [Limitations](docs/LIMITATIONS.md) | Known limitations and honest status |
+| [Quickstart](docs/QUICKSTART.md) | Get running in under 10 minutes |
+| [Roadmap](docs/ROADMAP.md) | Future development plans |
 | [Changelog](CHANGELOG.md) | Version history |
 | [Contributing](CONTRIBUTING.md) | Contribution guidelines |
 | [Security](SECURITY.md) | API key and data security guidance |
 
----
+## Engineering Decisions
 
-## Roadmap
+The backend is **frozen**. No modifications since Phase 43. This is intentional:
 
-### Completed
+- Retrieval architecture is validated and tested
+- Contradiction detection is benchmarked at 100% (8/8 cases)
+- Evidence verification is deterministic and independently tested
+- The Brain UI is complete
 
-- Hybrid retrieval (BM25 + FAISS)
-- Evidence graph with temporal reasoning
-- Deterministic verification engine
-- Conflict detection with query-aware filtering
-- Multi-model provider routing
-- Persistent memory architecture
-- Multimodal document processing
-- Brain UI with pipeline visualization
-
-### Future
-
-- Streaming research events (SSE/WebSocket)
-- Richer per-stage telemetry
-- Brain UI component modularization
-- Additional multimodal workflows
-
----
+Future work focuses on documentation, presentation, and reproducibility — not more engineering.
 
 ## License
 

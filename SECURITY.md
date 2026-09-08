@@ -5,7 +5,7 @@
 If you discover a security vulnerability in ARGUS, please report it responsibly:
 
 1. **Do NOT** open a public GitHub Issue for security vulnerabilities
-2. Email the maintainer directly (see README for contact)
+2. Email the maintainer directly at armanojha127@gmail.com
 3. Include a description of the vulnerability and steps to reproduce
 4. Allow time for a fix before public disclosure
 
