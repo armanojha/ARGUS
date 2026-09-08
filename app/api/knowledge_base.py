@@ -16,7 +16,6 @@ indexing operations.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, UploadFile
@@ -167,7 +166,6 @@ async def upload_endpoint(
 
     exts = set(supported_extensions())
     pipeline = None
-    started = datetime.now(UTC)
 
     uploaded: list[dict[str, object]] = []
     rejected: list[dict[str, object]] = []
@@ -208,7 +206,7 @@ async def upload_endpoint(
                 from app.ingestion.pipeline import IngestionPipeline
 
                 pipeline = IngestionPipeline(store)
-            doc, was_new = ingest_file(destination, pipeline, started)
+            doc, was_new = ingest_file(destination, pipeline)
             uploaded.append(
                 {
                     "filename": filename,

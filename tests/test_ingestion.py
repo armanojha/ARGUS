@@ -139,8 +139,9 @@ class TestIngestionPipeline:
             text_path = Path(f.name)
 
         try:
-            doc = pipeline.ingest_text_file(text_path)
+            doc, was_new = pipeline.ingest_text_file(text_path)
             assert doc is not None
+            assert was_new is True
             assert doc.source_id is not None
             assert doc.version == 1
             assert doc.chunking_strategy == "semantic_v1"
@@ -158,12 +159,16 @@ class TestIngestionPipeline:
             text_path = Path(f.name)
 
         try:
-            doc1 = pipeline.ingest_text_file(text_path)
-            doc2 = pipeline.ingest_text_file(text_path)
+            doc1, was_new1 = pipeline.ingest_text_file(text_path)
+            doc2, was_new2 = pipeline.ingest_text_file(text_path)
 
             # Should return the same document (deduplicated)
             assert doc1.id == doc2.id
             assert doc1.version == doc2.version
+            # was_new reflects insertion, not wall-clock: first call inserts,
+            # second call returns the existing row.
+            assert was_new1 is True
+            assert was_new2 is False
         finally:
             Path(text_path).unlink(missing_ok=True)
 

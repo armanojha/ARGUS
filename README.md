@@ -6,7 +6,7 @@ An iterative RAG system that makes retrieval, evidence verification, conflicts, 
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1020%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-1025%20passed-brightgreen.svg)](#testing)
 [![Lint](https://img.shields.io/badge/lint-ruff%20clean-brightgreen.svg)](#testing)
 
 ---
@@ -255,7 +255,7 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 
 | Metric | Value |
 |--------|-------|
-| Test suite | **1047 collected** · 1020 passed · 26 skipped · 0 failures (incl. 9 semantic + 15 strategy/reasoning + 12 mutation + 15 propagation tests) |
+| Test suite | **1051 collected** · 1025 passed · 26 skipped · 0 failures (incl. 9 semantic + 15 strategy/reasoning + 12 mutation + 15 propagation tests) |
 | Contradiction benchmark | **8/8 cases** on synthetic 1-3 sentence snippets (not real documents) |
 | Backend status | **Frozen** — no modifications since Phase 43 |
 | Brain UI | Complete — all spec requirements implemented |
@@ -302,7 +302,7 @@ calls, latency, cost) are pending provider runs and intentionally unreported.
 | **Memory** | SQLite-backed 6-layer architecture |
 | **Verification** | Deterministic checks + LLM-based claim verification |
 | **Brain UI** | Single-file HTML/JS/D3.js/Canvas (no build step) |
-| **Testing** | pytest, 1047 tests collected across 66 test files |
+| **Testing** | pytest, 1051 tests collected across 66 test files |
 | **CI** | GitHub Actions (Python 3.11/3.12/3.13, ruff lint) |
 
 ## Project Structure
@@ -503,18 +503,24 @@ python benchmarks/phase43_benchmark.py
 
 | Metric | Value |
 |--------|-------|
-| Tests collected | 1047 |
-| Tests passed | 1020 |
+| Tests collected | 1051 |
+| Tests passed | 1025 |
 | Tests skipped | 26 |
-| Known failures | 1 (flaky, see below) |
-| New tests | 65 (9 semantic + 15 strategy/reasoning + 12 mutation + 15 propagation + 14 modes) |
+| Known failures | 0 |
+| New tests | 69 (9 semantic + 15 strategy/reasoning + 12 mutation + 15 propagation + 14 modes + 4 was-new contract) |
 | New regressions | 0 |
 
+The former KB ingestion flake (`test_ingest_knowledge_base_idempotent_second_run`)
+is fixed. Root cause: `was_new` was computed as
+`doc.created_at >= run_started_at`; when a re-ingest started within the same
+OS clock tick as the previous run's document creation (common under full-suite
+load), the unchanged last-ingested file compared equal and was miscounted as
+new. The pipeline methods now return `(Document, was_new)` directly — `True`
+only on the code path that inserts a row — so no clock is consulted at all.
+No retries, skips, or weakened assertions were used.
+
 The 2 former FastAPI route failures are fixed (recursive route-path
-collection). The 1 failure is the known-flaky KB ingestion idempotency test
-(`test_ingest_knowledge_base_idempotent_second_run`): passes standalone (8/8
-in isolation), fails intermittently in full-suite runs. Unrelated to recent
-changes.
+collection).
 
 These are not caused by any Phase 43+ changes.
 

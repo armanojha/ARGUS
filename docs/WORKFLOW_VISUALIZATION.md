@@ -775,4 +775,4 @@ Every LLM call
 
 ---
 
-*Generated from analysis of ARGUS v0.1.0 — 105 source files, 13 phases, 1047 tests collected.*
+*Generated from analysis of ARGUS v0.1.0 — 105 source files, 13 phases, 1051 tests collected.*

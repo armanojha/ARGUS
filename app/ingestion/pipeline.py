@@ -51,7 +51,7 @@ class IngestionPipeline:
         pdf_path: Path,
         source_type: SourceType = SourceType.PDF,
         chunking_strategy: str = "semantic_v1",
-    ) -> Document:
+    ) -> tuple[Document, bool]:
         """Ingest a PDF file through the full pipeline with multimodal support.
 
         Steps:
@@ -64,7 +64,9 @@ class IngestionPipeline:
         7. Store chunks
         8. Create document record
 
-        Returns the created Document.
+        Returns (Document, was_new): was_new is True only when a new document
+        row was inserted. Unchanged content returns the existing row with
+        was_new=False — determined by checksum match, never wall-clock.
         """
         pdf_path = Path(pdf_path)
         if not pdf_path.exists():
@@ -94,7 +96,7 @@ class IngestionPipeline:
         doc_checksum = hashlib.sha256(full_text.encode()).hexdigest()
         if existing_doc and existing_doc.chunking_strategy == chunking_strategy and existing_doc.checksum == doc_checksum:
             logger.info("document_unchanged", document_id=str(existing_doc.id))
-            return existing_doc
+            return existing_doc, False
 
         # 4. Extract text segments with provenance (OCR fallback for scanned PDFs)
         segments = extract_pdf_segments_with_ocr(pdf_path)
@@ -202,7 +204,7 @@ class IngestionPipeline:
             chunk_count=len(chunks),
             **multimodal_metadata,
         )
-        return document
+        return document, True
 
     def ingest_web_page(
         self,
@@ -355,8 +357,12 @@ class IngestionPipeline:
         file_path: Path,
         source_type: SourceType = SourceType.SPREADSHEET,
         chunking_strategy: str = "semantic_v1",
-    ) -> Document:
-        """Ingest a spreadsheet file (Excel/CSV) through the full pipeline."""
+    ) -> tuple[Document, bool]:
+        """Ingest a spreadsheet file (Excel/CSV) through the full pipeline.
+
+        Returns (Document, was_new): was_new is True only when a new
+        document row was inserted.
+        """
         settings = get_settings()
         
         if not settings.multimodal_spreadsheet_enabled:
@@ -399,7 +405,7 @@ class IngestionPipeline:
         doc_checksum = source_checksum
         if existing_doc and existing_doc.chunking_strategy == chunking_strategy and existing_doc.checksum == doc_checksum:
             logger.info("document_unchanged", document_id=str(existing_doc.id))
-            return existing_doc
+            return existing_doc, False
 
         # 5. Extract text segments with provenance
         segments = spreadsheet_to_text_segments(spreadsheet_result)
@@ -487,15 +493,19 @@ class IngestionPipeline:
             chunk_count=len(chunks),
             path=str(file_path),
         )
-        return document
+        return document, True
 
     def ingest_text_file(
         self,
         file_path: Path,
         source_type: SourceType = SourceType.TEXT,
         chunking_strategy: str = "semantic_v1",
-    ) -> Document:
-        """Ingest a plain text or markdown file."""
+    ) -> tuple[Document, bool]:
+        """Ingest a plain text or markdown file.
+
+        Returns (Document, was_new): was_new is True only when a new
+        document row was inserted.
+        """
         file_path = Path(file_path)
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
@@ -528,7 +538,7 @@ class IngestionPipeline:
             and existing_doc.chunking_strategy == chunking_strategy
             and existing_doc.checksum == doc_checksum
         ):
-            return existing_doc
+            return existing_doc, False
 
         # Create segments (single segment for text file)
         segments = [TextSegment(
@@ -614,7 +624,7 @@ class IngestionPipeline:
             document_id=str(document.id),
             chunk_count=len(chunks),
         )
-        return document
+        return document, True
 
 
 def ingest_corpus_directory(
@@ -645,13 +655,13 @@ def ingest_corpus_directory(
             
         try:
             if suffix == ".pdf":
-                doc = pipeline.ingest_pdf(file_path)
+                doc, _was_new = pipeline.ingest_pdf(file_path)
             elif suffix in (".xlsx", ".xls", ".xlsm", ".csv"):
                 if not settings.multimodal_spreadsheet_enabled:
                     continue
-                doc = pipeline.ingest_spreadsheet_file(file_path)
+                doc, _was_new = pipeline.ingest_spreadsheet_file(file_path)
             else:
-                doc = pipeline.ingest_text_file(file_path)
+                doc, _was_new = pipeline.ingest_text_file(file_path)
             documents.append(doc)
         except (OSError, ValueError, RuntimeError) as e:
             logger.error("ingestion_failed", path=str(file_path), error=str(e))

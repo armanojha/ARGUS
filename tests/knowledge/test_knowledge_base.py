@@ -18,10 +18,12 @@ from app.evidence.models import SourceType
 from app.evidence.store import EvidenceStore
 from app.ingestion.knowledge_base import (
     discover_files,
+    ingest_file,
     ingest_knowledge_base,
     kind_of,
     supported_extensions,
 )
+from app.ingestion.pipeline import IngestionPipeline
 
 
 @pytest.fixture(autouse=True)
@@ -133,3 +135,54 @@ class TestIngest:
         assert result.knowledge_base_path == str(Path(kb_root).resolve())
         assert result.started_at != ""
         assert result.duration_s >= 0.0
+
+
+class TestWasNewContract:
+    """was_new reflects row insertion, never wall-clock comparison.
+
+    Regression: ``was_new`` used to be ``doc.created_at >= run_started``,
+    which misclassified unchanged documents as new whenever a re-ingest
+    started within the same OS clock tick as the original creation
+    (intermittent idempotency failure, always the last-ingested file).
+    """
+
+    def test_txt_was_new_false_on_reingest(self, store, kb_root):
+        pipeline = IngestionPipeline(store)
+        target = kb_root / "notes.txt"
+        doc1, new1 = pipeline.ingest_text_file(target)
+        doc2, new2 = pipeline.ingest_text_file(target)
+        assert new1 is True
+        assert new2 is False
+        assert doc2.id == doc1.id
+        assert doc2.created_at == doc1.created_at
+
+    def test_csv_was_new_false_on_reingest(self, store, kb_root):
+        pipeline = IngestionPipeline(store)
+        target = kb_root / "report.csv"
+        doc1, new1 = pipeline.ingest_spreadsheet_file(target)
+        doc2, new2 = pipeline.ingest_spreadsheet_file(target)
+        assert new1 is True
+        assert new2 is False
+        assert doc2.id == doc1.id
+
+    def test_ingest_file_reports_insertion_not_clock(self, store, kb_root):
+        target = kb_root / "notes.txt"
+        doc1, new1 = ingest_file(target, IngestionPipeline(store))
+        assert new1 is True
+        # Rapid successive re-ingests (same-tick prone) must stay unchanged.
+        for _ in range(5):
+            doc_n, new_n = ingest_file(target, IngestionPipeline(store))
+            assert new_n is False
+            assert doc_n.id == doc1.id
+
+    def test_content_change_reports_new(self, store, kb_root):
+        target = kb_root / "notes.txt"
+        doc1, new1 = ingest_file(target, IngestionPipeline(store))
+        assert new1 is True
+        target.write_text("Changed content now.\n", encoding="utf-8")
+        doc2, new2 = ingest_file(target, IngestionPipeline(store))
+        assert new2 is True
+        assert doc2.id != doc1.id
+        # Changed content hashes to a new source row, so the new document
+        # starts at version 1 under that source.
+        assert store.count_documents() == 2

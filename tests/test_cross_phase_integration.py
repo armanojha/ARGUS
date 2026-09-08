@@ -585,7 +585,7 @@ class TestFlowJDocsToAnswer:
                 encoding="utf-8",
             )
             pipeline = IngestionPipeline(store)
-            doc = pipeline.ingest_text_file(corpus)
+            doc, _was_new = pipeline.ingest_text_file(corpus)
 
             chunks = store.get_chunks_by_document(doc.id)
             assert len(chunks) >= 1, "ingestion must produce retrievable chunks"

@@ -110,24 +110,23 @@ def kind_of(file_path: Path) -> tuple[SourceType, str]:
 def ingest_file(
     file_path: Path,
     pipeline: IngestionPipeline,
-    started_at: datetime,
 ) -> tuple[Document, bool]:
     """Ingest a single file through the existing pipeline.
 
-    Returns ``(document, was_new)`` where ``was_new`` is True when the file's
-    document was actually created/updated during this run (versus unchanged).
+    Returns ``(document, was_new)`` where ``was_new`` comes straight from
+    the pipeline (True only when a new document row was inserted).
+    Deliberately clock-free: a previous implementation compared
+    ``doc.created_at >= run_started_at``, which misclassified unchanged
+    documents as new whenever the second run started within the same OS
+    clock tick as the first run's document creation.
     """
     source_type, suffix = kind_of(file_path)
     if suffix == ".pdf":
-        doc = pipeline.ingest_pdf(file_path, source_type=source_type)
+        return pipeline.ingest_pdf(file_path, source_type=source_type)
     elif suffix in _SPREADSHEET_EXTENSIONS:
-        doc = pipeline.ingest_spreadsheet_file(file_path, source_type=source_type)
+        return pipeline.ingest_spreadsheet_file(file_path, source_type=source_type)
     else:
-        doc = pipeline.ingest_text_file(file_path, source_type=source_type)
-    # Unchanged documents carry their original created_at; new/updated documents
-    # are stamped after this run began.
-    was_new = doc.created_at >= started_at
-    return doc, was_new
+        return pipeline.ingest_text_file(file_path, source_type=source_type)
 
 
 def ingest_knowledge_base(
@@ -157,7 +156,7 @@ def ingest_knowledge_base(
 
     for file_path in files:
         try:
-            doc, was_new = ingest_file(file_path, pipeline, started)
+            doc, was_new = ingest_file(file_path, pipeline)
         except (OSError, ValueError, RuntimeError) as exc:
             result.errors += 1
             result.error_paths.append(str(file_path))
