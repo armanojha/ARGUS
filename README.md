@@ -6,7 +6,7 @@ An iterative RAG system that makes retrieval, evidence verification, conflicts, 
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-915-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-914%20passed-brightgreen.svg)](#testing)
 [![Lint](https://img.shields.io/badge/lint-ruff%20clean-brightgreen.svg)](#testing)
 
 ---
@@ -255,7 +255,7 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 
 | Metric | Value |
 |--------|-------|
-| Test suite | **915 tests** (906 + 9 semantic-verification), 26 skipped |
+| Test suite | **943 collected** · 914 passed · 26 skipped · 3 known failures (incl. 9 new semantic-verification tests) |
 | Contradiction benchmark | **8/8 cases** on synthetic 1-3 sentence snippets (not real documents) |
 | Backend status | **Frozen** — no modifications since Phase 43 |
 | Brain UI | Complete — all spec requirements implemented |
@@ -284,7 +284,7 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 | **Memory** | SQLite-backed 6-layer architecture |
 | **Verification** | Deterministic checks + LLM-based claim verification |
 | **Brain UI** | Single-file HTML/JS/D3.js/Canvas (no build step) |
-| **Testing** | pytest, 956 tests across 71 test files |
+| **Testing** | pytest, 943 tests collected across 62 test files |
 | **CI** | GitHub Actions (Python 3.11/3.12/3.13, ruff lint) |
 
 ## Project Structure
@@ -467,15 +467,18 @@ python benchmarks/phase43_benchmark.py
 
 | Metric | Value |
 |--------|-------|
+| Tests collected | 943 |
 | Tests passed | 914 |
 | Tests skipped | 26 |
-| Pre-existing failures | 2 |
-| Known-flaky | 1 (`test_ingest_knowledge_base_idempotent_second_run` — passes standalone, fails intermittently in full-suite runs) |
+| Known failures | 3 (2 pre-existing + 1 flaky) |
+| New tests | 9 (semantic contradiction verification) |
 | New regressions | 0 |
 
 The 2 pre-existing failures are both FastAPI route tests:
 - `test_telemetry_endpoints_query_integration` — FastAPI `_IncludedRouter` API change
 - `test_verify_route_registered` — FastAPI `_IncludedRouter` API change
+
+The 3rd known failure is `test_ingest_knowledge_base_idempotent_second_run` — passes standalone, fails intermittently in full-suite runs (test-ordering flake, unrelated to recent changes).
 
 These are not caused by any Phase 43+ changes.
 
