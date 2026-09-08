@@ -553,6 +553,75 @@ class AdaptiveResearchPolicy:
             max_iterations=max_iterations,
         )
 
+    def mutate_strategy(
+        self,
+        *,
+        current_queries: list[str],
+        gain_history: list[float],
+        contradictions_unresolved: bool,
+        gaps: list[dict[str, Any]],
+        iteration: int,
+        max_iterations: int,
+        base_top_k: int,
+        query: str,
+    ) -> StrategyMutation:
+        """Mutate the research strategy for the next iteration.
+
+        Pure function (no I/O): given what this iteration discovered, decide
+        how the NEXT iteration should differ. Priority order:
+          1. conflict_driven — unresolved contradictions + budget remain:
+             front-load a contradiction-resolution query.
+          2. gain_stall_escalation — marginal gain stalled + budget remains:
+             widen next retrieval (top_k × 2, capped).
+          3. gap_prioritized — high-priority gap queries move to the front.
+        Returns a no-op mutation (all None) when disabled, converged, or out
+        of budget. Never raises.
+        """
+        noop = StrategyMutation()
+        if not self.enabled:
+            return noop
+        if iteration >= max_iterations:
+            return noop
+
+        if contradictions_unresolved:
+            from app.retrieval.seeking import AdaptiveEvidenceGapDetector
+
+            resolution_q = AdaptiveEvidenceGapDetector._resolve_contradiction_query(query)
+            rest = [q for q in current_queries if q.strip().lower() != resolution_q.strip().lower()]
+            return StrategyMutation(
+                reordered_queries=[resolution_q, *rest],
+                mutation="conflict_driven",
+            )
+
+        try:
+            stalled = self.gain_calculator.evaluate(gain_history).should_stop
+        except Exception:  # noqa: BLE001 - malformed history must not break the loop
+            stalled = False
+        if stalled and len(gain_history) >= self.gain_calculator.min_window:
+            return StrategyMutation(
+                top_k_override=min(base_top_k * 2, 50),
+                mutation="gain_stall_escalation",
+            )
+
+        ordered = [g.get("suggested_query", "").strip() for g in gaps or []]
+        ordered = [q for q in ordered if q]
+        if ordered:
+            rest = [q for q in current_queries if q.strip().lower() not in {o.lower() for o in ordered}]
+            return StrategyMutation(
+                reordered_queries=[*ordered, *rest],
+                mutation="gap_prioritized",
+            )
+        return noop
+
+
+@dataclass
+class StrategyMutation:
+    """Result of mutating the research strategy for the next iteration."""
+
+    reordered_queries: list[str] | None = None
+    top_k_override: int | None = None
+    mutation: str | None = None
+
 
 def create_adaptive_research_policy(settings: Any = None) -> AdaptiveResearchPolicy:
     """Create an AdaptiveResearchPolicy from settings."""

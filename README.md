@@ -6,7 +6,7 @@ An iterative RAG system that makes retrieval, evidence verification, conflicts, 
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-980%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-992%20passed-brightgreen.svg)](#testing)
 [![Lint](https://img.shields.io/badge/lint-ruff%20clean-brightgreen.svg)](#testing)
 
 ---
@@ -255,7 +255,7 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 
 | Metric | Value |
 |--------|-------|
-| Test suite | **1006 collected** · 980 passed · 26 skipped · 0 failures (incl. 9 semantic + 15 strategy/reasoning tests) |
+| Test suite | **1018 collected** · 992 passed · 26 skipped · 0 failures (incl. 9 semantic + 15 strategy/reasoning + 12 mutation tests) |
 | Contradiction benchmark | **8/8 cases** on synthetic 1-3 sentence snippets (not real documents) |
 | Backend status | **Frozen** — no modifications since Phase 43 |
 | Brain UI | Complete — all spec requirements implemented |
@@ -302,7 +302,7 @@ calls, latency, cost) are pending provider runs and intentionally unreported.
 | **Memory** | SQLite-backed 6-layer architecture |
 | **Verification** | Deterministic checks + LLM-based claim verification |
 | **Brain UI** | Single-file HTML/JS/D3.js/Canvas (no build step) |
-| **Testing** | pytest, 1006 tests collected across 63 test files |
+| **Testing** | pytest, 1018 tests collected across 64 test files |
 | **CI** | GitHub Actions (Python 3.11/3.12/3.13, ruff lint) |
 
 ## Project Structure
@@ -485,11 +485,11 @@ python benchmarks/phase43_benchmark.py
 
 | Metric | Value |
 |--------|-------|
-| Tests collected | 1006 |
-| Tests passed | 980 |
+| Tests collected | 1018 |
+| Tests passed | 992 |
 | Tests skipped | 26 |
 | Known failures | 0 |
-| New tests | 24 (9 semantic contradiction + 15 strategy/reasoning) |
+| New tests | 36 (9 semantic + 15 strategy/reasoning + 12 mutation) |
 | New regressions | 0 |
 
 Previously 2 FastAPI route tests failed on `_IncludedRouter` (fixed by recursive

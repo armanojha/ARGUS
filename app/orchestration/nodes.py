@@ -850,6 +850,11 @@ def make_retrieve_node(
 
         question_pattern = state.get("question_pattern")
 
+        # Strategy-mutated depth: when the adaptive policy escalated retrieval
+        # after a gain stall, honor its top_k; otherwise use the configured
+        # default. None (policy off) always falls back to settings.
+        top_k = state.get("strategy_top_k") or settings.orchestration_retrieval_top_k
+
         try:
             if policy_router is not None and settings.retrieval_policy_enabled:
                 pattern = policy_router.classify_question(subquery)
@@ -859,20 +864,20 @@ def make_retrieve_node(
                     subquery,
                     pattern,
                     retriever,
-                    top_k=settings.orchestration_retrieval_top_k,
+                    top_k=top_k,
                     reranker=reranker,
                 )
                 if not results:
                     # Deterministic fallback: plain hybrid pass. Never fabricate.
-                    results = await retriever.search_async(subquery, top_k=settings.orchestration_retrieval_top_k)
+                    results = await retriever.search_async(subquery, top_k=top_k)
                     if results:
-                        results = reranker.rerank(subquery, results, top_k=settings.orchestration_retrieval_top_k)
+                        results = reranker.rerank(subquery, results, top_k=top_k)
             else:
                 # Phase 07f: the async hybrid overlaps the independent BM25 and
                 # vector passes (deterministic fusion, unaffected by ordering).
-                results = await retriever.search_async(subquery, top_k=settings.orchestration_retrieval_top_k)
+                results = await retriever.search_async(subquery, top_k=top_k)
                 if results:
-                    results = reranker.rerank(subquery, results, top_k=settings.orchestration_retrieval_top_k)
+                    results = reranker.rerank(subquery, results, top_k=top_k)
         except Exception as exc:
             logger.exception("orchestration_retrieval_critical", subquery=subquery, error=str(exc))
             results = []
@@ -1099,6 +1104,37 @@ def make_assess_node(
         else:
             evidence_tasks = list(state.get("evidence_tasks") or [])
 
+        # Adaptive strategy mutation: let this iteration's discoveries change
+        # how the NEXT iteration retrieves. Gated by the adaptive research
+        # policy (default off, so base_pending/top_k/mutation stay neutral
+        # and behavior is unchanged unless the policy is enabled).
+        strategy_base_pending = list(state["pending_subquestions"])
+        strategy_top_k: int | None = None
+        strategy_mutation: str | None = None
+        if adaptive_research_policy is not None and not assessment.sufficient:
+            try:
+                unresolved = any(
+                    bool(s.get("critical")) and not bool(s.get("resolved"))
+                    for s in contradiction_signals if isinstance(s, dict)
+                )
+                mutation = adaptive_research_policy.mutate_strategy(
+                    current_queries=list(state["pending_subquestions"]),
+                    gain_history=list(state.get("retrieval_gain_history") or []),
+                    contradictions_unresolved=unresolved,
+                    gaps=gaps,
+                    iteration=int(state.get("iteration", 0)),
+                    max_iterations=int(state.get("max_iterations", 0)),
+                    base_top_k=int(getattr(settings, "orchestration_retrieval_top_k", 8)),
+                    query=state["query"],
+                )
+            except Exception:  # noqa: BLE001 - mutation must never break assessment
+                mutation = None
+            if mutation is not None:
+                if mutation.reordered_queries is not None:
+                    strategy_base_pending = list(mutation.reordered_queries)
+                strategy_top_k = mutation.top_k_override
+                strategy_mutation = mutation.mutation
+
         if assessment.sufficient or not assessment.next_subquery:
             if not assessment.sufficient and gap_detector is not None and gap_detector.should_re_retrieve(gaps):
                 # The assessor ran out of ideas but the policy sees a real
@@ -1106,7 +1142,7 @@ def make_assess_node(
                 top_gap = max(gaps, key=lambda g: g.get("priority", 0.0))
                 next_q = (top_gap.get("suggested_query") or "").strip()
                 already_issued = {q.strip().lower() for q in state["issued_subqueries"]}
-                pending = list(state["pending_subquestions"])
+                pending = list(strategy_base_pending)
                 if next_q and next_q.lower() not in already_issued and next_q not in pending:
                     pending.append(next_q)
                     return {
@@ -1115,6 +1151,8 @@ def make_assess_node(
                         "evidence_tasks": evidence_tasks,
                         "contradiction_signals": contradiction_signals,
                         "warnings": warnings,
+                        "strategy_top_k": strategy_top_k,
+                        "strategy_mutation": strategy_mutation,
                     }
 
             stop_reason = (
@@ -1134,7 +1172,7 @@ def make_assess_node(
         # Not sufficient, and a next query was proposed: queue it unless
         # it's a near-duplicate of one we've already issued.
         already_issued = {q.strip().lower() for q in state["issued_subqueries"]}
-        pending = list(state["pending_subquestions"])
+        pending = list(strategy_base_pending)
         next_q = assessment.next_subquery.strip()
         if next_q and next_q.lower() not in already_issued and next_q not in pending:
             pending.append(next_q)
@@ -1156,6 +1194,8 @@ def make_assess_node(
             "warnings": warnings,
             "evidence_tasks": evidence_tasks,
             "complexity_tier": updated_tier,
+            "strategy_top_k": strategy_top_k,
+            "strategy_mutation": strategy_mutation,
         }
 
     return assess_node

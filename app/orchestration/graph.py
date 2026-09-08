@@ -149,6 +149,8 @@ def _build_strategy_snapshot(
 
     if node_name == "plan":
         mutated_from = "initial"
+    elif result.get("strategy_mutation"):
+        mutated_from = str(result["strategy_mutation"])
     elif result.get("sufficient") and result.get("stop_reason"):
         mutated_from = f"terminal:{result['stop_reason']}"
     elif after_tasks > before_tasks:
@@ -186,6 +188,7 @@ def _build_strategy_snapshot(
         max_iterations=int(state.get("max_iterations", 0)),
         evidence_budget_tokens=max(
             0, int(state.get("token_budget", 0)) - int(state.get("tokens_used", 0))),
+        top_k_override=result.get("strategy_top_k"),
         stop_reason=result.get("stop_reason"),
         mutated_from=mutated_from,
     )
@@ -520,6 +523,7 @@ def _initial_state(query: str, request_id: str | None, settings: Settings) -> Or
         complexity_tier=complexity_tier,
         # Research strategy history (snapshots appended by plan/assess nodes)
         strategy_history=[],
+        strategy_top_k=None,
     )
 
 

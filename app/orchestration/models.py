@@ -110,6 +110,11 @@ class ResearchStrategy(BaseModel):
     )
     max_iterations: int = Field(description="Iteration ceiling for the run.")
     evidence_budget_tokens: int = Field(description="Token budget remaining for evidence work.")
+    top_k_override: int | None = Field(
+        default=None,
+        description="Mutated retrieval depth for the next iteration "
+        "(gain-stall escalation); None means the configured default.",
+    )
     stop_reason: str | None = Field(
         default=None, description="Stop reason if the loop ended on this iteration.")
     mutated_from: str | None = Field(

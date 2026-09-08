@@ -82,3 +82,5 @@ class OrchestrationState(TypedDict):
 
     # Per-iteration research strategy snapshots (first-class strategy state)
     strategy_history: NotRequired[list[dict[str, Any]]]
+    # Strategy-mutated retrieval depth for the next retrieve (None = default)
+    strategy_top_k: NotRequired[int | None]
