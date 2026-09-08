@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar
 
 from app.evidence.models import EvidenceRef
 from app.logging_config import get_logger
@@ -136,10 +136,10 @@ class ResearchSufficiency:
         elif base_level == SufficiencyLevel.MARGINAL:
             reasons.append("marginal evidence quality")
 
-        if self.need_count > 3 and base_level == SufficiencyLevel.SUFFICIENT:
-            if self.coverage_score < 0.5:
-                base_level = SufficiencyLevel.MARGINAL
-                reasons.append(f"complex needs with low coverage ({self.coverage_score:.2f})")
+        if (self.need_count > 3 and base_level == SufficiencyLevel.SUFFICIENT
+                and self.coverage_score < 0.5):
+            base_level = SufficiencyLevel.MARGINAL
+            reasons.append(f"complex needs with low coverage ({self.coverage_score:.2f})")
 
         return SufficiencyResult(
             level=base_level,
@@ -284,7 +284,7 @@ class PatternPolicy:
 class PatternSpecificPolicies:
     """Query-pattern-specific research behaviors."""
 
-    _POLICIES: dict[str, PatternPolicy] = {
+    _POLICIES: ClassVar[dict[str, PatternPolicy]] = {
         "conflict": PatternPolicy(
             min_iterations=2,
             max_iterations=4,

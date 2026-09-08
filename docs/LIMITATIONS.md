@@ -1,6 +1,6 @@
 # ARGUS Known Limitations
 
-ARGUS is a research system built and validated through 43 development phases. This document honestly describes what works, what doesn't, and what's intentionally left for future work.
+ARGUS is a research system developed through an iterative sequence of engineering and evaluation phases. This document honestly describes what works, what doesn't, and what's intentionally left for future work.
 
 ## Provider Infrastructure
 

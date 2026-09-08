@@ -28,7 +28,7 @@ The system is built with Python 3.11+, FastAPI, LangGraph, FAISS, and D3.js.
 - **Conflict detection** reduced false positive rate from 80% to 0% through query-aware filtering
 - **Evidence traceability** — trace from any answer citation back to the source document
 - **Brain UI** — 25/25 spec requirements implemented in a single-file HTML/JS/D3.js application
-- **43 development phases** with detailed benchmark reports and honest infrastructure assessment
+- Iterative engineering phases with detailed benchmark reports and honest infrastructure assessment
 
 ## Suggested LinkedIn Post
 

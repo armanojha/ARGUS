@@ -14,17 +14,16 @@ Architecture:
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from app.evidence.models import EvidenceRef
     from app.retrieval.hybrid import HybridRetriever
     from app.retrieval.planner import EvidenceNeed, QueryPlan
-    from app.evidence.models import EvidenceRef
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +240,7 @@ class TargetedRecovery:
         analysis: CoverageAnalysis,
         initial_refs: list[EvidenceRef],
         retriever: HybridRetriever,
-        store: Any,
+        store: object,
     ) -> list[EvidenceRef]:
         """Execute targeted recovery for unsatisfied evidence needs.
 
@@ -303,7 +302,7 @@ class TargetedRecovery:
         analysis: CoverageAnalysis,
         initial_refs: list[EvidenceRef],
         retriever: HybridRetriever,
-        store: Any,
+        store: object,
     ) -> tuple[list, int]:
         """Recover short disclaimer/note chunks for conflict queries."""
         recovered = []
@@ -353,7 +352,7 @@ class TargetedRecovery:
         analysis: CoverageAnalysis,
         initial_refs: list[EvidenceRef],
         retriever: HybridRetriever,
-        store: Any,
+        store: object,
     ) -> tuple[list, int]:
         """Recover related contradictory evidence for conflict queries."""
         recovered = []
@@ -393,7 +392,7 @@ class TargetedRecovery:
         analysis: CoverageAnalysis,
         initial_refs: list[EvidenceRef],
         retriever: HybridRetriever,
-        store: Any,
+        store: object,
     ) -> tuple[list, int]:
         """Recover bridge documents for multi-hop queries.
 
@@ -442,7 +441,7 @@ class TargetedRecovery:
         analysis: CoverageAnalysis,
         initial_refs: list[EvidenceRef],
         retriever: HybridRetriever,
-        store: Any,
+        store: object,
     ) -> tuple[list, int]:
         """Recover missing evidence by expanding to related sections."""
         recovered = []
@@ -458,7 +457,6 @@ class TargetedRecovery:
                 break
 
             # Search for chunks in same document
-            doc_query = f"document:{ref.document_id}"
             refs = retriever.search(ref.text[:100], top_k=5)
             attempts += 1
 
@@ -475,7 +473,7 @@ class TargetedRecovery:
         analysis: CoverageAnalysis,
         initial_refs: list[EvidenceRef],
         retriever: HybridRetriever,
-        store: Any,
+        store: object,
     ) -> tuple[list, int]:
         """Recover by expanding to parent sections."""
         recovered = []
@@ -511,7 +509,7 @@ class TargetedRecovery:
     async def _expand_to_parent_sections(
         self,
         refs: list[EvidenceRef],
-        store: Any,
+        store: object,
     ) -> tuple[list, int]:
         """Expand retrieval to parent sections of retrieved chunks."""
         recovered = []

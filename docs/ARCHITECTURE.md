@@ -150,7 +150,7 @@ Fusion is configurable per query pattern via `configs/retrieval_policy.yaml`:
 
 ### Adaptive Policy Router
 
-The retrieval policy router classifies incoming questions into one of 18+ patterns and selects the optimal retrieval mix, method, and fusion strategy for each.
+The retrieval policy router classifies incoming questions into one of 20 canonical patterns and selects the optimal retrieval mix, method, and fusion strategy for each.
 
 **Classification patterns:** exact_term, conceptual, entity_relationship, historical, long_report, fresh_missing, multimodal, comparative, causal, procedural, simple_lookup, normal_qa, numerical, technical_explanation, multi_doc_synthesis, conflict, complex_research, multi_hop, absent_info, adversarial
 
@@ -173,7 +173,7 @@ After retrieval, the evidence selector performs:
 
 ## Evidence Verification
 
-Every claim in the answer is checked against retrieved evidence:
+Generated claims are evaluated against retrieved evidence using deterministic and model-assisted verification checks:
 
 | Status | Meaning |
 |--------|---------|

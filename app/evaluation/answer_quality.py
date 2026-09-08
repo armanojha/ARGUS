@@ -532,7 +532,7 @@ def evaluate_answer(
 
     # 3. Aggregate metrics
     if claim_evals:
-        supported = sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.SUPPORTED)
+        sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.SUPPORTED)
         partial = sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.PARTIALLY_SUPPORTED)
         unsupported = sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.UNSUPPORTED)
         contradicted = sum(1 for c in claim_evals if c.support_status == ClaimSupportStatus.CONTRADICTED)

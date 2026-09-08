@@ -60,10 +60,10 @@ from app.orchestration.state import OrchestrationState
 from app.orchestration.stopping import build_stopping_logic
 from app.reranking import get_reranker
 from app.reranking.reranker import NoOpReranker, Reranker
+from app.retrieval.evidence_selector import EvidenceSelector
 from app.retrieval.hybrid import HybridRetriever, get_hybrid_retriever
 from app.retrieval.router import get_retrieval_policy_router
 from app.retrieval.seeking import get_adaptive_gap_detector
-from app.retrieval.evidence_selector import EvidenceSelector
 
 logger = get_logger("argus.orchestration.graph")
 
@@ -243,9 +243,6 @@ def build_graph(
     if verified_synthesis_enabled:
         from app.orchestration.two_pass_synthesis import (
             two_pass_synthesize,
-            _render_verified_claims,
-            _detect_question_pattern,
-            _should_early_exit,
         )
 
         async def _verified_synthesize_node(state: OrchestrationState) -> dict:
@@ -267,7 +264,7 @@ def build_graph(
                 evidence_for_llm = evidence_selector.select(evidence)
 
             contradiction_signals = state.get("contradiction_signals") or []
-            answer, synth_warnings, claim_set, synth_metrics = await two_pass_synthesize(
+            answer, synth_warnings, _claim_set, synth_metrics = await two_pass_synthesize(
                 plan,
                 evidence_for_llm,
                 router=router,
@@ -455,13 +452,11 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
     warnings = list(final_state["warnings"])
 
     cited_indices = extract_cited_indices(answer, len(evidence))
-    citation_fallback_used = False
     if not cited_indices and evidence:
         # Model produced no bracket citations (or synthesis degraded) —
         # never silently drop provenance: fall back to surfacing the
         # top evidence actually used to ground the answer.
         cited_indices = list(range(1, min(3, len(evidence)) + 1))
-        citation_fallback_used = True
         warnings.append(
             "citation_fallback: LLM produced no bracket citations; "
             "top evidence auto-attached as citations"

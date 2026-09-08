@@ -127,7 +127,7 @@ Clearly labeled "DEMO MODE — Pre-recorded data" to distinguish from live resea
 
 ## Research Timeline
 
-The answer inspector shows per-stage timing extracted from telemetry:
+**Approximate** — derived from available telemetry and routing information; does not represent exact backend stage timings.
 
 ```
 Analysis    — 850ms (1 call — groq)

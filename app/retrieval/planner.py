@@ -12,7 +12,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import ClassVar
 
 from app.logging_config import get_logger
 
@@ -88,7 +88,7 @@ class EvidenceNeedPlanner:
 
     # Patterns that benefit from evidence need planning
     # Uses QuestionPattern enum values for canonical classification
-    PLANNABLE_PATTERNS = {
+    PLANNABLE_PATTERNS: ClassVar[set[str]] = {
         "conflict", "complex_research", "multi_hop",  # String values
         # Note: Also accepts QuestionPattern.CONFLICT.value, etc.
     }
@@ -120,14 +120,8 @@ class EvidenceNeedPlanner:
         "back", "being", "get", "got", "make", "made", "take", "took",
         "come", "came", "go", "went", "see", "saw", "know", "knew",
         "think", "thought", "say", "said", "tell", "told", "give", "gave",
-        "use", "used", "find", "found", "want", "want", "need", "needed",
-        "the", "it", "and", "for", "that", "with", "you", "this", "but",
-        "from", "they", "have", "been", "one", "were", "which", "when",
-        "their", "will", "way", "about", "many", "then", "them", "would",
-        "like", "than", "each", "those", "its", "how", "just", "his",
-        "her", "are", "our", "out", "what", "some", "could", "other",
-        "into", "more", "time", "very", "when", "come", "made", "after",
-        "also", "did", "any", "only", "new", "year", "old", "great",
+        "use", "used", "find", "found", "want", "need", "needed",
+        "been", "one", "way", "them", "like", "out", "time", "new", "year", "old", "great",
     })
 
     def plan(self, query: str, pattern: str) -> QueryPlan:

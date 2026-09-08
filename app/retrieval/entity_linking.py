@@ -16,11 +16,9 @@ from __future__ import annotations
 import json
 import re
 import time
-from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
-from uuid import UUID
 
 from app.logging_config import get_logger
 
@@ -136,8 +134,8 @@ _ENTITY_STOP_WORDS = frozenset({
     "the", "this", "that", "these", "those", "what", "which", "when",
     "where", "how", "why", "who", "does", "will", "should", "could",
     "would", "can", "may", "might", "must", "shall", "not", "also",
-    "than", "then", "into", "over", "into", "each", "some", "more",
-    "most", "than", "other", "such", "only", "very", "just", "even",
+    "than", "then", "into", "over", "each", "some", "more",
+    "most", "other", "such", "only", "very", "just", "even",
     "still", "already", "here", "there", "now", "new", "old", "first",
     "last", "next", "same", "different", "both", "many", "much", "few",
     "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
@@ -195,9 +193,9 @@ def _classify_entity_type(name: str, context: str = "") -> EntityType:
             return "ORGANIZATION"
     # Check if it looks like a person name (2 capitalized words, no org/tech context)
     words = name.split()
-    if len(words) == 2 and all(w[0].isupper() and w[1:].islower() for w in words):
-        if not any(w.lower() in _TECHNOLOGY_WORDS | _ORGANIZATION_WORDS for w in words):
-            return "PERSON"
+    if (len(words) == 2 and all(w[0].isupper() and w[1:].islower() for w in words)
+            and not any(w.lower() in _TECHNOLOGY_WORDS | _ORGANIZATION_WORDS for w in words)):
+        return "PERSON"
     return "OTHER"
 
 
@@ -439,7 +437,7 @@ def detect_query_entities(
     query_lower = query.lower()
     matches: list[tuple[CorpusEntity, float]] = []
 
-    for eid, entity in index.entities.items():
+    for entity in index.entities.values():
         # Check canonical name
         score = fuzz.partial_ratio(entity.canonical_name.lower(), query_lower) / 100.0
         if score >= threshold:
@@ -467,7 +465,7 @@ def _detect_query_entities_simple(
     query_lower = query.lower()
     matches: list[tuple[CorpusEntity, float]] = []
 
-    for eid, entity in index.entities.items():
+    for entity in index.entities.values():
         # Simple substring check
         if entity.canonical_name.lower() in query_lower:
             matches.append((entity, 1.0))
@@ -515,13 +513,10 @@ def generate_expansions(
         # Find entities linked to this entity via relationships
         for rel in index.relationships:
             linked_id = None
-            direction = ""
             if rel.source_entity == entity.id:
                 linked_id = rel.target_entity
-                direction = "outgoing"
             elif rel.target_entity == entity.id:
                 linked_id = rel.source_entity
-                direction = "incoming"
 
             if linked_id and linked_id in index.entities:
                 linked = index.entities[linked_id]
@@ -555,7 +550,7 @@ def generate_expansions(
 def save_entity_index(index: CorpusEntityIndex, path: Path) -> None:
     """Save the entity index to a JSON file."""
     import datetime
-    index.created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    index.created_at = datetime.datetime.now(datetime.UTC).isoformat()
     data = {
         "version": index.version,
         "created_at": index.created_at,
@@ -596,7 +591,7 @@ def load_entity_index(path: Path) -> CorpusEntityIndex | None:
             relationships=len(index.relationships),
         )
         return index
-    except Exception as exc:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         logger.warning("entity_index_load_failed", path=str(path), error=str(exc))
         return None
 
@@ -770,7 +765,7 @@ class EntityLinker:
 
         # Only add expansions that are topically relevant
         # Filter out expansions that don't share context with the sub-query
-        subquery_lower = subquery.lower()
+        subquery.lower()
         filtered_expansions = []
         for exp in expansions:
             # Check if the expansion entity is topically related to the sub-query
@@ -850,7 +845,7 @@ class EntityLinker:
                 continue
 
             # Only add expansions that have direct relationships with detected entities
-            subquery_lower = need.search_query.lower()
+            need.search_query.lower()
             direct_expansions = []
             for exp in expansions:
                 for entity, _ in detected:

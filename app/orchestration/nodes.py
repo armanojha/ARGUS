@@ -45,9 +45,8 @@ from app.orchestration.prompts import (
 from app.orchestration.state import OrchestrationState
 from app.orchestration.stopping import stop_condition_to_reason
 from app.reranking.reranker import NoOpReranker, Reranker
-from app.retrieval.evidence_selector import EvidenceSelector, SelectionMetrics
+from app.retrieval.evidence_selector import EvidenceSelector
 from app.retrieval.hybrid import HybridRetriever
-
 
 # ---------------------------------------------------------------------------
 # Deterministic contradiction detection (Phase 39)
@@ -224,8 +223,7 @@ def _classify_conflict_type(
 # Stopwords excluded from relevance overlap calculations
 _STOPWORDS = frozenset({
     "what", "which", "when", "where", "does", "that", "have", "been",
-    "from", "about", "how", "many", "was", "were", "this", "that",
-    "with", "from", "their", "which", "supports", "claim", "evidence",
+    "from", "about", "how", "many", "was", "were", "this", "with", "their", "supports", "claim", "evidence",
     "information", "data", "system", "using", "based", "provide",
 })
 
@@ -508,14 +506,14 @@ def filter_contradictions_by_query(
         confidence = sig.get("confidence", "LOW")
         entity_overlap = set(sig.get("entity_overlap", []))
         metric_overlap = set(sig.get("metric_overlap", []))
-        timeframe_i = set(sig.get("timeframe_i", []))
-        timeframe_j = set(sig.get("timeframe_j", []))
+        set(sig.get("timeframe_i", []))
+        set(sig.get("timeframe_j", []))
 
         # ── Rule 1: DIFFERENT_TIMEFRAME is filtered unless query asks about history
         # OR the query asks about the same metric (user needs both values) ──
-        if conflict_type == "DIFFERENT_TIMEFRAME":
-            if not historical_intent and not (metric_overlap & query_metrics):
-                continue
+        if (conflict_type == "DIFFERENT_TIMEFRAME"
+                and not historical_intent and not (metric_overlap & query_metrics)):
+            continue
 
         # ── Rule 2: LOW confidence signals are filtered unless query asks about conflicts ──
         if confidence == "LOW" and not conflict_intent:
@@ -536,11 +534,9 @@ def filter_contradictions_by_query(
         # ── Rule 4: Check entity relevance ──
         # If query mentions a specific entity, conflict should involve that entity
         query_entities = query_words - _METRIC_KEYWORDS
-        if query_entities and not (entity_overlap & query_entities):
-            # Query mentions specific entities, but conflict involves different entities
-            # (unless conflict involves the same metric which is query-relevant)
-            if not (metric_overlap & query_metrics):
-                continue
+        if (query_entities and not (entity_overlap & query_entities)
+                and not (metric_overlap & query_metrics)):
+            continue
 
         filtered.append(sig)
 
@@ -885,14 +881,13 @@ def make_assess_node(
         # Phase 39: Deterministic absent-info detection.
         # When evidence exists but is all irrelevant (low scores, low overlap),
         # signal that information is genuinely absent from the corpus.
-        if evidence and not state.get("sufficient"):
-            if _is_evidence_absent(evidence, state["query"]):
-                logger.info(
-                    "absent_info_deterministic",
-                    evidence_count=len(evidence),
-                    request_id=state["request_id"],
-                )
-                return {
+        if evidence and not state.get("sufficient") and _is_evidence_absent(evidence, state["query"]):
+            logger.info(
+                "absent_info_deterministic",
+                evidence_count=len(evidence),
+                request_id=state["request_id"],
+            )
+            return {
                     "sufficient": True,
                     "stop_reason": StopReason.NO_NEW_EVIDENCE.value,
                     "contradiction_signals": contradiction_signals,
@@ -905,7 +900,6 @@ def make_assess_node(
         # investigation. This preserves the existing LLM-based assessment
         # as a fallback for ambiguous cases.
         if adaptive_research_policy is not None:
-            from app.orchestration.adaptive_research import AdaptiveDecision
             decision = adaptive_research_policy.should_continue_retrieval(
                 evidence=state["evidence"],
                 need_coverage={},  # computed from plan needs below

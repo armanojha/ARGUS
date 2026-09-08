@@ -54,7 +54,7 @@ def _get_entity_linker() -> Any:
             index_path = REPO_ROOT / "data" / "entity_index.json"
             _entity_linker = EntityLinker(index_path=index_path)
             _entity_linker.load()
-        except Exception:
+        except (OSError, ValueError, KeyError):
             _entity_linker = EntityLinker()
     return _entity_linker
 

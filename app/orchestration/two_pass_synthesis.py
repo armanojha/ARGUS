@@ -14,7 +14,6 @@ import dataclasses
 import json
 import re
 import time
-from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
@@ -24,7 +23,6 @@ from app.llm_gateway.providers.exceptions import LLMProviderError
 from app.llm_gateway.routing.router import LLMRouter
 from app.logging_config import get_logger
 from app.orchestration.models import ResearchPlan
-from app.orchestration.prompts import _format_evidence_block
 from app.orchestration.two_pass_models import (
     ClaimSet,
     ClaimSupportStatus,
@@ -423,10 +421,7 @@ def _should_early_exit(
     if pattern in ("simple_lookup", "numerical", "absent_info"):
         return True
 
-    if pattern == "conflict" and len(supported) <= 5:
-        return True
-
-    return False
+    return bool(pattern == "conflict" and len(supported) <= 5)
 
 
 # --- Instrumented two-pass synthesis ---

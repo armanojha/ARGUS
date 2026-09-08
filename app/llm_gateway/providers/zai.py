@@ -25,7 +25,7 @@ from typing import Any
 
 from app.llm_gateway.capabilities import ProviderCapabilities
 from app.llm_gateway.providers import register_provider
-from app.llm_gateway.providers.models import CompletionResponse, Usage
+from app.llm_gateway.providers.models import CompletionResponse
 from app.llm_gateway.providers.openai_compatible import OpenAICompatibleProvider
 
 ZAI_BASE_URL = "https://api.z.ai/api/paas/v4"

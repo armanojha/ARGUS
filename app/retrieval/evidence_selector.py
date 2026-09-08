@@ -245,7 +245,7 @@ class EvidenceSelector:
         selected_ids: set = set()
 
         # Pass 1: top chunk from each source (up to target)
-        for doc_id, refs in by_source.items():
+        for refs in by_source.values():
             if len(selected) >= target:
                 break
             if refs:

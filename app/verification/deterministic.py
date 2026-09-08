@@ -14,12 +14,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import ClassVar
 
 from app.evidence.models import EvidenceRef
 from app.logging_config import get_logger
-from app.retrieval.planner import EvidenceNeed, ClaimType, QueryPlan
-from app.verification.models import ContradictionDetail, ContradictionType
+from app.retrieval.planner import ClaimType, EvidenceNeed, QueryPlan
 
 logger = get_logger("argus.verification.deterministic")
 
@@ -175,7 +174,7 @@ class TextContradictionDetector:
     """Detects contradictions in retrieved text without LLM calls."""
 
     # Number extraction patterns
-    NUMERIC_PATTERNS = [
+    NUMERIC_PATTERNS: ClassVar[list[str]] = [
         # Revenue/profit with units
         r'\$?([\d,]+\.?\d*)\s*(billion|million|thousand|B|M|K)',
         # Percentages
@@ -187,7 +186,7 @@ class TextContradictionDetector:
     ]
 
     # Entity-attribute patterns (order matters: more specific first)
-    ATTRIBUTE_PATTERNS = [
+    ATTRIBUTE_PATTERNS: ClassVar[list[tuple[str, str]]] = [
         # Revenue: "$X billion in revenue" / "revenue of $X billion" / "revenue was $X"
         (r'(?:revenue|sales|income)\s*(?:of|was|is|were|totaled?|reached|amounted?)\s*\$?([\d,]+\.?\d*)\s*(billion|million|thousand|%)?',
          "financial"),
@@ -321,7 +320,6 @@ class TextContradictionDetector:
         # Define incompatible unit groups
         financial_units = {"billion", "million", "thousand", "$", "k", "m", "b"}
         percentage_units = {"%", "percent"}
-        count_units = {"", "employees", "workers", "staff"}  # unitless = count
 
         def unit_group(u: str) -> str:
             if u in percentage_units:

@@ -91,7 +91,7 @@ async def verify(
             settings=settings,
             request_id=request_id,
         )
-    except LLMProviderError as exc:
+    except LLMProviderError:
         # Mirror the engine's graceful degradation when the verifier is
         # unavailable (e.g. no configured provider) — the UI can render
         # an ERROR result instead of a 500.

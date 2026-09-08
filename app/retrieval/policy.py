@@ -13,7 +13,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import ClassVar
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -75,7 +74,7 @@ class QuestionPattern(str, Enum):
     # Mapping from evaluation plan classes to canonical patterns
     # This ensures consistency between eval plan and production classification
     @classmethod
-    def from_eval_class(cls, eval_class: str) -> "QuestionPattern":
+    def from_eval_class(cls, eval_class: str) -> QuestionPattern:
         """Convert an evaluation plan class to the canonical pattern.
 
         This is the SINGLE ENTRY POINT for converting eval plan classes

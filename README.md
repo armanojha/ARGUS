@@ -278,7 +278,7 @@ ARGUS/
 ├── benchmarks/           Phase reports, evaluation data, benchmark harness
 ├── configs/              Provider, model policy, retrieval policy, Obsidian config
 ├── docs/                 Architecture docs, workflow visualization, guides
-├── knowledge_base/       User document corpus (PDF, TXT, MD, CSV, XLSX)
+├── knowledge_base/       User document corpus (created at runtime, not in repo)
 ├── scripts/              Ingestion, OCR, test runners, diagnostic tools
 ├── tests/                Test suite (mirrors app/ structure, 71 test files)
 ├── .env.example          Environment variable template

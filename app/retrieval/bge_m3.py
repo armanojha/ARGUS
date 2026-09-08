@@ -18,13 +18,14 @@ from __future__ import annotations
 
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 import faiss
 import numpy as np
+
 from app.config import get_settings
 from app.evidence.models import Chunk, EvidenceRef
 from app.evidence.store import EvidenceStore, get_evidence_store
@@ -169,7 +170,6 @@ class BGEM3Retriever:
                 except Exception as exc_flag:  # noqa: BLE001
                     logger.warning("flag_embedding_unavailable", error=str(exc_flag))
                     try:
-                        import torch
                         from transformers import AutoModel, AutoTokenizer
 
                         tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-m3")
@@ -178,7 +178,7 @@ class BGEM3Retriever:
                         _bge_m3_model = _TransformersBGE3(model, tokenizer)
                         _bge_m3_model._backend = "transformers"
                         logger.info("bge_m3_model_loaded_via_transformers")
-                    except Exception as exc_tf:  # noqa: BLE001
+                    except Exception as exc_tf:
                         logger.error("bge_m3_model_load_failed", error=str(exc_tf))
                         raise
             return _bge_m3_model
@@ -496,7 +496,7 @@ class BGEM3Retriever:
 
         if not d:
             return csr_matrix((1, width), dtype=np.float32)
-        cols = [int(k) for k in d.keys()]
+        cols = [int(k) for k in d]
         vals = [float(v) for v in d.values()]
         max_col = max(cols)
         if max_col >= width:

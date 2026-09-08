@@ -8,7 +8,7 @@ ARGUS implements a multi-layered correctness system that ensures evidence is ver
 
 ### Claim-Support Checking
 
-Every claim in the synthesized answer is checked against retrieved evidence:
+Generated claims are evaluated against retrieved evidence using deterministic and model-assisted verification checks:
 
 | Status | Meaning |
 |--------|---------|
