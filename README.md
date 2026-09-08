@@ -6,7 +6,7 @@ An iterative RAG system that makes retrieval, evidence verification, conflicts, 
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-965%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-980%20passed-brightgreen.svg)](#testing)
 [![Lint](https://img.shields.io/badge/lint-ruff%20clean-brightgreen.svg)](#testing)
 
 ---
@@ -255,7 +255,7 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 
 | Metric | Value |
 |--------|-------|
-| Test suite | **991 collected** · 965 passed · 26 skipped · 0 failures (incl. 9 new semantic-verification tests) |
+| Test suite | **1006 collected** · 980 passed · 26 skipped · 0 failures (incl. 9 semantic + 15 strategy/reasoning tests) |
 | Contradiction benchmark | **8/8 cases** on synthetic 1-3 sentence snippets (not real documents) |
 | Backend status | **Frozen** — no modifications since Phase 43 |
 | Brain UI | Complete — all spec requirements implemented |
@@ -264,11 +264,29 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 
 ### What Has NOT Been Validated
 
-- End-to-end retrieval recall on real document corpora
-- Claim grounding accuracy on complex multi-source queries
+- Claim grounding accuracy on complex multi-source queries (live LLM runs pending)
 - Adversarial or prompt-injection resistance
 - Latency and cost under production load
 - Memory system effectiveness (disabled by default, SQL LIKE search only)
+
+## E2E Intelligence Benchmark
+
+Fixed inputs, measurable behaviors — what test counts cannot show. 38 eval cases
+across 10 classes against a fixed 12-document corpus, deterministic mode
+(no LLM): real BM25+FAISS retrieval, real deterministic detectors, isolated
+tmp store. Full method: `benchmarks/E2E_INTELLIGENCE_REPORT.md`.
+
+| Metric | Value |
+|--------|-------|
+| Retrieval Recall@8 | **0.987** |
+| Retrieval Precision@8 | **0.155** (supporting sets are 1–2 of 8 docs; ceiling ≈ 0.25) |
+| Gold-fact coverage | **0.904** |
+| Contradiction recall / precision | **1.000 / 0.079** (raw signals; query filtering off by default) |
+| Abstention-trigger accuracy | **0.000** (known gap: absent queries proceed to synthesis) |
+| Avg retrieval latency | **48ms** |
+
+Live-run columns (citation accuracy, grounding %, abstention accuracy, LLM
+calls, latency, cost) are pending provider runs and intentionally unreported.
 
 ## Tech Stack
 
@@ -284,7 +302,7 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 | **Memory** | SQLite-backed 6-layer architecture |
 | **Verification** | Deterministic checks + LLM-based claim verification |
 | **Brain UI** | Single-file HTML/JS/D3.js/Canvas (no build step) |
-| **Testing** | pytest, 991 tests collected across 62 test files |
+| **Testing** | pytest, 1006 tests collected across 63 test files |
 | **CI** | GitHub Actions (Python 3.11/3.12/3.13, ruff lint) |
 
 ## Project Structure
@@ -467,11 +485,11 @@ python benchmarks/phase43_benchmark.py
 
 | Metric | Value |
 |--------|-------|
-| Tests collected | 991 |
-| Tests passed | 965 |
+| Tests collected | 1006 |
+| Tests passed | 980 |
 | Tests skipped | 26 |
 | Known failures | 0 |
-| New tests | 9 (semantic contradiction verification) |
+| New tests | 24 (9 semantic contradiction + 15 strategy/reasoning) |
 | New regressions | 0 |
 
 Previously 2 FastAPI route tests failed on `_IncludedRouter` (fixed by recursive

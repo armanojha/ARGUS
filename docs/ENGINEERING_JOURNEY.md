@@ -169,7 +169,7 @@ After Phase 43, the backend is frozen. This is intentional — the architecture 
 | Evidence Store | ~500 | 30+ | Production-ready |
 | LLM Gateway | ~1,000 | 80+ | Production-ready |
 | Brain UI | ~4,000 | N/A | Complete |
-| Tests | N/A | 991 collected / 965 passing | Passing |
+| Tests | N/A | 1006 collected / 980 passing | Passing |
 
 ## What Was Decided Against
 

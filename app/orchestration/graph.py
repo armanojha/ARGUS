@@ -109,9 +109,87 @@ def _timed_node(node_name: str, node_fn: Any) -> Any:
             )},
         })
         result["_node_traces"] = traces
+        if node_name in ("plan", "assess"):
+            snap = _build_strategy_snapshot(node_name, state, result)
+            if snap is not None:
+                result["strategy_history"] = list(state.get("strategy_history") or []) + [snap]
         return result
 
     return _wrapper
+
+
+_TIER_DEPTH = {"FAST": 1, "BALANCED": 2, "DEEP": 3}
+
+
+def _build_strategy_snapshot(
+    node_name: str, state: OrchestrationState, result: dict
+) -> dict | None:
+    """Build a ResearchStrategy snapshot from before/after node state.
+
+    Pure function (no I/O) so it is unit-testable. Records the unified
+    strategy — retrieval mode, active queries, source priorities from
+    evidence yield, verification depth from complexity tier, remaining
+    budgets — plus what mutated it this iteration. Does not alter control
+    flow; the mutation drivers (assessor, gap detector, tier adjustment)
+    are the existing mechanisms, now recorded in one object.
+    """
+    from app.orchestration.models import ResearchStrategy
+
+    plan = state.get("plan") or result.get("plan")
+    if plan is None:
+        return None
+    get = lambda o, k, d=None: o.get(k, d) if isinstance(o, dict) else getattr(o, k, d)
+
+    before_pending = list(state.get("pending_subquestions") or [])
+    after_pending = list(result.get("pending_subquestions", before_pending))
+    before_tasks = len(state.get("evidence_tasks") or [])
+    after_tasks = len(result.get("evidence_tasks") or [])
+    before_tier = state.get("complexity_tier")
+    after_tier = result.get("complexity_tier", before_tier)
+
+    if node_name == "plan":
+        mutated_from = "initial"
+    elif result.get("sufficient") and result.get("stop_reason"):
+        mutated_from = f"terminal:{result['stop_reason']}"
+    elif after_tasks > before_tasks:
+        mutated_from = "gap_detector"
+    elif after_tier != before_tier:
+        mutated_from = "tier_adjustment"
+    elif len(after_pending) > len(before_pending):
+        mutated_from = "assessor"
+    else:
+        mutated_from = "steady"
+
+    # Source priorities: rank source paths by evidence-chunk yield so far.
+    # `evidence` is last-write-wins, so count unique chunk_ids only.
+    seen: set[str] = set()
+    ranked: dict[str, int] = {}
+    for ref in list(state.get("evidence") or []):
+        cid = str(getattr(ref, "chunk_id", ""))
+        if cid and cid not in seen:
+            seen.add(cid)
+            p = getattr(ref, "source_path", "") or ""
+            if p:
+                ranked[p] = ranked.get(p, 0) + 1
+    source_priorities = sorted(ranked, key=lambda p: ranked[p], reverse=True)
+
+    tier = str(after_tier or get(plan, "risk_level", "") or "").upper()
+    depth = next((d for k, d in _TIER_DEPTH.items() if k in tier), 2)
+
+    modes = get(plan, "preferred_retrieval_methods", None) or ["hybrid"]
+    strategy = ResearchStrategy(
+        iteration=int(state.get("iteration", 0)),
+        retrieval_mode=str(modes[0]) if modes else "hybrid",
+        queries=after_pending,
+        source_priorities=source_priorities,
+        verification_depth=depth,
+        max_iterations=int(state.get("max_iterations", 0)),
+        evidence_budget_tokens=max(
+            0, int(state.get("token_budget", 0)) - int(state.get("tokens_used", 0))),
+        stop_reason=result.get("stop_reason"),
+        mutated_from=mutated_from,
+    )
+    return strategy.model_dump(mode="json")
 
 
 def _is_simple_query(query: str) -> bool:
@@ -440,6 +518,8 @@ def _initial_state(query: str, request_id: str | None, settings: Settings) -> Or
         fast_path=fast_path,
         # Phase 18+: complexity tier for evidence-aware model routing
         complexity_tier=complexity_tier,
+        # Research strategy history (snapshots appended by plan/assess nodes)
+        strategy_history=[],
     )
 
 
@@ -552,8 +632,9 @@ def _build_result(final_state: OrchestrationState) -> OrchestrationResult:
         memory_consulted=final_state.get("memory_consulted") or [],
         # Phase 39 / Phase 40 contradiction signals
         contradiction_signals=final_state.get("contradiction_signals") or [],
-        # Per-node runtime traces for Brain UI cognitive debugger
+        # Per-node runtime traces + per-iteration strategy history for Brain UI
         node_traces=final_state.get("_node_traces") or [],
+        strategy_history=final_state.get("strategy_history") or [],
     )
 
 

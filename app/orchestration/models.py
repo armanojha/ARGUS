@@ -74,6 +74,51 @@ class ResearchPlan(BaseModel):
     )
 
 
+class ResearchStrategy(BaseModel):
+    """First-class per-iteration research strategy (unified control state).
+
+    The orchestration loop previously scattered strategy across six state
+    keys (pending_subquestions, max_iterations, token_budget,
+    complexity_tier, question_pattern, evidence_tasks). ResearchStrategy
+    unifies them into one object snapshotted every assess iteration, so the
+    Brain UI can show HOW the strategy evolved — not just the final plan.
+
+    Mutation drivers (existing mechanisms, now recorded — no new control
+    flow): the sufficiency assessor (queries), the gap detector
+    (targeted queries), the complexity-tier adjustment (verification
+    depth / model routing), and budget consumption (iterations/tokens).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    iteration: int = Field(description="Loop iteration this snapshot was taken at.")
+    retrieval_mode: str = Field(
+        default="hybrid",
+        description="Retrieval mode driving this iteration (from question pattern / policy).",
+    )
+    queries: list[str] = Field(
+        default_factory=list,
+        description="Active retrieval queries: pending subquestions plus any gap-suggested queries.",
+    )
+    source_priorities: list[str] = Field(
+        default_factory=list,
+        description="Source paths ranked by evidence yield so far (most hits first).",
+    )
+    verification_depth: int = Field(
+        default=2, ge=0,
+        description="Verification depth for this iteration (from complexity tier).",
+    )
+    max_iterations: int = Field(description="Iteration ceiling for the run.")
+    evidence_budget_tokens: int = Field(description="Token budget remaining for evidence work.")
+    stop_reason: str | None = Field(
+        default=None, description="Stop reason if the loop ended on this iteration.")
+    mutated_from: str | None = Field(
+        default=None,
+        description="What drove this iteration's strategy change: "
+        "'assessor', 'gap_detector', 'tier_adjustment', 'budget', or 'initial'.",
+    )
+
+
 class EvidenceAssessment(BaseModel):
     """Sufficiency check produced after each retrieval iteration (sub-phase 02.3/02.5).
 
@@ -262,6 +307,13 @@ class OrchestrationResult(BaseModel):
         "stop_condition_fired, contradiction_signals). This is backend tracing "
         "for the Brain UI — not a claim about per-node input/confidence/"
         "alternatives, which are not currently captured.",
+    )
+    # Per-iteration research strategy history (additive; empty when not recorded)
+    strategy_history: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="ResearchStrategy snapshots taken at plan time and every "
+        "assess iteration: retrieval mode, active queries, source priorities, "
+        "verification depth, remaining budgets, and what mutated the strategy.",
     )
 
 

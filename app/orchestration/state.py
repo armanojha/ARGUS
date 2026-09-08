@@ -79,3 +79,6 @@ class OrchestrationState(TypedDict):
 
     # Per-node runtime traces for Brain UI cognitive debugger
     _node_traces: NotRequired[list[dict[str, Any]]]
+
+    # Per-iteration research strategy snapshots (first-class strategy state)
+    strategy_history: NotRequired[list[dict[str, Any]]]

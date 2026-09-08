@@ -354,6 +354,15 @@ class GraphPopulateResult(BaseModel):
     detail: dict[str, int] = Field(default_factory=dict)
 
 
+class ReasoningTraceResult(BaseModel):
+    """Reasoning trace materialized from a finished orchestration result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    nodes: list[dict[str, Any]] = Field(default_factory=list)
+    edges: list[dict[str, Any]] = Field(default_factory=list)
+
+
 @router.post("/brain/graph/populate", response_model=GraphPopulateResult)
 async def populate_brain_graph() -> GraphPopulateResult:
     """Run LLM extraction over the existing corpus and build the evidence graph.
@@ -373,6 +382,21 @@ async def populate_brain_graph() -> GraphPopulateResult:
         message="Evidence graph populated from the knowledge base.",
         detail=detail,
     )
+
+
+@router.post("/brain/reasoning", response_model=ReasoningTraceResult)
+async def build_brain_reasoning(result: dict[str, Any]) -> ReasoningTraceResult:
+    """Materialize a reasoning trace from a finished orchestration result.
+
+    Takes the ``/query`` response payload (or any
+    ``OrchestrationResult`` dict) and returns the WHY-graph: query →
+    tasks → hypothesis → evidence → claims → inference → decision →
+    answer, plus rejected counterclaims. Deterministic, no LLM calls.
+    """
+    from app.graph.reasoning import build_reasoning_trace
+
+    trace = build_reasoning_trace(result or {})
+    return ReasoningTraceResult(nodes=trace["nodes"], edges=trace["edges"])
 
 
 class DocumentContentResult(BaseModel):

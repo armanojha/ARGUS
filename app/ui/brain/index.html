@@ -3417,12 +3417,26 @@ function openPipelineInspector(node) {
         <div class="pi-kv"><span class="v">${node.data.memoryConsulted.length} records</span></div>
       </div>`;
     }
+    if (node.data?.strategyHistory?.length) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Strategy Evolution (${node.data.strategyHistory.length} snapshots)</div>
+        ${node.data.strategyHistory.map(s => `
+          <div class="pi-kv"><span class="k">iter ${s.iteration ?? "—"}</span><span class="v">${escapeHtml(s.retrieval_mode || "—")} · ${escapeHtml(s.mutated_from || "—")} · budget ${s.evidence_budget_tokens ?? "—"}</span></div>
+          ${(s.source_priorities || []).length ? `<div class="pi-kv"><span class="k">sources</span><span class="v">${escapeHtml(s.source_priorities.slice(0, 3).join(", "))}</span></div>` : ""}
+        `).join("")}
+      </div>`;
+    }
   }
 
   if (node.type === "answer") {
     html += `<div class="pi-section">
       <div class="pi-section-title">Final Answer</div>
       <div style="font-size:13px;color:var(--text);line-height:1.65;white-space:pre-wrap">${escapeHtml(node.data?.answer || "—")}</div>
+    </div>`;
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Why this answer?</div>
+      <button class="pi-btn" id="pi-why-btn">Show reasoning trail</button>
+      <div id="pi-why-out" style="margin-top:8px"></div>
     </div>`;
     if (node.data?.citations?.length) {
       html += `<div class="pi-section">
@@ -3544,6 +3558,45 @@ function openPipelineInspector(node) {
       techDetail.classList.toggle("show");
       techToggle.textContent = techDetail.classList.contains("show") ? "Hide technical details" : "Show technical details";
     });
+  }
+  const whyBtn = body.querySelector("#pi-why-btn");
+  if (whyBtn) {
+    whyBtn.addEventListener("click", () => renderReasoningTrail(body));
+  }
+}
+
+async function renderReasoningTrail(scope) {
+  const out = (scope || document).querySelector("#pi-why-out");
+  if (!out) return;
+  if (typeof pipelineData === "undefined" || !pipelineData) {
+    out.innerHTML = `<span style="color:var(--danger)">No run data available.</span>`;
+    return;
+  }
+  out.innerHTML = `<span style="color:var(--text-dim)">Building reasoning trail…</span>`;
+  try {
+    const res = await fetch(API_BASE + "/brain/reasoning", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pipelineData),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const trace = await res.json();
+    const byId = {};
+    (trace.nodes || []).forEach(n => { byId[n.id] = n; });
+    const label = (id) => escapeHtml((byId[id] && byId[id].label) || id);
+    const answers = (trace.nodes || []).filter(n => n.node_type === "ANSWER");
+    const chains = [];
+    (trace.edges || []).filter(e => e.edge_type === "rejected_alternative").forEach(e => {
+      chains.push(`<div class="pi-kv"><span class="k">rejected</span><span class="v">${label(e.target)} — contradicted, not chosen</span></div>`);
+    });
+    (trace.nodes || []).filter(n => n.node_type === "CLAIM").forEach(c => {
+      const evs = (trace.edges || []).filter(e => e.source === c.id && e.edge_type === "supported_by")
+        .map(e => label(e.target)).join("; ");
+      chains.push(`<div class="pi-kv"><span class="k">claim</span><span class="v">${escapeHtml(c.label)}${evs ? `<br>↳ ${evs}` : ""}</span></div>`);
+    });
+    out.innerHTML = chains.length ? chains.join("") : `<span style="color:var(--text-dim)">No grounded claims in this answer.</span>`;
+  } catch (e) {
+    out.innerHTML = `<span style="color:var(--danger)">Reasoning unavailable: ${escapeHtml(e.message)}</span>`;
   }
 }
 
@@ -3987,6 +4040,7 @@ async function buildPipelineProgressive(result) {
       tokenEstimate: result.token_usage_estimate,
       memoryConsulted: result.memory_consulted || [],
       warnings: result.warnings || [],
+      strategyHistory: result.strategy_history || [],
     },
   };
   pipelineNodes.push(synNode);
