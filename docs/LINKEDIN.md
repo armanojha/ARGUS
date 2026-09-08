@@ -24,7 +24,7 @@ The system is built with Python 3.11+, FastAPI, LangGraph, FAISS, and D3.js.
 
 ## Key Achievements
 
-- **903 tests passing** with 5 pre-existing failures across retrieval, verification, graph, memory, and orchestration
+- **906 tests passing** with 2 pre-existing failures across retrieval, verification, graph, memory, and orchestration
 - **Conflict detection** reduced false positive rate from 80% to 0% through query-aware filtering
 - **Evidence traceability** — trace from any answer citation back to the source document
 - **Brain UI** — 25/25 spec requirements implemented in a single-file HTML/JS/D3.js application
@@ -45,7 +45,7 @@ The system is built with Python 3.11+, FastAPI, LangGraph, FAISS, and D3.js.
 >
 > The Brain UI lets you click any stage and understand what happened, why it matters, and how it affected the final answer.
 >
-> 903 tests. 6 LLM providers. Deterministic verification. Evidence provenance.
+> 906 tests. 6 LLM providers. Deterministic verification. Evidence provenance.
 >
 > Built with Python, FastAPI, LangGraph, FAISS, and D3.js.
 >
@@ -63,7 +63,7 @@ https://github.com/armanojha/ARGUS
 
 | Metric | Value |
 |--------|-------|
-| Tests | 903 passed, 5 pre-existing failures |
+| Tests | 906 passed, 2 pre-existing failures |
 | Phases | 43 completed |
 | Providers | 6 LLM providers |
 | Node types | 9 pipeline stages |

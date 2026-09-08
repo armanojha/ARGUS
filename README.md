@@ -6,7 +6,7 @@ An AI research system that makes retrieval, evidence verification, conflicts, an
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-956%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-906%20passed-brightgreen.svg)](#testing)
 [![Backend](https://img.shields.io/badge/backend-frozen-blue.svg)](#engineering-decisions)
 
 ---
@@ -232,7 +232,7 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 
 | Metric | Value |
 |--------|-------|
-| Test suite | **903 passed**, 26 skipped, 5 pre-existing failures |
+| Test suite | **906 passed**, 26 skipped, 2 pre-existing failures |
 | Contradiction benchmark | **8/8 cases** (100%) |
 | Backend status | **Frozen** — no modifications since Phase 43 |
 | Brain UI | Complete — all spec requirements implemented |
@@ -253,7 +253,7 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 | **Memory** | SQLite-backed 6-layer architecture |
 | **Verification** | Deterministic checks + LLM-based claim verification |
 | **Brain UI** | Single-file HTML/JS/D3.js/Canvas (no build step) |
-| **Testing** | pytest, 903 tests across 71 test files |
+| **Testing** | pytest, 906 tests across 71 test files |
 | **CI** | GitHub Actions (Python 3.11/3.12/3.13, ruff lint) |
 
 ## Project Structure
@@ -436,14 +436,14 @@ python benchmarks/phase43_benchmark.py
 
 | Metric | Value |
 |--------|-------|
-| Tests passed | 903 |
+| Tests passed | 906 |
 | Tests skipped | 26 |
-| Pre-existing failures | 5 |
+| Pre-existing failures | 2 |
 | New regressions | 0 |
 
-The 5 pre-existing failures are:
-- 3 knowledge base tests (CSV spreadsheet ingestion disabled)
-- 2 FastAPI route iteration tests (`_IncludedRouter` API change)
+The 2 pre-existing failures are both FastAPI route tests:
+- `test_telemetry_endpoints_query_integration` — FastAPI `_IncludedRouter` API change
+- `test_verify_route_registered` — FastAPI `_IncludedRouter` API change
 
 These are not caused by any Phase 43+ changes.
 

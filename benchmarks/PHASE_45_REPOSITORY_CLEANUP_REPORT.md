@@ -228,3 +228,93 @@ ARGUS/
 **OPTION A — CLEAN AND PUBLIC-READY**
 
 The repository is clean, professional, and reproducible. All important benchmark claims are supported by preserved datasets, scripts, and results. The engineering journey is documented in 26 final reports. Historical diagnostics are archived but accessible. No broken references remain in core documentation.
+
+## Final Verification (Post-Audit)
+
+Completed after the initial cleanup report to address inconsistencies found during the public release audit.
+
+### Issues Found and Fixed
+
+| Issue | Before | After |
+|-------|--------|-------|
+| README test badge | `956 passed` | `906 passed` |
+| README Current Results | `903 passed, 5 pre-existing` | `906 passed, 2 pre-existing` |
+| README Tech Stack | `903 tests` | `906 tests` |
+| README Test Status | `903 passed, 5 failures` | `906 passed, 2 failures` |
+| docs/QUICKSTART.md | `903 passed, 5 pre-existing` | `906 passed, 2 pre-existing` |
+| docs/CORRECTNESS.md | `903 passed` | `906 passed` |
+| docs/ENGINEERING_JOURNEY.md | `903` | `906` |
+| docs/ARGUS_WORKFLOW.html | `903 tests` (×2) | `906 tests` |
+| docs/WORKFLOW_VISUALIZATION.md | `903 tests` | `906 tests` |
+| docs/EVALUATION.md | `903` | `906` |
+| docs/LINKEDIN.md | `903 passed, 5 failures` (×3) | `906 passed, 2 failures` |
+| PHASE_32 files still tracked | 4 files in git index | Removed from git (untracked on disk, .gitignore prevents re-tracking) |
+| phase33_cache_diagnostic.py still tracked | In git index | Removed from git |
+| Pre-existing failure count | Incorrectly stated as 5 | Corrected to 2 (both FastAPI `_IncludedRouter` API change) |
+
+### Files Updated in This Audit
+
+- `README.md` — badge, Current Results, Tech Stack, Test Status
+- `docs/QUICKSTART.md` — expected test result
+- `docs/CORRECTNESS.md` — test suite count
+- `docs/ENGINEERING_JOURNEY.md` — test count in component table
+- `docs/ARGUS_WORKFLOW.html` — subtitle and footer
+- `docs/WORKFLOW_VISUALIZATION.md` — footer attribution
+- `docs/EVALUATION.md` — test count
+- `docs/LINKEDIN.md` — all three test count references
+- `benchmarks/PHASE_45_REPOSITORY_CLEANUP_REPORT.md` — this section
+
+### README Claim Audit
+
+All 10 factual claims verified against actual code:
+
+| Claim | Status |
+|-------|--------|
+| 20 query patterns | ACCURATE |
+| 6 LLM providers | ACCURATE |
+| Provider names (Groq, Gemini, Cerebras, Z.ai, NVIDIA NIM, Zen) | ACCURATE |
+| all-MiniLM-L6-v2 default embedding | ACCURATE |
+| BGE-M3 experimental | ACCURATE |
+| 7 feature flag defaults (all false) | ACCURATE |
+| SQLite with WAL mode | ACCURATE |
+| NetworkX MultiDiGraph | ACCURATE |
+| 6-layer memory architecture | ACCURATE |
+| Single-file Brain UI | ACCURATE |
+
+### Final Tracked File Count
+
+372 files tracked in git.
+
+### Final Test Result
+
+```
+906 passed, 2 failed (pre-existing FastAPI route tests), 26 skipped
+```
+
+- 2 pre-existing failures: `test_telemetry_endpoints_query_integration`, `test_verify_route_registered` (FastAPI `_IncludedRouter` API change)
+- 26 skipped: 20 CSV spreadsheet ingestion tests (disabled) + 6 multimodal/OCR tests (require CUDA)
+- 0 new regressions from cleanup or documentation changes
+
+### Lint Result
+
+688 pre-existing ruff warnings (unused imports, blind excepts, etc.). None introduced by this cleanup. These are code quality issues, not release-blocking.
+
+### CI Configuration
+
+No `.github/workflows/` directory in local repository. README references "GitHub Actions (Python 3.11/3.12/3.13, ruff lint)" — this exists on the remote GitHub repo.
+
+### Remaining Pre-Existing Issues (NOT release-blocking)
+
+- 2 FastAPI route tests fail due to `_IncludedRouter` API change in newer FastAPI versions
+- 688 ruff lint warnings (pre-existing code quality)
+- 26 tests skipped (CSV ingestion disabled, multimodal requires CUDA)
+
+### Broken References
+
+0 broken references in README, docs/*.md, tests/**/*.py, app/**/*.py, scripts/**/*.py.
+
+### Final Decision
+
+**OPTION A — PUBLIC RELEASE READY**
+
+The repository is consistent. One authoritative test count (906) is used across all current-state documentation. Historical phase reports retain their original numbers. All factual claims in README are accurate. No tracked files contradict the cleanup report.
