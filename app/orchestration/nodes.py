@@ -88,7 +88,7 @@ _UNIT_NORMALIZE = {
     "billion": "B", "bn": "B", "b": "B",
     "million": "M", "mn": "M", "m": "M",
     "thousand": "K", "k": "K",
-    "percent": "%", "pct": "%",
+    "percent": "%", "pct": "%", "%": "%",
 }
 
 
@@ -203,10 +203,11 @@ def _classify_conflict_type(
     same_entity = bool(entities_i & entities_j)
     same_timeframe = bool(years_i & years_j)
     same_metrics = bool(metrics_i & metrics_j)
+    both_have_years = bool(years_i or years_j)
 
     if same_entity and same_timeframe and same_metrics:
         return "GENUINE_CONTRADICTION"
-    elif same_entity and not same_timeframe:
+    elif same_entity and both_have_years and not same_timeframe:
         return "DIFFERENT_TIMEFRAME"
     elif not same_entity and same_metrics:
         return "DIFFERENT_SOURCE"
@@ -389,6 +390,13 @@ def _detect_contradictions(
                                 "resolved": False,
                                 "critical": True,
                             })
+                            # SAFETY: If this is a negation pair with entity overlap
+                            # but no shared metrics, upgrade to POSSIBLE_CONTRADICTION.
+                            # IRRELEVANT_DIFFERENCE is wrong for direct opposition
+                            # on the same entity.
+                            if (conflict_type == "IRRELEVANT_DIFFERENCE"
+                                    and entities_i & entities_j):
+                                contradictions[-1]["conflict_type"] = "POSSIBLE_CONTRADICTION"
                         break  # One contradiction per pair is enough
 
             # ── Check 2: Numerical discrepancies with context ──

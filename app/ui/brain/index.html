@@ -3325,6 +3325,7 @@ function openPipelineInspector(node) {
       <div class="pi-section-title">Evidence Details</div>
       <div class="pi-kv"><span class="k">Source</span><span class="v">${escapeHtml(node.data?.source || "—")}</span></div>
       <div class="pi-kv"><span class="k">Score</span><span class="v">${node.data?.score != null ? Math.round(node.data.score * 100) + "%" : "—"}</span></div>
+      ${node.data?.relevance != null ? `<div class="pi-kv"><span class="k">Query Relevance</span><span class="v"><span class="pi-pill" style="background:${node.data.relevance >= 0.12 ? "rgba(52,211,153,.15);color:var(--good)" : "rgba(248,113,113,.15);color:var(--danger)"}">${node.data.relevance >= 0.12 ? "Relevant" : "Filtered — insufficient relevance"}</span> ${Math.round(node.data.relevance * 100)}%</span></span></div>` : ""}
       ${node.data?.sectionPath ? `<div class="pi-kv"><span class="k">Section</span><span class="v">${escapeHtml(node.data.sectionPath)}</span></div>` : ""}
       ${node.data?.pageStart != null ? `<div class="pi-kv"><span class="k">Page</span><span class="v">${parseInt(node.data.pageStart, 10) + 1}</span></div>` : ""}
     </div>`;
@@ -3369,9 +3370,11 @@ function openPipelineInspector(node) {
   }
 
   if (node.type === "conflict") {
+    const conflictType = node.data?.type || "UNKNOWN";
+    const isConfirmed = conflictType === "GENUINE_CONTRADICTION";
     html += `<div class="pi-section">
       <div class="pi-section-title">Conflict Details</div>
-      <div class="pi-kv"><span class="k">Type</span><span class="v"><span class="pi-pill" style="background:rgba(248,113,113,.15);color:var(--danger)">${escapeHtml(node.data?.type || "—")}</span></span></div>
+      <div class="pi-kv"><span class="k">Type</span><span class="v"><span class="pi-pill" style="background:${isConfirmed ? "rgba(248,113,113,.15);color:var(--danger)" : "rgba(251,191,36,.15);color:var(--warn)"}">${escapeHtml(conflictType)}</span></span></div>
       <div class="pi-kv"><span class="k">Confidence</span><span class="v">${node.data?.confidence != null ? Math.round(node.data.confidence * 100) + "%" : "—"}</span></div>
       ${node.data?.entity?.length ? `<div class="pi-kv"><span class="k">Entities</span><span class="v">${escapeHtml(node.data.entity.join(", "))}</span></div>` : ""}
       ${node.data?.metrics?.length ? `<div class="pi-kv"><span class="k">Metrics</span><span class="v">${escapeHtml(node.data.metrics.join(", "))}</span></div>` : ""}
