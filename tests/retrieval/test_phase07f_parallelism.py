@@ -208,10 +208,22 @@ def test_t1_independent_methods_overlap():
         r.sleep = 0.05
         router = _router(RetrievalMethod.HYBRID, RetrievalMethod.BM25, RetrievalMethod.VECTOR)
         import time
-        t0 = time.perf_counter()
-        refs = asyncio.run(router.execute_retrieval(
-            "any query", QuestionPattern.CONCEPTUAL, r, top_k=8, reranker=None))
-        wall = time.perf_counter() - t0
+
+        async def _run():
+            # Warm the loop's default thread pool BEFORE timing starts so
+            # thread-spawn cost doesn't contaminate the dispatch measurement.
+            # The timed region below still contains the full three-method
+            # dispatch: serial execution would still take >= 0.15s.
+            await asyncio.gather(*(
+                asyncio.to_thread(lambda: None) for _ in range(3)
+            ))
+            t0 = time.perf_counter()
+            refs = await router.execute_retrieval(
+                "any query", QuestionPattern.CONCEPTUAL, r, top_k=8, reranker=None)
+            wall = time.perf_counter() - t0
+            return refs, wall
+
+        refs, wall = asyncio.run(_run())
         assert refs, "expected fused evidence"
         # Three independent methods each sleeping 0.05s overlap: serial would be
         # >= 0.15s; genuine overlap keeps the wall well under that bound.
