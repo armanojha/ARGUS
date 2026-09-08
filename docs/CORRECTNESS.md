@@ -194,7 +194,7 @@ This was a deterministic normalization bug — NOT a reason to redesign the cont
 - **Benchmark:** 8/8 cases pass (100%)
 - **Relevance filtering:** 8/8 cases (100%)
 - **Overall:** 16/16 (100%)
-- **Test suite:** 1018 collected · 992 passed · 26 skipped · 0 failures, 0 new regressions
+- **Test suite:** 1033 collected · 1007 passed · 26 skipped · 0 failures, 0 new regressions
 
 ## Relevance Gate
 
