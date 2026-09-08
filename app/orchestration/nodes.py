@@ -476,7 +476,14 @@ async def _semantic_contradiction_check(
 
     Takes pairs flagged by the deterministic layer and asks an LLM to determine
     whether they are genuinely CONTRADICTED, ENTAILED, NEUTRAL, or
-    INSUFFICIENT_CONTEXT. Only pairs with a CONTRADICTED verdict are kept.
+    INSUFFICIENT_CONTEXT.
+
+    Semantics:
+      - LLM success: only pairs with a CONTRADICTED verdict are kept
+        (marked with ``semantic_verified=True``).
+      - LLM failure: the deterministic candidate is retained WITHOUT the
+        ``semantic_verified`` flag (safe default — never silently drop a
+        deterministic signal because the LLM call errored).
 
     This prevents false positives from heuristic matching (e.g., "Revenue
     increased to $3B" vs "Revenue reached $2.7B" being different time periods).
@@ -489,6 +496,7 @@ async def _semantic_contradiction_check(
         idx_i = sig.get("evidence_indices", [0, 0])[0] - 1
         idx_j = sig.get("evidence_indices", [0, 0])[1] - 1
         if idx_i < 0 or idx_i >= len(evidence) or idx_j < 0 or idx_j >= len(evidence):
+            sig["semantic_verified"] = False
             verified.append(sig)
             continue
 
@@ -526,18 +534,35 @@ async def _semantic_contradiction_check(
                 settings=settings,
                 request_id=request_id,
             )
-            if result[0] and result[0].verdict.upper() == "CONTRADICTED":
+            model, error = result[0], result[1]
+            if model is None:
+                # LLM call failed (provider error, malformed JSON, schema
+                # error). Retain the deterministic candidate WITHOUT the
+                # semantic_verified flag — never silently drop a deterministic
+                # signal because the LLM call errored.
+                logger.debug(
+                    "semantic_contradiction_llm_error",
+                    conflict_type=sig.get("conflict_type"),
+                    error=error,
+                    request_id=request_id,
+                )
+                sig["semantic_verified"] = False
+                verified.append(sig)
+            elif model.verdict.upper() == "CONTRADICTED":
                 sig["semantic_verified"] = True
                 verified.append(sig)
             else:
                 logger.debug(
                     "semantic_contradiction_rejected",
                     conflict_type=sig.get("conflict_type"),
-                    verdict=result[0].verdict if result[0] else "error",
+                    verdict=model.verdict,
                     request_id=request_id,
                 )
         except Exception:  # noqa: BLE001 - fail-safe: keep deterministic signal on LLM error
-            # If LLM check fails, keep the deterministic signal (safe default)
+            # If LLM check fails, keep the deterministic signal WITHOUT the
+            # semantic_verified flag (safe default — never silently drop a
+            # deterministic signal because the LLM call errored).
+            sig["semantic_verified"] = False
             verified.append(sig)
 
     return verified

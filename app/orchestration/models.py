@@ -252,13 +252,16 @@ class OrchestrationResult(BaseModel):
         description="Selective claim verification metadata for this query, when the 07b "
         "verification stage fired. Verification annotates but never replaces the answer.",
     )
-    # Per-node runtime traces for Brain UI cognitive debugger
+    # Per-node runtime traces for Brain UI (additive; empty when not recorded)
     node_traces: list[dict[str, Any]] = Field(
         default_factory=list,
-        description="Per-node runtime trace objects showing what each orchestration "
-        "node thought, decided, and produced. Each trace includes: node name, "
-        "status, why (reasoning), input summary, decision, evidence used, "
-        "confidence, alternatives considered, next transition, and latency_ms.",
+        description="Per-node orchestration trace objects recorded during this run. "
+        "Each trace includes: node name, status, why (node purpose), latency_ms, "
+        "evidence_count, iteration, tokens_used, plus node-specific fields copied "
+        "from the node result (sufficient, stop_reason, question_pattern, "
+        "stop_condition_fired, contradiction_signals). This is backend tracing "
+        "for the Brain UI — not a claim about per-node input/confidence/"
+        "alternatives, which are not currently captured.",
     )
 
 

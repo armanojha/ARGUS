@@ -207,13 +207,14 @@ async def extract_from_chunks(
     router: LLMRouter,
     settings: Settings,
     request_id: str | None = None,
-    existing_entity_index: dict[str, UUID] | None = None,
+    existing_node_indexes: dict[str, dict[str, UUID]] | None = None,
 ) -> ExtractionResult:
     """Extract entities, claims, events from a batch of chunks.
 
     Uses the LLM Gateway with structured output. Handles failures gracefully.
-    If ``existing_entity_index`` is provided (from the graph store), relations
-    can reference entities/claims/events from previous batches.
+    If ``existing_node_indexes`` is provided (from the graph store, with keys
+    "entity", "claim", "event"), relations can reference entities/claims/events
+    from previous batches.
     """
     if not chunks:
         return ExtractionResult(processed_chunk_ids=[])
@@ -301,9 +302,17 @@ async def extract_from_chunks(
         # Check event index (current batch)
         if name_lower in event_name_to_id:
             return event_name_to_id[name_lower]
-        # Check cross-batch entity index from graph store
-        if existing_entity_index and name_lower in existing_entity_index:
-            return existing_entity_index[name_lower]
+        # Check cross-batch indexes from graph store
+        if existing_node_indexes:
+            entity_idx = existing_node_indexes.get("entity") or {}
+            if name_lower in entity_idx:
+                return entity_idx[name_lower]
+            claim_idx = existing_node_indexes.get("claim") or {}
+            if name_lower in claim_idx:
+                return claim_idx[name_lower]
+            event_idx = existing_node_indexes.get("event") or {}
+            if name_lower in event_idx:
+                return event_idx[name_lower]
         return None
 
     # Process claims

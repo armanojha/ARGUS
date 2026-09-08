@@ -2373,6 +2373,7 @@ const PIPELINE_COLORS = {
   conflict:   "#f87171",
   synthesis:  "#f472b6",
   answer:     "#6ea8fe",
+  trace:      "#22d3ee",
 };
 
 const PIPELINE_ICONS = {
@@ -2385,6 +2386,7 @@ const PIPELINE_ICONS = {
   conflict:   "⚠️",
   synthesis:  "🧠",
   answer:     "💬",
+  trace:      "⏱️",
 };
 
 const PIPELINE_LABELS = {
@@ -2397,6 +2399,7 @@ const PIPELINE_LABELS = {
   conflict:   "Conflict Detection",
   synthesis:  "Synthesis",
   answer:     "Answer",
+  trace:      "Node Trace",
 };
 
 const PIPELINE_EXPLANATIONS = {
@@ -2462,6 +2465,13 @@ const PIPELINE_EXPLANATIONS = {
     input: "Synthesized text with citations.",
     output: "Formatted answer with citations, source trail, verification status, and telemetry.",
     impact: "The answer is what the user sees. Its quality reflects the entire pipeline.",
+  },
+  trace: {
+    what: "Actual per-node runtime record from this run: what the node did, how long it took, and what it decided.",
+    why: "Static pipeline diagrams show the architecture. Traces show what ARGUS actually did during this specific run.",
+    input: "Orchestration node execution (analyze, plan, retrieve, assess, stop_check, synthesize).",
+    output: "Node name, status, purpose, latency in ms, evidence count, iteration, tokens used, and decision fields.",
+    impact: "Traces turn the pipeline view into a run debugger: click any trace to see that node's real runtime data.",
   },
 };
 
@@ -3467,6 +3477,37 @@ function openPipelineInspector(node) {
     }
   }
 
+  if (node.type === "trace") {
+    const t = node.data?.trace || {};
+    html += `<div class="pi-section">
+      <div class="pi-section-title">Runtime Trace — ${escapeHtml(t.node || node.label)}</div>
+      <div class="pi-kv"><span class="k">Status</span><span class="v">${escapeHtml(t.status || "—")}</span></div>
+      <div class="pi-kv"><span class="k">Why</span><span class="v">${escapeHtml(t.why || "—")}</span></div>
+      <div class="pi-kv"><span class="k">Latency</span><span class="v">${t.latency_ms != null ? t.latency_ms + "ms" : "—"}</span></div>
+      <div class="pi-kv"><span class="k">Evidence</span><span class="v">${t.evidence_count ?? "—"} chunks</span></div>
+      <div class="pi-kv"><span class="k">Iteration</span><span class="v">${t.iteration ?? "—"}</span></div>
+      <div class="pi-kv"><span class="k">Tokens used</span><span class="v">${t.tokens_used ?? "—"}</span></div>
+    </div>`;
+    const decisionKeys = ["sufficient", "stop_reason", "question_pattern", "stop_condition_fired"];
+    const hasDecision = decisionKeys.some(k => t[k] !== undefined && t[k] !== null);
+    if (hasDecision) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Decision</div>
+        ${decisionKeys.filter(k => t[k] !== undefined && t[k] !== null).map(k =>
+          `<div class="pi-kv"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(String(t[k]))}</span></div>`
+        ).join("")}
+      </div>`;
+    }
+    if (Array.isArray(t.contradiction_signals) && t.contradiction_signals.length) {
+      html += `<div class="pi-section">
+        <div class="pi-section-title">Contradictions (${t.contradiction_signals.length})</div>
+        ${t.contradiction_signals.map((c, i) =>
+          `<div class="pi-kv"><span class="k">#${i + 1}</span><span class="v">${escapeHtml(c.conflict_type || c.type || "signal")}${c.semantic_verified === true ? " ✓ semantic" : c.semantic_verified === false ? " (unverified)" : ""}</span></div>`
+        ).join("")}
+      </div>`;
+    }
+  }
+
   /* Technical details toggle */
   if (expl) {
     html += `<div class="pi-toggle-tech" id="pi-toggle-tech">Show technical details</div>`;
@@ -3978,6 +4019,37 @@ async function buildPipelineProgressive(result) {
   ansNode.status = "complete";
   hidePipelineStatus();
   drawPipeline();
+
+  /* Stage 10: Node Traces (actual per-node runtime records from this run) */
+  const nodeTraces = result.node_traces || [];
+  if (nodeTraces.length) {
+    y += stageH;
+    showPipelineStatus("Recording node traces…");
+    const traceNodes = [];
+    nodeTraces.forEach((tr, i) => {
+      const tx = cx + (i - (nodeTraces.length - 1) / 2) * evidenceSpacing;
+      const trNode = {
+        id: `pipeline-trace-${i}`, type: "trace", label: `${tr.node || "node"} · ${tr.latency_ms != null ? tr.latency_ms + "ms" : "—"}`,
+        x: tx, y: y, w: 180, h: 50, status: "processing",
+        data: {
+          trace: tr,
+          nodeName: tr.node,
+          why: tr.why,
+          latencyMs: tr.latency_ms,
+          evidenceCount: tr.evidence_count,
+          iteration: tr.iteration,
+          tokensUsed: tr.tokens_used,
+        },
+      };
+      pipelineNodes.push(trNode);
+      traceNodes.push(trNode);
+      pipelineEdges.push({ from: ansNode.id, to: trNode.id, type: "trace" });
+    });
+    drawPipeline();
+    await sleep(300);
+    traceNodes.forEach(n => n.status = "complete");
+    drawPipeline();
+  }
 
   /* Store pipeline data */
   pipelineData = result;

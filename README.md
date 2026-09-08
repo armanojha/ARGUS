@@ -1,13 +1,13 @@
 # ARGUS
 
-### Evidence-Grounded AI Research Intelligence
+### Evidence-Grounded Research Intelligence
 
-An AI research system that makes retrieval, evidence verification, conflicts, and answer provenance visible.
+An iterative RAG system that makes retrieval, evidence verification, conflicts, and answer provenance visible.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-906%20passed-brightgreen.svg)](#testing)
-[![Backend](https://img.shields.io/badge/backend-frozen-blue.svg)](#engineering-decisions)
+[![Tests](https://img.shields.io/badge/tests-915-brightgreen.svg)](#testing)
+[![Lint](https://img.shields.io/badge/lint-ruff%20clean-brightgreen.svg)](#testing)
 
 ---
 
@@ -20,20 +20,32 @@ Traditional RAG systems retrieve documents and generate answers. The research pr
 - Whether sources disagree with each other
 - Why this answer emerged from the evidence
 
-ARGUS makes the entire research process observable through the **Brain UI** — an interactive interface that exposes every pipeline stage, evidence trace, conflict signal, and synthesis decision.
+ARGUS makes the research process observable through the **Brain UI** — an interactive interface that exposes pipeline stages, evidence traces, conflict signals, and synthesis decisions.
 
-## Core Capabilities
+## What ARGUS Actually Does
 
-| Capability | What It Does |
-|------------|--------------|
-| **Hybrid Retrieval** | BM25 lexical + FAISS dense vector search with configurable fusion weights |
-| **Adaptive Research** | Pattern-aware query classification (20 patterns) with evidence need planning |
-| **Evidence Verification** | Deterministic claim-support checking against retrieved evidence |
-| **Conflict Detection** | Pairwise contradiction detection with temporal, entity, and metric awareness |
-| **Query-Aware Filtering** | Suppresses irrelevant conflicts based on what the user is asking about |
-| **Grounded Synthesis** | Answer generation with inline citations, conflict acknowledgment, and safe degradation |
-| **Evidence Traceability** | Every citation traces back to source document, chunk, and retrieval metadata |
-| **Brain UI** | Interactive pipeline visualization, node inspection, evidence tracing, demo mode |
+| Capability | What It Does | Status |
+|------------|--------------|--------|
+| **Hybrid Retrieval** | BM25 lexical + FAISS dense vector search with configurable fusion weights | Core |
+| **Iterative Research** | Multi-pass retrieval with evidence sufficiency assessment | Core |
+| **Query Classification** | Routes queries to 10 configured retrieval patterns (exact_term, conceptual, comparative, etc.) | Core |
+| **Conflict Detection** | Pairwise contradiction detection with temporal, entity, and metric awareness | Core |
+| **Grounded Synthesis** | Answer generation with inline citations, conflict acknowledgment, and safe degradation | Core |
+| **Evidence Traceability** | Every citation traces back to source document, chunk, and retrieval metadata | Core |
+| **Brain UI** | Interactive pipeline visualization, node inspection, evidence tracing, demo mode | Core |
+
+### Optional Features (disabled by default)
+
+These features are implemented but not active unless explicitly enabled:
+
+| Feature | Config Flag | What It Does |
+|---------|-------------|--------------|
+| **Adaptive Research** | `ARGUS_ADAPTIVE_RESEARCH_ENABLED=true` | Pattern-specific research policies (5 patterns have custom policies; 15 use defaults) |
+| **Query-Aware Conflict Filtering** | `ARGUS_CONFLICT_FILTERING_ENABLED=true` | Suppresses irrelevant conflicts based on user intent |
+| **Verified Synthesis** | `ARGUS_VERIFIED_SYNTHESIS_ENABLED=true` | Two-pass synthesis with claim verification |
+| **Multi-Agent Debate** | `ARGUS_MULTIAGENT_ENABLED=true` | 5-agent debate system (Researcher, Skeptic, Alternative, Verifier, Judge) |
+| **Persistent Memory** | `ARGUS_MEMORY_ENABLED=true` | 6-layer memory with SQLite storage (SQL LIKE search, not vector) |
+| **Obsidian Integration** | `ARGUS_OBSIDIAN_ENABLED=true` | Vault-aware research and write-back |
 
 ## The Brain UI
 
@@ -43,12 +55,12 @@ The Brain is the primary interface. It transforms ARGUS from a black-box RAG sys
 
 ### What You Can Inspect
 
-- **Pipeline View** — Interactive research flow showing each processing stage as a clickable node
-- **Node Inspector** — Click any node to see what it did, why it exists, what it received, and what it produced
+- **Pipeline View** — Research flow showing each processing stage as a clickable node
+- **Node Inspector** — Click any node to see what it did, what it received, and what it produced
 - **Evidence Traceability** — Trace from any citation back to source document, chunk, and retrieval score
 - **Conflict Visualization** — See contradiction types, confidence levels, entity overlap, and resolution
 - **Architecture View** — Interactive component diagram explaining what each module does
-- **Knowledge Graph** — Force-directed evidence graph with entity, claim, and document nodes
+- **Knowledge Graph** — Entity and claim graph with multi-hop traversal
 - **Demo Mode** — Pre-recorded research result with full pipeline visualization (no API key required)
 
 ### How the UI Transforms ARGUS
@@ -117,9 +129,9 @@ Fusion weights are configurable per query pattern via `configs/retrieval_policy.
 | Causal | 0.4 | 0.6 |
 | Procedural | 0.6 | 0.4 |
 
-### Adaptive Policy Router
+### Retrieval Policy
 
-The retrieval policy router classifies incoming questions into one of 20 patterns (exact_term, conceptual, comparative, causal, procedural, multi-hop, conflict, absent-info, adversarial, etc.) and selects the optimal retrieval mix, method, and fusion strategy for each.
+The retrieval policy router classifies incoming questions into 10 configured patterns (exact_term, conceptual, entity_relationship, historical, long_report, fresh_missing, multimodal, comparative, causal, procedural) and selects the optimal retrieval mix, method, and fusion strategy for each. An additional 10 evaluation patterns (conflict, multi_hop, complex_research, etc.) are defined in the enum but use default retrieval settings.
 
 ### Evidence Selection
 
@@ -130,7 +142,10 @@ After retrieval, the evidence selector performs:
 
 ## Evidence Verification
 
-ARGUS performs deterministic and model-assisted checks that evaluate whether generated claims are supported by retrieved evidence:
+ARGUS uses two verification approaches:
+
+1. **Deterministic checks** — Regex-based claim extraction and evidence coverage scoring (no LLM required)
+2. **LLM-assisted verification** — When a provider is available, the system asks an LLM to evaluate whether claims are supported by evidence
 
 | Status | Meaning |
 |--------|---------|
@@ -139,11 +154,13 @@ ARGUS performs deterministic and model-assisted checks that evaluate whether gen
 | **Contradicted** | Evidence conflicts with the claim |
 | **Unsupported** | No relevant evidence found |
 
-Verification produces confidence scores for evidence coverage, source quality, cross-source agreement, and temporal relevance.
+Verification produces confidence scores for evidence coverage, source quality, and cross-source agreement. Temporal relevance is currently a stub (returns 1.0).
 
 ## Contradiction Detection
 
 ARGUS detects contradictions across evidence sources using deterministic pairwise analysis:
+
+**How it works:** Regex-based claim extraction → pairwise comparison → same category + same unit group + different values = contradiction. This is keyword/regex matching, not semantic understanding. It cannot detect paraphrased contradictions or contradictions requiring contextual reasoning.
 
 ### Conflict Types
 
@@ -171,14 +188,20 @@ When `ARGUS_CONFLICT_FILTERING_ENABLED=true`:
 
 See [docs/CORRECTNESS.md](docs/CORRECTNESS.md) for the evolution of the correctness system.
 
-## Adaptive Research & Orchestration
+## Research Orchestration
 
 ARGUS uses a LangGraph state machine for research orchestration:
 
 ### Pipeline Modes
 
 - **Fast Path** — Simple factual queries skip planning and go directly to retrieval → synthesis
-- **Normal Path** — Complex queries go through the full analysis → plan → retrieve → assess → stop-check loop
+- **Normal Path** — Complex queries go through analysis → plan → retrieve → assess → stop-check loop
+
+### What "Iterative" Actually Means
+
+The core loop is: **retrieve → assess evidence sufficiency → retrieve again if needed**. This is iterative RAG, not autonomous research. The system does not dynamically change search strategy, query decomposition, retrieval method, source priorities, evidence budget, verification depth, or model choice based on what was discovered.
+
+When enabled, the optional **Adaptive Research** feature adds pattern-specific policies for 5 query types (conflict, multi_hop, complex_research, absent_info, simple_lookup). The remaining 15 patterns use a generic default policy.
 
 ### Stopping Conditions
 
@@ -191,7 +214,7 @@ The research loop terminates when:
 
 ### Memory Integration
 
-Persistent 6-layer memory architecture (Phase 08). Currently disabled by default and not part of the default research path; available for future session-learning use cases.
+Persistent memory architecture with SQLite storage. Uses SQL LIKE for text search (not vector similarity). Currently disabled by default and not part of the default research path.
 
 ## Grounded Synthesis
 
@@ -232,12 +255,20 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 
 | Metric | Value |
 |--------|-------|
-| Test suite | **906 passed**, 26 skipped, 2 pre-existing failures |
-| Contradiction benchmark | **8/8 cases** (100%) |
+| Test suite | **915 tests** (906 + 9 semantic-verification), 26 skipped |
+| Contradiction benchmark | **8/8 cases** on synthetic 1-3 sentence snippets (not real documents) |
 | Backend status | **Frozen** — no modifications since Phase 43 |
 | Brain UI | Complete — all spec requirements implemented |
-| Conflict detection | Production-ready (feature-flagged) |
-| Evidence verification | Deterministic, independently tested |
+| Conflict detection | Implemented, feature-flagged, validated on synthetic data |
+| Evidence verification | Regex-based deterministic + LLM-assisted (when provider available) |
+
+### What Has NOT Been Validated
+
+- End-to-end retrieval recall on real document corpora
+- Claim grounding accuracy on complex multi-source queries
+- Adversarial or prompt-injection resistance
+- Latency and cost under production load
+- Memory system effectiveness (disabled by default, SQL LIKE search only)
 
 ## Tech Stack
 
@@ -253,7 +284,7 @@ These results were not used to justify production changes. See [docs/EVALUATION.
 | **Memory** | SQLite-backed 6-layer architecture |
 | **Verification** | Deterministic checks + LLM-based claim verification |
 | **Brain UI** | Single-file HTML/JS/D3.js/Canvas (no build step) |
-| **Testing** | pytest, 906 tests across 71 test files |
+| **Testing** | pytest, 956 tests across 71 test files |
 | **CI** | GitHub Actions (Python 3.11/3.12/3.13, ruff lint) |
 
 ## Project Structure
@@ -436,9 +467,10 @@ python benchmarks/phase43_benchmark.py
 
 | Metric | Value |
 |--------|-------|
-| Tests passed | 906 |
+| Tests passed | 914 |
 | Tests skipped | 26 |
 | Pre-existing failures | 2 |
+| Known-flaky | 1 (`test_ingest_knowledge_base_idempotent_second_run` — passes standalone, fails intermittently in full-suite runs) |
 | New regressions | 0 |
 
 The 2 pre-existing failures are both FastAPI route tests:
