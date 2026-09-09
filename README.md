@@ -1229,8 +1229,8 @@ Areas of continued experimentation include:
 
 # Why the Project Is Called ARGUS
 
-ARGUS is named after **Argus Panoptes**, the many-eyed watcher from Greek mythology.
-
+ARGUS is named after **Argus Panoptes**, the many-eyed watcher from Greek mythology. i remembered this name from reading certain novel
+and then after doing some research I found some RAG based projects with th esame name so i chose this as well. plus its'cool. 
 The metaphor fits the project's purpose:
 
 **ARGUS observes the research process from multiple perspectives — retrieval, evidence, conflicts, verification, reasoning and provenance — rather than looking only at the final answer.**
@@ -1248,6 +1248,7 @@ It evolved into something more specific:
 The project is therefore less about claiming that every component is state-of-the-art and more about exploring how advanced RAG techniques interact when placed inside a single research loop.
 
 That is the problem ARGUS is built to investigate.
+And I am going to continue this research as well in the future.
 
 ---
 
