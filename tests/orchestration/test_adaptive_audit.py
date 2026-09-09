@@ -216,7 +216,7 @@ class TestLoopSafety:
 class TestEvidenceAccumulation:
     def test_merge_deduplicates_chunks(self):
         """Same chunk_id should not be duplicated."""
-        from benchmarks.benchmark_adaptive_research import _merge_evidence
+        from app.orchestration.nodes import _merge_evidence
 
         ref1 = _make_ref(0.8)
         ref2 = _make_ref(0.7)  # different chunk_id
@@ -228,7 +228,7 @@ class TestEvidenceAccumulation:
 
     def test_merge_updates_higher_score(self):
         """Higher score replaces lower score for same chunk_id."""
-        from benchmarks.benchmark_adaptive_research import _merge_evidence
+        from app.orchestration.nodes import _merge_evidence
 
         ref_low = _make_ref(0.5)
         ref_high = EvidenceRef(
@@ -250,7 +250,7 @@ class TestEvidenceAccumulation:
 
     def test_gain_zero_on_identical_evidence(self):
         """Gain should be zero when second round returns same evidence."""
-        from benchmarks.benchmark_adaptive_research import _merge_evidence
+        from app.orchestration.nodes import _merge_evidence
 
         ref1 = _make_ref(0.8)
         ref2 = _make_ref(0.7)
