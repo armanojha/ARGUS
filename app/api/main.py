@@ -21,6 +21,7 @@ from app.api.middleware import RequestIDMiddleware
 from app.api.obsidian import router as obsidian_router
 from app.api.orchestration import router as orchestration_router
 from app.api.retrieval import router as retrieval_router
+from app.api.streaming import router as streaming_router
 from app.api.telemetry import router as telemetry_router
 from app.api.verification import router as verification_router
 from app.config import get_settings
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(retrieval_router)
     app.include_router(orchestration_router)
+    app.include_router(streaming_router)
     app.include_router(verification_router)
     app.include_router(telemetry_router)
     app.include_router(knowledge_base_router)

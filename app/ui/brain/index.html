@@ -414,6 +414,18 @@
   .chat-status { display: flex; gap: 10px; align-items: center; color: var(--text-dim); font-size: 13px; padding: 10px 0; }
   .chat-status .spinner { width: 16px; height: 16px; border-width: 2px; }
 
+  /* Phase-specific progress indicators */
+  .phase-progress { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border-soft); margin: 4px 0; }
+  .phase-progress .phase-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+  .phase-progress .phase-icon.plan { background: rgba(110,168,254,.2); color: var(--accent); }
+  .phase-progress .phase-icon.retrieve { background: rgba(56,189,248,.2); color: var(--accent-2); }
+  .phase-progress .phase-icon.assess { background: rgba(251,191,36,.2); color: var(--warn); }
+  .phase-progress .phase-icon.synthesize { background: rgba(52,211,153,.2); color: var(--good); }
+  .phase-progress .phase-info { flex: 1; }
+  .phase-progress .phase-name { font-size: 12px; font-weight: 600; color: var(--text); }
+  .phase-progress .phase-detail { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .phase-progress .phase-time { font-size: 11px; color: var(--text-faint); font-family: var(--mono); }
+
   /* ------- Pipeline view ------- */
   #view-pipeline { background: transparent; }
   .pipeline-wrap { position: relative; flex: 1; overflow: hidden; }
@@ -1911,6 +1923,40 @@ function fmtAnswer(res) {
       `</div>`;
   }
 
+  // Contradictions detected
+  let contraHtml = "";
+  const contradictions = Array.isArray(res.contradiction_signals) ? res.contradiction_signals : [];
+  if (contradictions.length) {
+    const contraItems = contradictions.slice(0, 5).map(c => {
+      if (!c || typeof c !== "object") return "";
+      const pairs = Array.isArray(c.pairs) ? c.pairs.length : (c.pair_count || 0);
+      return `<div style="font-size:11px;color:var(--text-dim);margin:4px 0;padding:6px 8px;background:rgba(248,113,113,.08);border-radius:6px;border-left:3px solid var(--danger)">
+        <span style="color:var(--danger);font-weight:600">Contradiction</span>: ${pairs} conflicting pair${pairs !== 1 ? 's' : ''} detected
+      </div>`;
+    }).filter(Boolean).join("");
+    if (contraItems) {
+      contraHtml = `<div class="chat-a"><div class="panel-title" style="margin:0">Contradictions (${contradictions.length})</div>${contraItems}</div>`;
+    }
+  }
+
+  // Strategy history (mutations)
+  let stratHtml = "";
+  const strategy = Array.isArray(res.strategy_history) ? res.strategy_history : [];
+  const mutations = strategy.filter(s => s && s.mutated_from && s.mutated_from !== "initial" && !s.mutated_from.startsWith("terminal:"));
+  if (mutations.length) {
+    const mutItems = mutations.map(s => {
+      const from = s.mutated_from || "unknown";
+      const queries = Array.isArray(s.queries) ? s.queries.length : 0;
+      const topK = s.top_k_override ? `top_k=${s.top_k_override}` : "";
+      return `<div style="font-size:11px;color:var(--text-dim);margin:4px 0;padding:6px 8px;background:rgba(110,168,254,.08);border-radius:6px;border-left:3px solid var(--accent)">
+        <span style="color:var(--accent);font-weight:600">Strategy</span>: ${from} → ${queries} queries${topK ? `, ${topK}` : ''}
+      </div>`;
+    }).filter(Boolean).join("");
+    if (mutItems) {
+      stratHtml = `<div class="chat-a"><div class="panel-title" style="margin:0">Adaptive Strategy</div>${mutItems}</div>`;
+    }
+  }
+
   // Verification
   let verHtml = "";
   const ver = res.verification;
@@ -1959,14 +2005,23 @@ function fmtAnswer(res) {
     memHtml = `<div class="meta-row" style="margin-top:8px"><span class="meta-pill"><span class="dot good"></span>Consulted ARGUS memory</span></div>`;
   }
 
+  // Stop reason
+  let stopHtml = "";
+  if (res.stop_reason) {
+    stopHtml = `<div class="meta-row" style="margin-top:4px">
+      <span class="meta-pill" style="font-size:11px">stop: ${escapeHtml(res.stop_reason)}</span>
+      ${res.stop_condition ? `<span class="meta-pill" style="font-size:11px">condition: ${escapeHtml(res.stop_condition)}</span>` : ''}
+    </div>`;
+  }
+
   let meta = `<div class="answer-meta">
     <div class="meta-row">
       <span class="meta-pill">outcome: ${escapeHtml(outcome)}</span>
       <span class="meta-pill">plan: ${escapeHtml(res.question_pattern || "—")}</span>
       <span class="meta-pill">iterations: ${escapeHtml(String(res.iterations_used != null ? res.iterations_used : "—"))}</span>
-      <span class="meta-pill">sub-queries: ${escapeHtml(String(res.sub_queries_issued != null ? res.sub_queries_issued : "—"))}</span>
+      <span class="meta-pill">sub-queries: ${Array.isArray(res.sub_queries_issued) ? res.sub_queries_issued.length : (res.sub_queries_issued || "—")}</span>
     </div>
-    ${verHtml}${confHtml}${memHtml}${sourceTrail}${telHtml}
+    ${stopHtml}${verHtml}${confHtml}${memHtml}${contraHtml}${stratHtml}${sourceTrail}${telHtml}
   </div>`;
 
   return answer + citHtml + meta;
@@ -1991,41 +2046,125 @@ async function sendResearch() {
     statusMsg = `Uploading ${file.name} and researching…`;
   }
   const statusEl = addStatus(statusMsg);
+  const statusText = statusEl.querySelector("div:last-child");
+  statusText.textContent = "Initializing…";
+
+  // Create phase progress container
+  const phaseContainer = document.createElement("div");
+  phaseContainer.className = "phase-progress-container";
+  phaseContainer.style.cssText = "margin-top:8px;display:none;";
+  statusEl.appendChild(phaseContainer);
 
   try {
     if (file) {
       const fd = new FormData();
       fd.append("files", file);
-      statusEl.querySelector("div:last-child").textContent = `Uploading ${file.name}…`;
+      statusText.textContent = `Uploading ${file.name}…`;
       const upRes = await fetch(API_BASE + "/knowledge-base/upload", { method: "POST", body: fd });
       if (!upRes.ok) {
         let errMsg = "Upload failed: HTTP " + upRes.status;
         try { const e = await upRes.json(); errMsg = e.detail || e.error || errMsg; } catch(_){}
         throw new Error(errMsg);
       }
-      statusEl.querySelector("div:last-child").textContent = "Researching…";
+      statusText.textContent = "Researching…";
     }
-    const res = await fetch(API_BASE + "/query", {
+
+    // Use SSE streaming endpoint for real-time progress
+    const res = await fetch(API_BASE + "/query/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: q }),
     });
+
     if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    statusEl.remove();
-    let formatted;
-    try {
-      formatted = fmtAnswer(data);
-    } catch (fmtErr) {
-      console.error("fmtAnswer error:", fmtErr, data);
-      formatted = `<span style="color:var(--danger)">Formatting error: ${escapeHtml(fmtErr.message)}</span><pre style="font-size:11px;color:var(--text-faint);margin-top:8px;white-space:pre-wrap">${escapeHtml(JSON.stringify(data, null, 2).slice(0, 2000))}</pre>`;
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let resultData = null;
+    const phaseElements = {};
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      let eventType = "";
+      for (const line of lines) {
+        if (line.startsWith("event: ")) {
+          eventType = line.slice(7).trim();
+        } else if (line.startsWith("data: ")) {
+          const dataStr = line.slice(6);
+          try {
+            const data = JSON.parse(dataStr);
+
+            if (eventType === "started") {
+              statusText.textContent = "Research started…";
+            } else if (eventType === "phase") {
+              const node = data.node;
+              const status = data.status;
+              const desc = data.description || node;
+              const iter = data.iteration > 0 ? ` (iter ${data.iteration})` : "";
+
+              if (status === "starting") {
+                statusText.textContent = `${desc}${iter}…`;
+
+                // Show phase progress container
+                phaseContainer.style.display = "block";
+
+                // Create or update phase element
+                if (!phaseElements[node]) {
+                  const phaseEl = document.createElement("div");
+                  phaseEl.className = "phase-progress";
+                  phaseEl.innerHTML = `
+                    <div class="phase-icon ${node}">${node.charAt(0).toUpperCase()}</div>
+                    <div class="phase-info">
+                      <div class="phase-name">${desc}</div>
+                      <div class="phase-detail">${iter || "Starting…"}</div>
+                    </div>
+                  `;
+                  phaseContainer.appendChild(phaseEl);
+                  phaseElements[node] = phaseEl;
+                }
+              } else if (status === "completed") {
+                const latency = data.latency_ms ? ` (${data.latency_ms}ms)` : "";
+                if (phaseElements[node]) {
+                  phaseElements[node].querySelector(".phase-detail").textContent = `Done${latency}`;
+                }
+                statusText.textContent = `${desc} completed${latency}`;
+              }
+            } else if (eventType === "result") {
+              resultData = data;
+            }
+          } catch (e) {
+            // Ignore parse errors for non-JSON data
+          }
+        }
+      }
     }
-    const bubble = addChat(q, "brain", formatted);
-    bubble.querySelectorAll(".cit-chip[data-src]").forEach(chip => {
-      chip.addEventListener("click", () => {
-        showToast("Source: " + short(chip.dataset.src, 60));
+
+    statusEl.remove();
+
+    if (resultData) {
+      let formatted;
+      try {
+        formatted = fmtAnswer(resultData);
+      } catch (fmtErr) {
+        console.error("fmtAnswer error:", fmtErr, resultData);
+        formatted = `<span style="color:var(--danger)">Formatting error: ${escapeHtml(fmtErr.message)}</span><pre style="font-size:11px;color:var(--text-faint);margin-top:8px;white-space:pre-wrap">${escapeHtml(JSON.stringify(resultData, null, 2).slice(0, 2000))}</pre>`;
+      }
+      const bubble = addChat(q, "brain", formatted);
+      bubble.querySelectorAll(".cit-chip[data-src]").forEach(chip => {
+        chip.addEventListener("click", () => {
+          showToast("Source: " + short(chip.dataset.src, 60));
+        });
       });
-    });
+    } else {
+      throw new Error("No result received from stream");
+    }
   } catch (e) {
     statusEl.remove();
     addChat(q, "brain", `<span style="color:var(--danger)">Research failed: ${escapeHtml(e.message)}</span>`);
