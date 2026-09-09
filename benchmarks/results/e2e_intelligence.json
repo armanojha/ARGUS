@@ -21,11 +21,11 @@
    "gold_docs": [
     "doc-a"
    ],
-   "contradiction_signals": 21,
+   "contradiction_signals": 4,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 42.4
+   "latency_ms": 47.5
   },
   {
    "id": "A2",
@@ -47,11 +47,11 @@
    "gold_docs": [
     "doc-a"
    ],
-   "contradiction_signals": 21,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 50.0
+   "latency_ms": 47.5
   },
   {
    "id": "A3",
@@ -73,11 +73,11 @@
    "gold_docs": [
     "doc-a"
    ],
-   "contradiction_signals": 19,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 47.6
+   "latency_ms": 47.4
   },
   {
    "id": "A4",
@@ -99,11 +99,11 @@
    "gold_docs": [
     "doc-b"
    ],
-   "contradiction_signals": 19,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 42.0
+   "latency_ms": 44.7
   },
   {
    "id": "A5",
@@ -125,11 +125,11 @@
    "gold_docs": [
     "doc-j"
    ],
-   "contradiction_signals": 18,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 42.8
+   "latency_ms": 46.9
   },
   {
    "id": "A6",
@@ -151,11 +151,11 @@
    "gold_docs": [
     "doc-j"
    ],
-   "contradiction_signals": 17,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 45.7
+   "latency_ms": 46.0
   },
   {
    "id": "B1",
@@ -178,7 +178,7 @@
     "doc-a",
     "doc-f"
    ],
-   "contradiction_signals": 21,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
@@ -205,11 +205,11 @@
     "doc-d",
     "doc-f"
    ],
-   "contradiction_signals": 21,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 42.5
+   "latency_ms": 44.4
   },
   {
    "id": "B3",
@@ -221,7 +221,7 @@
    "retrieved_docs": [
     "doc-b",
     "doc-c",
-    "doc-d",
+    "doc-e",
     "doc-g",
     "doc-h",
     "doc-i",
@@ -231,11 +231,11 @@
    "gold_docs": [
     "doc-b"
    ],
-   "contradiction_signals": 18,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 45.1
+   "latency_ms": 41.8
   },
   {
    "id": "B4",
@@ -257,11 +257,11 @@
    "gold_docs": [
     "doc-a"
    ],
-   "contradiction_signals": 20,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 47.7
+   "latency_ms": 43.4
   },
   {
    "id": "C1",
@@ -283,11 +283,11 @@
    "gold_docs": [
     "doc-b"
    ],
-   "contradiction_signals": 19,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 52.5
+   "latency_ms": 44.1
   },
   {
    "id": "C2",
@@ -309,11 +309,11 @@
    "gold_docs": [
     "doc-b"
    ],
-   "contradiction_signals": 16,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 48.1
+   "latency_ms": 41.0
   },
   {
    "id": "C3",
@@ -335,11 +335,11 @@
    "gold_docs": [
     "doc-b"
    ],
-   "contradiction_signals": 18,
+   "contradiction_signals": 4,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 44.8
+   "latency_ms": 42.2
   },
   {
    "id": "D1",
@@ -362,11 +362,11 @@
     "doc-c",
     "doc-d"
    ],
-   "contradiction_signals": 16,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 48.1
+   "latency_ms": 46.6
   },
   {
    "id": "D2",
@@ -388,11 +388,11 @@
    "gold_docs": [
     "doc-h"
    ],
-   "contradiction_signals": 16,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 43.1
+   "latency_ms": 52.0
   },
   {
    "id": "D3",
@@ -414,11 +414,11 @@
    "gold_docs": [
     "doc-h"
    ],
-   "contradiction_signals": 21,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 47.6
+   "latency_ms": 42.8
   },
   {
    "id": "E1",
@@ -440,11 +440,11 @@
    "gold_docs": [
     "doc-c"
    ],
-   "contradiction_signals": 16,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 59.7
+   "latency_ms": 51.7
   },
   {
    "id": "E2",
@@ -466,11 +466,11 @@
    "gold_docs": [
     "doc-c"
    ],
-   "contradiction_signals": 17,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 45.6
+   "latency_ms": 47.7
   },
   {
    "id": "E3",
@@ -493,11 +493,11 @@
     "doc-b",
     "doc-i"
    ],
-   "contradiction_signals": 17,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 46.4
+   "latency_ms": 48.7
   },
   {
    "id": "F1",
@@ -520,11 +520,11 @@
     "doc-e",
     "doc-f"
    ],
-   "contradiction_signals": 19,
+   "contradiction_signals": 3,
    "conflict_expected": true,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 42.5
+   "latency_ms": 42.2
   },
   {
    "id": "F2",
@@ -547,11 +547,11 @@
     "doc-e",
     "doc-f"
    ],
-   "contradiction_signals": 20,
+   "contradiction_signals": 3,
    "conflict_expected": true,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 52.0
+   "latency_ms": 41.8
   },
   {
    "id": "F3",
@@ -574,11 +574,11 @@
     "doc-e",
     "doc-f"
    ],
-   "contradiction_signals": 16,
+   "contradiction_signals": 2,
    "conflict_expected": true,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 41.5
+   "latency_ms": 48.4
   },
   {
    "id": "G1",
@@ -600,11 +600,11 @@
    "gold_docs": [
     "doc-g"
    ],
-   "contradiction_signals": 15,
+   "contradiction_signals": 2,
    "conflict_expected": false,
-   "absent_trigger": false,
+   "absent_trigger": true,
    "absent_expected": true,
-   "latency_ms": 43.3
+   "latency_ms": 43.8
   },
   {
    "id": "G2",
@@ -626,11 +626,11 @@
    "gold_docs": [
     "doc-g"
    ],
-   "contradiction_signals": 16,
+   "contradiction_signals": 2,
    "conflict_expected": false,
-   "absent_trigger": false,
+   "absent_trigger": true,
    "absent_expected": true,
-   "latency_ms": 45.5
+   "latency_ms": 43.3
   },
   {
    "id": "G3",
@@ -650,11 +650,11 @@
     "doc-k"
    ],
    "gold_docs": [],
-   "contradiction_signals": 21,
+   "contradiction_signals": 2,
    "conflict_expected": false,
-   "absent_trigger": false,
+   "absent_trigger": true,
    "absent_expected": true,
-   "latency_ms": 49.4
+   "latency_ms": 42.5
   },
   {
    "id": "G4",
@@ -664,7 +664,7 @@
    "precision_at_k": 0.125,
    "gold_coverage": 0.6666666666666666,
    "retrieved_docs": [
-    "doc-d",
+    "doc-c",
     "doc-e",
     "doc-f",
     "doc-g",
@@ -676,11 +676,11 @@
    "gold_docs": [
     "doc-g"
    ],
-   "contradiction_signals": 18,
+   "contradiction_signals": 2,
    "conflict_expected": false,
-   "absent_trigger": false,
+   "absent_trigger": true,
    "absent_expected": true,
-   "latency_ms": 46.1
+   "latency_ms": 44.3
   },
   {
    "id": "H1",
@@ -702,11 +702,11 @@
    "gold_docs": [
     "doc-h"
    ],
-   "contradiction_signals": 21,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 64.0
+   "latency_ms": 44.9
   },
   {
    "id": "H2",
@@ -728,11 +728,11 @@
    "gold_docs": [
     "doc-h"
    ],
-   "contradiction_signals": 14,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 46.1
+   "latency_ms": 43.4
   },
   {
    "id": "H3",
@@ -754,11 +754,11 @@
    "gold_docs": [
     "doc-h"
    ],
-   "contradiction_signals": 21,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 55.9
+   "latency_ms": 47.8
   },
   {
    "id": "I1",
@@ -781,11 +781,11 @@
     "doc-b",
     "doc-i"
    ],
-   "contradiction_signals": 15,
+   "contradiction_signals": 1,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 62.0
+   "latency_ms": 44.0
   },
   {
    "id": "I2",
@@ -809,11 +809,11 @@
     "doc-d",
     "doc-k"
    ],
-   "contradiction_signals": 20,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 54.3
+   "latency_ms": 45.0
   },
   {
    "id": "I3",
@@ -836,11 +836,11 @@
     "doc-e",
     "doc-f"
    ],
-   "contradiction_signals": 21,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 59.9
+   "latency_ms": 43.8
   },
   {
    "id": "J1",
@@ -862,11 +862,11 @@
    "gold_docs": [
     "doc-l"
    ],
-   "contradiction_signals": 15,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 41.3
+   "latency_ms": 42.2
   },
   {
    "id": "J2",
@@ -888,11 +888,11 @@
    "gold_docs": [
     "doc-l"
    ],
-   "contradiction_signals": 16,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 46.8
+   "latency_ms": 45.3
   },
   {
    "id": "J3",
@@ -914,11 +914,11 @@
    "gold_docs": [
     "doc-l"
    ],
-   "contradiction_signals": 12,
+   "contradiction_signals": 3,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 43.7
+   "latency_ms": 51.1
   },
   {
    "id": "J4",
@@ -940,11 +940,11 @@
    "gold_docs": [
     "doc-i"
    ],
-   "contradiction_signals": 21,
+   "contradiction_signals": 2,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 49.4
+   "latency_ms": 46.9
   },
   {
    "id": "J5",
@@ -966,11 +966,11 @@
    "gold_docs": [
     "doc-g"
    ],
-   "contradiction_signals": 13,
+   "contradiction_signals": 1,
    "conflict_expected": false,
    "absent_trigger": false,
    "absent_expected": false,
-   "latency_ms": 47.9
+   "latency_ms": 43.3
   },
   {
    "id": "J6",
@@ -992,11 +992,11 @@
    "gold_docs": [
     "doc-g"
    ],
-   "contradiction_signals": 14,
+   "contradiction_signals": 2,
    "conflict_expected": false,
-   "absent_trigger": false,
+   "absent_trigger": true,
    "absent_expected": false,
-   "latency_ms": 46.2
+   "latency_ms": 44.6
   }
  ],
  "mode": "deterministic",
@@ -1008,8 +1008,8 @@
    "gold_coverage": 0.9035,
    "contradiction_precision": 0.0789,
    "contradiction_recall": 1.0,
-   "abstention_trigger_acc": 0.0,
-   "avg_latency_ms": 48.0
+   "abstention_trigger_acc": 1.0,
+   "avg_latency_ms": 45.2
   },
   "by_class": {
    "absent_info": {
@@ -1019,8 +1019,8 @@
     "gold_coverage": 0.6667,
     "contradiction_precision": 0.0,
     "contradiction_recall": null,
-    "abstention_trigger_acc": 0.0,
-    "avg_latency_ms": 46.1
+    "abstention_trigger_acc": 1.0,
+    "avg_latency_ms": 43.5
    },
    "adversarial": {
     "n": 6,
@@ -1030,7 +1030,7 @@
     "contradiction_precision": 0.0,
     "contradiction_recall": null,
     "abstention_trigger_acc": null,
-    "avg_latency_ms": 45.9
+    "avg_latency_ms": 45.6
    },
    "complex_research": {
     "n": 3,
@@ -1040,7 +1040,7 @@
     "contradiction_precision": 0.0,
     "contradiction_recall": null,
     "abstention_trigger_acc": null,
-    "avg_latency_ms": 58.7
+    "avg_latency_ms": 44.3
    },
    "conflict": {
     "n": 3,
@@ -1050,7 +1050,7 @@
     "contradiction_precision": 1.0,
     "contradiction_recall": 1.0,
     "abstention_trigger_acc": null,
-    "avg_latency_ms": 45.3
+    "avg_latency_ms": 44.1
    },
    "multi_doc_synthesis": {
     "n": 3,
@@ -1060,7 +1060,7 @@
     "contradiction_precision": 0.0,
     "contradiction_recall": null,
     "abstention_trigger_acc": null,
-    "avg_latency_ms": 46.3
+    "avg_latency_ms": 47.1
    },
    "multi_hop": {
     "n": 3,
@@ -1070,7 +1070,7 @@
     "contradiction_precision": 0.0,
     "contradiction_recall": null,
     "abstention_trigger_acc": null,
-    "avg_latency_ms": 50.6
+    "avg_latency_ms": 49.4
    },
    "normal_qa": {
     "n": 4,
@@ -1080,7 +1080,7 @@
     "contradiction_precision": 0.0,
     "contradiction_recall": null,
     "abstention_trigger_acc": null,
-    "avg_latency_ms": 44.7
+    "avg_latency_ms": 43.2
    },
    "numerical": {
     "n": 3,
@@ -1090,7 +1090,7 @@
     "contradiction_precision": 0.0,
     "contradiction_recall": null,
     "abstention_trigger_acc": null,
-    "avg_latency_ms": 55.3
+    "avg_latency_ms": 45.4
    },
    "simple_lookup": {
     "n": 6,
@@ -1100,7 +1100,7 @@
     "contradiction_precision": 0.0,
     "contradiction_recall": null,
     "abstention_trigger_acc": null,
-    "avg_latency_ms": 45.1
+    "avg_latency_ms": 46.7
    },
    "technical_explanation": {
     "n": 3,
@@ -1110,7 +1110,7 @@
     "contradiction_precision": 0.0,
     "contradiction_recall": null,
     "abstention_trigger_acc": null,
-    "avg_latency_ms": 48.5
+    "avg_latency_ms": 42.4
    }
   }
  }

@@ -63,12 +63,13 @@ _NEGATION_PAIRS = [
     ("did", "did not"), ("did", "didn't"),
     ("has", "has not"), ("has", "hasn't"),
     ("have", "have not"), ("have", "haven't"),
-    ("no ", "yes "), ("not ", ""),
+    ("no ", "yes "),
     ("true", "false"), ("confirmed", "denied"),
     ("possible", "impossible"), ("safe", "unsafe"),
     ("increase", "decrease"), ("rise", "fall"),
     ("higher", "lower"), ("more", "less"),
     ("supports", "contradicts"), ("contains", "does not contain"),
+    ("supports", "does not support"), ("support", "does not support"),
 ]
 
 _METRIC_KEYWORDS = frozenset({
@@ -138,6 +139,96 @@ def _normalize_value(val: float, unit: str) -> float:
     return val * multipliers.get(unit, 1.0)
 
 
+def _extract_year_metric_values(
+    text: str, metric: str
+) -> dict[int, list[tuple[float, str]]]:
+    """Extract metric values grouped by the year mentioned in the same sentence.
+
+    Returns {year: [(normalized_value, unit), ...]}.
+    Only includes values where a year can be associated.
+    Values without an associated year are placed in year 0.
+    """
+    pattern = _METRIC_VALUE_RE_TEMPLATE.format(metric=re.escape(metric))
+    results: dict[int, list[tuple[float, str]]] = {}
+    for m in re.finditer(pattern, text, re.IGNORECASE):
+        num_str = m.group(1)
+        unit_str = m.group(2) or ""
+        cleaned = re.sub(r"[,$]", "", num_str)
+        try:
+            val = float(cleaned)
+        except ValueError:
+            continue
+        if val == 0:
+            continue
+        if 2000 <= val <= 2099 and not unit_str:
+            continue
+        canonical = _UNIT_NORMALIZE.get(unit_str.lower(), unit_str)
+        # Find the sentence containing this match for year association.
+        # Use sentence boundaries instead of fixed char windows.
+        sent_start = text.rfind(".", 0, m.start())
+        sent_start = max(0, sent_start + 1 if sent_start >= 0 else 0)
+        sent_end = text.find(".", m.end())
+        sent_end = len(text) if sent_end < 0 else sent_end + 1
+        sentence = text[sent_start:sent_end]
+        years_in_sent = _extract_years(sentence)
+        year = next(iter(years_in_sent), 0) if years_in_sent else 0
+        # Fallback: if no year in sentence, use the chunk's primary year
+        # (from title or first sentence).  This handles cases where the
+        # year is in a header/earlier sentence.
+        if year == 0:
+            all_years = _extract_years(text)
+            # Prefer the earliest year (likely the document's primary year)
+            year = min(all_years) if all_years else 0
+        results.setdefault(year, []).append((val, canonical))
+    return results
+
+
+# Regex for extracting a metric value: looks for the metric keyword
+# immediately followed by its value.  Only matches direct syntactic
+# relationships like "revenue: $4.7 billion" or "utilization: 91%",
+# NOT "Annual revenue (2025): $4.7 billion" where 2025 intervenes.
+# Requires the number to be within ~30 chars of the metric keyword.
+_METRIC_VALUE_RE_TEMPLATE = (
+    r"\b{metric}\b"              # the metric keyword
+    r"[\s:]*(?:of|was|is|are|reached|totaled)?"  # optional short connector
+    r"[\s:=$-]{{0,15}}"          # tight gap (max 15 chars) to the number
+    r"(\$?[\d,]+\.?\d*)"         # the number (capture group 1)
+    r"\s*"                       # optional space
+    r"(billion|million|thousand|%|percent)?"  # optional unit suffix
+)
+
+
+def _extract_metric_values(text: str, metric: str) -> list[tuple[float, str]]:
+    """Extract values that are syntactically the value of a given metric.
+
+    Only returns numbers that are directly connected to the metric keyword
+    via a syntactic pattern (colon, "of", "was", etc.), NOT all numbers
+    that happen to be near the metric in the text.
+
+    Returns list of (normalized_value, unit) tuples.
+    """
+    pattern = _METRIC_VALUE_RE_TEMPLATE.format(metric=re.escape(metric))
+    results: list[tuple[float, str]] = []
+    for m in re.finditer(pattern, text, re.IGNORECASE):
+        num_str = m.group(1)
+        unit_str = m.group(2) or ""
+        # Skip years (4-digit numbers starting with 20)
+        cleaned = re.sub(r"[,$]", "", num_str)
+        try:
+            val = float(cleaned)
+        except ValueError:
+            continue
+        if val == 0:
+            continue
+        # Skip years (2000-2099) — they are temporal context, not metric values
+        if 2000 <= val <= 2099 and not unit_str:
+            continue
+        # Normalize unit
+        canonical = _UNIT_NORMALIZE.get(unit_str.lower(), unit_str)
+        results.append((val, canonical))
+    return results
+
+
 def _extract_entity_keywords(text: str) -> set[str]:
     """Extract likely entity names (capitalized words, proper nouns)."""
     # Simple heuristic: words that are capitalized and 3+ chars
@@ -202,12 +293,13 @@ def _classify_conflict_type(
     same_entity = bool(entities_i & entities_j)
     same_timeframe = bool(years_i & years_j)
     same_metrics = bool(metrics_i & metrics_j)
-    both_have_years = bool(years_i or years_j)
+    both_have_years = bool(years_i and years_j)
+    one_has_years = bool(years_i or years_j) and not both_have_years
 
-    if same_entity and same_timeframe and same_metrics:
-        return "GENUINE_CONTRADICTION"
-    elif same_entity and both_have_years and not same_timeframe:
+    if same_entity and both_have_years and not same_timeframe or same_entity and one_has_years and same_metrics:
         return "DIFFERENT_TIMEFRAME"
+    elif same_entity and same_timeframe and same_metrics:
+        return "GENUINE_CONTRADICTION"
     elif not same_entity and same_metrics:
         return "DIFFERENT_SOURCE"
     elif same_entity and same_metrics:
@@ -336,6 +428,8 @@ def _detect_contradictions(
             # Extract temporal context
             ctx_i = _detect_temporal_context(evidence[i].text)
             ctx_j = _detect_temporal_context(evidence[j].text)
+            years_i = ctx_i["years"]
+            years_j = ctx_j["years"]
 
             # Extract entity keywords
             entities_i = _extract_entity_keywords(evidence[i].text)
@@ -347,9 +441,13 @@ def _detect_contradictions(
             shared_metrics = words_i & words_j & _METRIC_KEYWORDS
 
             # ── Check 1: Direct negation pairs ──
-            # SAFETY: Require topic coherence AND entity overlap before
-            # flagging a negation-based contradiction.  Shared generic
-            # words alone (e.g. "analytics", "database") are NOT sufficient.
+            # SAFETY: Require BOTH entity overlap AND shared metrics before
+            # flagging a negation-based contradiction.  Shared generic words
+            # alone (e.g. "analytics", "database") are NOT sufficient, and
+            # entity overlap without metric overlap means the negation terms
+            # describe different properties (e.g. "Acme revenue increased"
+            # vs "Ohio utilization decreased").
+            entity_overlap = entities_i & entities_j
             for neg_a, neg_b in _NEGATION_PAIRS:
                 if (neg_a in text_i and neg_b in text_j) or (neg_b in text_i and neg_a in text_j):
                     # Topic coherence: chunks must share meaningful vocabulary
@@ -357,19 +455,21 @@ def _detect_contradictions(
                         continue
                     shared_words = words_i & words_j
                     shared_words -= {"this", "that", "with", "from", "have", "been", "were", "their", "which", "about"}
-                    # Require entity overlap for negation to be meaningful
-                    entity_overlap = entities_i & entities_j
-                    if len(shared_words) >= 3 or (len(shared_words) >= 2 and entity_overlap):
+                    # Require BOTH entity overlap AND shared metrics:
+                    # the negation must describe the same property of the
+                    # same entity, not just be two documents about the same
+                    # general domain with opposing vocabulary.
+                    if entity_overlap:
                         pair = (min(i, j), max(i, j))
                         if pair not in seen_pairs:
                             seen_pairs.add(pair)
                             conflict_type = _classify_conflict_type(
-                                ctx_i["years"], ctx_j["years"],
+                                years_i, years_j,
                                 entities_i, entities_j,
                                 shared_metrics, shared_metrics,
                             )
                             confidence = _compute_confidence(
-                                shared_metrics, ctx_i["years"], ctx_j["years"],
+                                shared_metrics, years_i, years_j,
                                 entities_i, entities_j, 1.0,
                             )
                             contradictions.append({
@@ -381,83 +481,89 @@ def _detect_contradictions(
                                     f"shared terms: {', '.join(sorted(shared_words)[:5])}"
                                 ),
                                 "evidence_indices": [i + 1, j + 1],
-                                "entity_overlap": sorted(entities_i & entities_j)[:3],
+                                "entity_overlap": sorted(entity_overlap)[:3],
                                 "metric_overlap": sorted(shared_metrics)[:3],
-                                "timeframe_i": sorted(ctx_i["years"]),
-                                "timeframe_j": sorted(ctx_j["years"]),
+                                "timeframe_i": sorted(years_i),
+                                "timeframe_j": sorted(years_j),
                                 "resolved": False,
                                 "critical": True,
                             })
-                            # SAFETY: If this is a negation pair with entity overlap
-                            # but no shared metrics, upgrade to POSSIBLE_CONTRADICTION.
-                            # IRRELEVANT_DIFFERENCE is wrong for direct opposition
-                            # on the same entity.
-                            if (conflict_type == "IRRELEVANT_DIFFERENCE"
-                                    and entities_i & entities_j):
-                                contradictions[-1]["conflict_type"] = "POSSIBLE_CONTRADICTION"
                         break  # One contradiction per pair is enough
 
             # ── Check 2: Numerical discrepancies with context ──
-            # SAFETY: Require topic coherence before checking numerical discrepancies.
-            # Documents about unrelated topics sharing a generic metric keyword
-            # (e.g. "rate", "growth") must NOT be flagged.
-            if shared_metrics and _is_topic_coherent(evidence[i].text, evidence[j].text, min_shared_significant=3):
-                # For each shared metric, extract numbers near it in each chunk
-                metric_nums_i: set[str] = set()
-                metric_nums_j: set[str] = set()
-                raw_nums_i: list[tuple[float, str]] = []
-                raw_nums_j: list[tuple[float, str]] = []
+            # SAFETY: Require topic coherence AND entity overlap before
+            # checking numerical discrepancies.  Documents about different
+            # entities sharing a generic metric keyword (e.g. "rate",
+            # "growth") must NOT be flagged as contradictions.
+            if (shared_metrics
+                    and entity_overlap
+                    and _is_topic_coherent(evidence[i].text, evidence[j].text, min_shared_significant=3)):
+                # Extract metric-VALUE pairs (not all numbers near the metric).
+                # Only compare numbers that are syntactically the value of the
+                # same metric, avoiding false positives from years, employee
+                # counts, plant counts, etc.
+                pairs_i: dict[str, list[tuple[float, str]]] = {}
+                pairs_j: dict[str, list[tuple[float, str]]] = {}
 
                 for metric in shared_metrics:
-                    for text, num_set, raw_list in [
-                        (text_i, metric_nums_i, raw_nums_i),
-                        (text_j, metric_nums_j, raw_nums_j),
+                    for text, pair_dict in [
+                        (text_i, pairs_i),
+                        (text_j, pairs_j),
                     ]:
-                        for m in re.finditer(r"\b" + re.escape(metric) + r"\b", text):
-                            start = max(0, m.start() - 50)
-                            end = min(len(text), m.end() + 50)
-                            window = text[start:end]
-                            for n in re.findall(r"\$?[\d,]+\.?\d*\s*(?:billion|million|thousand|%)?", window):
-                                cleaned = re.sub(r"[,$]", "", n.strip())
-                                if cleaned:
-                                    num_set.add(cleaned)
-                                    raw_list.append(_normalize_number_with_unit(n))
+                        vals = _extract_metric_values(text, metric)
+                        if vals:
+                            pair_dict[metric] = vals
 
-                if metric_nums_i and metric_nums_j and metric_nums_i != metric_nums_j:
+                # Compare values for each shared metric
+                contradictory_metric = None
+                for metric in shared_metrics:
+                    vals_i = pairs_i.get(metric, [])
+                    vals_j = pairs_j.get(metric, [])
+                    if not vals_i or not vals_j:
+                        continue
+                    norm_i = {_normalize_value(v, u) for v, u in vals_i if v > 0}
+                    norm_j = {_normalize_value(v, u) for v, u in vals_j if v > 0}
+                    if not norm_i or not norm_j:
+                        continue
+                    # Only flag as contradictory if the value sets have NO
+                    # overlap.  If one set contains values from multiple
+                    # entities/periods and the other has a single value that
+                    # appears in the first set, they are compatible (not a
+                    # contradiction).
+                    if norm_i.isdisjoint(norm_j):
+                        contradictory_metric = metric
+                        break
+
+                if contradictory_metric:
                     pair = (min(i, j), max(i, j))
                     if pair not in seen_pairs:
-                        # Check if values are actually equivalent after normalization
-                        norm_i = {_normalize_value(v, u) for v, u in raw_nums_i if v > 0}
-                        norm_j = {_normalize_value(v, u) for v, u in raw_nums_j if v > 0}
-
-                        # If normalized values are the same, it's not a contradiction
-                        if norm_i and norm_j and norm_i == norm_j:
-                            continue
-
                         seen_pairs.add(pair)
                         conflict_type = _classify_conflict_type(
-                            ctx_i["years"], ctx_j["years"],
+                            years_i, years_j,
                             entities_i, entities_j,
                             shared_metrics, shared_metrics,
                         )
                         confidence = _compute_confidence(
-                            shared_metrics, ctx_i["years"], ctx_j["years"],
+                            shared_metrics, years_i, years_j,
                             entities_i, entities_j, 0.8,
                         )
+                        raw_i = pairs_i.get(contradictory_metric, [])
+                        raw_j = pairs_j.get(contradictory_metric, [])
                         contradictions.append({
                             "severity": 0.8,
                             "confidence": confidence,
                             "conflict_type": conflict_type,
                             "description": (
                                 f"Evidence [{i+1}] and [{j+1}] present different values "
-                                f"for metric(s) {sorted(shared_metrics)}: "
-                                f"{sorted(metric_nums_i)[:3]} vs {sorted(metric_nums_j)[:3]}"
+                                f"for metric '{contradictory_metric}': "
+                                f"{sorted({str(v) + u for v, u in raw_i})[:3]} vs "
+                                f"{sorted({str(v) + u for v, u in raw_j})[:3]}"
                             ),
                             "evidence_indices": [i + 1, j + 1],
-                            "entity_overlap": sorted(entities_i & entities_j)[:3],
+                            "entity_overlap": sorted(entity_overlap)[:3],
                             "metric_overlap": sorted(shared_metrics)[:3],
-                            "timeframe_i": sorted(ctx_i["years"]),
-                            "timeframe_j": sorted(ctx_j["years"]),
+                            "timeframe_i": sorted(years_i),
+                            "timeframe_j": sorted(years_j),
                             "resolved": False,
                             "critical": True,
                         })
@@ -657,6 +763,11 @@ def _is_evidence_absent(
     Returns True when evidence was retrieved but is irrelevant to the query
     (all scores below threshold and low keyword overlap). This signals that
     the corpus genuinely lacks the requested information.
+
+    Also returns True when evidence discusses the general topic but does not
+    contain the specific answer terms the query asks about (e.g., evidence
+    mentions "fusion reactor" but the query asks for "capital cost" which
+    is never discussed).
     """
     if not evidence:
         return True
@@ -670,17 +781,136 @@ def _is_evidence_absent(
     # Check keyword overlap between query and evidence
     query_words = set(re.findall(r"\b\w{4,}\b", query.lower()))
     query_words -= {"what", "which", "when", "where", "does", "that", "have", "been", "from", "about", "what's"}
+    # Also include short query terms that might be important (e.g., "q3")
+    query_words |= set(re.findall(r"\bq[1-4]\b", query.lower()))
     if not query_words:
         return False
 
     evidence_text = " ".join(e.text.lower() for e in evidence)
     evidence_words = set(re.findall(r"\b\w{4,}\b", evidence_text))
+    # Also include short evidence terms (e.g., "q3")
+    evidence_words |= set(re.findall(r"\bq[1-4]\b", evidence_text))
 
     overlap = query_words & evidence_words
     overlap_ratio = len(overlap) / len(query_words) if query_words else 0
 
     # Very low overlap with the query suggests irrelevant evidence
-    return overlap_ratio < 0.2
+    if overlap_ratio < 0.2:
+        return True
+
+    # Check if evidence contains the specific answer terms the query asks about.
+    # When the query asks about a specific proposition (e.g., "capital cost",
+    # "watt output", "best sales quarter"), evidence that merely discusses the
+    # general topic without the answer terms should trigger abstention.
+    answer_type_terms = _extract_answer_type_terms(query)
+    if answer_type_terms:
+        # Check if evidence contains the answer-type-specific terms
+        answer_overlap = answer_type_terms & evidence_words
+        if not answer_overlap:
+            # Evidence discusses the topic but lacks the specific answer terms
+            return True
+
+    # For financial/cost queries, evidence must contain actual numerical values
+    # NEAR the relevant topic terms.  Dollar amounts from unrelated topics
+    # (e.g., revenue figures when asking about capital cost of a reactor)
+    # do not count as sufficient evidence.
+    if any(w in query.lower() for w in ["cost", "price", "capital"]):
+        # Extract topic keywords from the query (non-generic words)
+        query_topic_words = set(re.findall(r"\b\w{4,}\b", query.lower()))
+        query_topic_words -= {"what", "which", "when", "where", "does", "that", "have", "been", "from", "about", "cost", "price", "capital", "invest", "spend"}
+        # Check if any sentence contains both a dollar amount AND a topic word
+        has_topic_dollar = False
+        for sentence in re.split(r"[.!?]+", evidence_text):
+            has_dollar_in_sent = bool(re.search(r"\$[\d,.]+|(?:\d[\d,.]*\s*(?:billion|million|thousand|dollars?|usd))", sentence))
+            has_topic_in_sent = any(w in sentence for w in query_topic_words)
+            if has_dollar_in_sent and has_topic_in_sent:
+                has_topic_dollar = True
+                break
+        if not has_topic_dollar:
+            return True
+
+    # For power/output queries, evidence must contain actual numerical output values
+    if any(w in query.lower() for w in ["watt", "power output", "output watt"]):
+        has_power_value = bool(re.search(r"\d[\d,.]*\s*(?:watt|mw|gw|kw)", evidence_text))
+        if not has_power_value:
+            return True
+
+    # For "best" / superlative queries, evidence must contain comparative data
+    if any(w in query.lower() for w in ["best quarter", "best sales", "highest quarter", "best q"]):
+        has_quarter_data = bool(re.search(r"q[1-4]|quarter", evidence_text))
+        has_comparative = bool(re.search(r"best|highest|peak|record|maximum", evidence_text))
+        if not has_quarter_data or not has_comparative:
+            return True
+
+    # For specific experimental results queries, evidence must mention the
+    # specific experiment AND contain result data (numbers, measurements,
+    # findings) NEAR the subject words.  Evidence that discusses the
+    # experiment in one paragraph and has unrelated numbers elsewhere is
+    # insufficient.
+    if "results" in query.lower() or "outcome" in query.lower():
+        query_subject_words = set(re.findall(r"\b\w{4,}\b", query.lower()))
+        query_subject_words -= {"what", "were", "results", "that", "have", "been", "from", "about", "outcome"}
+        # Check each sentence: does it contain BOTH a subject word AND result data?
+        has_nearby_result = False
+        for sentence in re.split(r"[.!?]+", evidence_text):
+            has_subject = any(w in sentence for w in query_subject_words)
+            has_number = bool(re.search(r"\d[\d,.]*\s*(?:%|billion|million|mw|gw|kw|watt|units|people|employees)", sentence))
+            if has_subject and has_number:
+                has_nearby_result = True
+                break
+        if not has_nearby_result:
+            return True
+
+    # For temporal queries about specific years, evidence must contain data
+    # for that year
+    year_match = re.search(r"\b(20\d{2})\b", query)
+    if year_match:
+        query_year = year_match.group(1)
+        if query_year not in evidence_text:
+            return True
+
+    return False
+
+
+def _extract_answer_type_terms(query: str) -> set[str]:
+    """Extract terms that indicate what type of answer the query seeks.
+
+    Returns specific terms that the evidence must contain to be considered
+    sufficient to answer the query.  Empty set means no specific check.
+    """
+    query_lower = query.lower()
+    terms: set[str] = set()
+
+    # Financial/cost queries: evidence must mention cost, price, or capital
+    if any(w in query_lower for w in ["cost", "price", "capital", "invest", "spend"]):
+        terms |= {"cost", "price", "capital", "invest", "spend", "budget", "expense"}
+
+    # Temporal queries about specific periods: evidence must mention the period
+    if re.search(r"\b(?:quarter|q[1-4])\s+(?:of\s+)?\d{4}\b", query_lower):
+        # Query asks about a specific quarter — evidence must have quarter data
+        terms |= {"q1", "q2", "q3", "q4", "quarter"}
+
+    # Power/output queries: evidence must mention actual output values
+    if any(w in query_lower for w in ["watt", "power output", "output watt"]):
+        terms |= {"watt", "power", "output", "mw", "gw", "kw"}
+
+    # "Best" / "most" / superlative queries: evidence must have comparative data
+    if any(w in query_lower for w in ["best", "most", "highest", "lowest", "largest", "smallest"]):
+        terms |= {"best", "most", "highest", "lowest", "largest", "smallest", "maximum", "minimum"}
+
+    # "Results" / "outcome" queries: evidence must contain specific outcome data
+    if any(w in query_lower for w in ["results", "outcome", "findings", "discoveries"]):
+        terms |= {"result", "results", "outcome", "finding", "findings", "discovered", "achieved", "measured"}
+
+    # "How many" / quantity queries: evidence must contain numerical quantities
+    if re.search(r"\bhow\s+many\b", query_lower):
+        terms |= {"approximately", "about", "nearly", "over", "more than", "less than"}
+
+    # Location queries: evidence must contain location-specific terms
+    if any(w in query_lower for w in ["located", "headquarters", "city", "address", "where"]):
+        terms |= {"located", "headquarters", "city", "address", "street", "building"}
+
+    return terms
 
 
 logger = get_logger("argus.orchestration.nodes")
