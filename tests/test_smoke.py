@@ -145,7 +145,7 @@ class TestPhase00Smoke:
 
         assert response.status_code == 404
         body = response.json()
-        assert body["error"]["code"] == "HTTP_ERROR"
+        assert body["error"]["code"] == "NOT_FOUND"
         assert body["error"]["request_id"] is not None
         assert response.headers["X-Request-ID"] == body["error"]["request_id"]
 

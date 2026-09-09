@@ -16,10 +16,11 @@ import json
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.errors import ApplicationHTTPException, ErrorCode
 from app.config import get_settings
 from app.llm_gateway.telemetry import end_run_telemetry, start_run_telemetry
 from app.orchestration.graph import run_query
@@ -57,7 +58,11 @@ async def query_stream(request: StreamQueryRequest, http_request: Request) -> St
       - error: Error occurred
     """
     if not request.query.strip():
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+        raise ApplicationHTTPException(
+            status_code=400,
+            code=ErrorCode.BAD_REQUEST,
+            message="Query cannot be empty",
+        )
 
     request_id = getattr(http_request.state, "request_id", None)
     run_id = request_id or "ui"
@@ -106,8 +111,16 @@ async def query_stream(request: StreamQueryRequest, http_request: Request) -> St
             # Emit final result
             yield _sse_event("result", result.model_dump(mode="json"))
 
+        except ApplicationHTTPException as e:
+            yield _sse_event("error", {
+                "code": e.code,
+                "message": e.message,
+            })
         except Exception as e:  # noqa: BLE001 - fail-safe: always emit error event
-            yield _sse_event("error", {"message": str(e)})
+            yield _sse_event("error", {
+                "code": ErrorCode.STREAM_ERROR,
+                "message": str(e),
+            })
 
     return StreamingResponse(
         event_generator(),

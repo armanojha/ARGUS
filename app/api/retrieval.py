@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.errors import ApplicationHTTPException, ErrorCode
 from app.config import Settings, get_settings
 from app.evidence.models import EvidenceRef
 from app.reranking import get_reranker
@@ -93,7 +94,11 @@ async def retrieve(
     Optionally applies cross-encoder reranking.
     """
     if not request.query.strip():
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+        raise ApplicationHTTPException(
+            status_code=400,
+            code=ErrorCode.BAD_REQUEST,
+            message="Query cannot be empty",
+        )
 
     retriever = get_hybrid_retriever()
 

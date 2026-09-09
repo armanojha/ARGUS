@@ -40,6 +40,50 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logger = structlog.get_logger("argus.errors")
 
 
+# ---------------------------------------------------------------------------
+# Domain-specific error codes
+# ---------------------------------------------------------------------------
+
+class ErrorCode:
+    """Standardized error codes for the API."""
+    VALIDATION_ERROR = "VALIDATION_ERROR"
+    NOT_FOUND = "NOT_FOUND"
+    BAD_REQUEST = "BAD_REQUEST"
+    UNAUTHORIZED = "UNAUTHORIZED"
+    RATE_LIMITED = "RATE_LIMITED"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+    PROVIDER_ERROR = "PROVIDER_ERROR"
+    UPLOAD_REJECTED = "UPLOAD_REJECTED"
+    MEMORY_DISABLED = "MEMORY_DISABLED"
+    STREAM_ERROR = "STREAM_ERROR"
+    TIMEOUT = "TIMEOUT"
+
+
+class ApplicationHTTPException(StarletteHTTPException):
+    """HTTPException with a domain-specific error code.
+
+    Usage:
+        raise ApplicationHTTPException(
+            status_code=404,
+            code=ErrorCode.NOT_FOUND,
+            message="Resource not found",
+        )
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        code: str = ErrorCode.BAD_REQUEST,
+        message: str = "",
+        details: Any | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(status_code=status_code, detail=message, headers=headers)
+        self.code = code
+        self.message = message
+        self.details = details
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str
@@ -80,19 +124,44 @@ async def validation_exception_handler(
     return _error_response(
         request,
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        code="VALIDATION_ERROR",
+        code=ErrorCode.VALIDATION_ERROR,
         message="Request validation failed",
         details=exc.errors(),
     )
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
-    logger.warning("http_exception", status_code=exc.status_code, detail=exc.detail)
+    # Use domain-specific code if available, otherwise derive from status code
+    code = getattr(exc, "code", None)
+    if code is None:
+        # Map status codes to appropriate error codes
+        if exc.status_code == 404:
+            code = ErrorCode.NOT_FOUND
+        elif exc.status_code == 405:
+            code = ErrorCode.BAD_REQUEST
+        elif exc.status_code == 429:
+            code = ErrorCode.RATE_LIMITED
+        elif exc.status_code >= 500:
+            code = ErrorCode.INTERNAL_ERROR
+        else:
+            code = ErrorCode.BAD_REQUEST
+    message = getattr(exc, "message", str(exc.detail)) if hasattr(exc, "message") else str(exc.detail)
+    details = getattr(exc, "details", None) if hasattr(exc, "details") else None
+
+    logger.warning(
+        "http_exception",
+        status_code=exc.status_code,
+        code=code,
+        detail=exc.detail,
+        method=request.method,
+        path=request.url.path,
+    )
     return _error_response(
         request,
         status_code=exc.status_code,
-        code="HTTP_ERROR",
-        message=str(exc.detail),
+        code=code,
+        message=message,
+        details=details,
     )
 
 
@@ -101,7 +170,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     return _error_response(
         request,
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        code="INTERNAL_ERROR",
+        code=ErrorCode.INTERNAL_ERROR,
         message="An unexpected error occurred",
     )
 

@@ -8,9 +8,10 @@ path.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.errors import ApplicationHTTPException, ErrorCode
 from app.config import get_settings
 from app.llm_gateway.telemetry import end_run_telemetry, start_run_telemetry
 from app.orchestration.graph import run_query
@@ -43,7 +44,11 @@ async def query(request: QueryRequest, http_request: Request) -> OrchestrationRe
     policy and stopping follows the full V2 §5.4 condition set.
     """
     if not request.query.strip():
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+        raise ApplicationHTTPException(
+            status_code=400,
+            code=ErrorCode.BAD_REQUEST,
+            message="Query cannot be empty",
+        )
 
     request_id = getattr(http_request.state, "request_id", None)
     run_id = request_id or "ui"  # trace attributable to the UI query when present

@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
+from app.api.errors import ApplicationHTTPException, ErrorCode
 from app.llm_gateway.telemetry import get_run, list_runs
 
 router = APIRouter(prefix="/api/v1/telemetry", tags=["telemetry"])
@@ -29,5 +30,9 @@ async def run_summary(run_id: str) -> dict[str, Any]:
     """Return the full run trace (all routing decisions) for one run."""
     run = get_run(run_id)
     if run is None:
-        raise HTTPException(status_code=404, detail=f"Telemetry run not found: {run_id}")
+        raise ApplicationHTTPException(
+            status_code=404,
+            code=ErrorCode.NOT_FOUND,
+            message=f"Telemetry run not found: {run_id}",
+        )
     return run

@@ -20,9 +20,10 @@ import json
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.errors import ApplicationHTTPException, ErrorCode
 from app.memory import get_memory_factory_instance
 from app.memory.interfaces import MemoryLayer, MemoryStoreInterface
 
@@ -495,7 +496,11 @@ def get_brain_document(
                 length=len(src.path or ""),
             )
 
-    raise HTTPException(status_code=404, detail="No document content found for node_id.")
+    raise ApplicationHTTPException(
+        status_code=404,
+        code=ErrorCode.NOT_FOUND,
+        message="No document content found for node_id.",
+    )
 
 
 def _parse_uuid(node_id: str) -> UUID | None:

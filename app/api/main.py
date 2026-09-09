@@ -12,12 +12,13 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.brain import router as brain_router
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
 from app.api.knowledge_base import router as knowledge_base_router
-from app.api.middleware import RequestIDMiddleware
+from app.api.middleware import RateLimitMiddleware, RequestIDMiddleware, TimeoutMiddleware
 from app.api.obsidian import router as obsidian_router
 from app.api.orchestration import router as orchestration_router
 from app.api.retrieval import router as retrieval_router
@@ -53,6 +54,18 @@ def create_app() -> FastAPI:
     app = FastAPI(title="ARGUS", version="0.1.0", lifespan=lifespan)
 
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(RateLimitMiddleware, requests_per_minute=30, burst_limit=10)
+    app.add_middleware(TimeoutMiddleware, timeout_seconds=120.0)
+
+    # CORS configuration for development and demo
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins for development
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     register_exception_handlers(app)
 
     app.include_router(health_router)
