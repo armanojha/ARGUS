@@ -12,6 +12,17 @@
   <a href="#installation">Installation</a>
 </p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT">
+  <img src="https://img.shields.io/badge/tests-1035%20passed-brightgreen.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/benchmark-38%20cases-orange.svg" alt="Benchmark">
+  <img src="https://img.shields.io/badge/recall%408-98.65%25-brightgreen.svg" alt="Recall@8">
+  <img src="https://img.shields.io/badge/LangGraph-orchestration-purple.svg" alt="LangGraph">
+  <img src="https://img.shields.io/badge/FAISS-vector%20search-yellow.svg" alt="FAISS">
+  <img src="https://img.shields.io/badge/BM25-lexical%20retrieval-yellow.svg" alt="BM25">
+</p>
+
 ---
 
 **ARGUS is an experimental RAG system built around one idea: retrieval should be an iterative investigation, not a single search followed by generation.**
