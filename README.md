@@ -20,6 +20,10 @@ It investigates complex research questions through repeated retrieval, evidence 
 
 This is not a chatbot. It is not a second brain. It is a research architecture exploring what happens when retrieval becomes an iterative process.
 
+> **The experiment:** Can a RAG system improve its own research process by using evidence from one retrieval pass to decide what it should investigate next?
+
+The easiest way to understand ARGUS is to watch a research run. A difficult question enters the system, evidence is retrieved and assessed, gaps or conflicts are identified, the next research strategy changes, and the final answer can be traced back through its evidence and reasoning lineage. [Demo video coming soon.]
+
 ---
 
 ## Why ARGUS Exists
@@ -102,6 +106,25 @@ Three runtime strategy mutations are currently implemented in `app/orchestration
 **Gap prioritization.** High-priority evidence gaps detected by the assessor are promoted ahead of lower-priority research queries. The system can reorder its research based on what it has not yet found.
 
 These are **runtime strategy mutations**, not configuration options. Each iteration's strategy is snapshotted and inspectable. ARGUS currently implements a bounded set of these mutations that demonstrate the concept of adaptive research.
+
+ARGUS does not freely invent its own behavior. Its adaptation is bounded by predefined research policies that mutate retrieval strategy based on observed evidence conditions.
+
+### Concrete Example
+
+```text
+Iteration 1
+  Question → retrieve evidence → identify an unresolved contradiction
+
+Iteration 2
+  Contradiction detected → generate a targeted resolution query
+  → retrieve additional evidence
+
+Iteration 3
+  Evidence assessed → contradiction resolved
+  → verify → synthesize answer
+```
+
+This makes the architecture understandable in seconds: evidence from one retrieval pass informs what the system investigates next.
 
 ---
 
@@ -843,6 +866,14 @@ The backend processes queries synchronously. The Brain UI's progressive pipeline
 ### No persistent research history
 
 Research results are not persisted. Each query is stateless.
+
+---
+
+## What ARGUS Contributes
+
+ARGUS is primarily an engineering and research prototype that combines several established RAG techniques into a single observable iterative research loop. The contribution is the architecture and experimentation around how these techniques interact during repeated research, rather than claiming that each individual technique is novel.
+
+ARGUS uses agent-like orchestration, but its purpose is not to build a general autonomous agent. The focus is specifically on studying iterative retrieval and evidence-driven research behavior.
 
 ---
 
