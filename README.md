@@ -1,26 +1,18 @@
-<p align="center">
-  <h1 align="center">ARGUS</h1>
-  <p align="center"><strong>Iterative, Evidence-Driven Research RAG</strong></p>
-  <p align="center"><em>"Don't just retrieve. Investigate."</em></p>
-</p>
+# ARGUS
 
-<p align="center">
-  <a href="#research-loop">Research Loop</a> ·
-  <a href="#architecture">Architecture</a> ·
-  <a href="#evaluation">Evaluation</a> ·
-  <a href="#installation">Installation</a> ·
-  <a href="#running-argus">Running</a>
-</p>
+### An Iterative, Evidence-Driven Research RAG System
+
+> **ARGUS is not a general-purpose RAG chatbot.**
+>
+> It is an experimental research system built around a different idea: **retrieval should be an iterative investigation, not a single search followed by generation.**
+
+ARGUS takes a complex question, decomposes what needs to be known, retrieves evidence using multiple retrieval strategies, evaluates that evidence, detects gaps and conflicts, adapts its research strategy when necessary, and finally produces a grounded answer with traceable evidence.
+
+The entire process is observable through an interactive **Brain UI**, allowing the research process to be inspected rather than hidden behind a final answer.
 
 ---
 
-ARGUS investigates complex research questions through iterative retrieval, evidence assessment, contradiction detection, adaptive research, verification, and grounded synthesis.
-
-It is not a general-purpose RAG chatbot. It is an experimental research system built around a different idea: **retrieval should be an iterative investigation, not a single search followed by generation.**
-
----
-
-## Why ARGUS Exists
+## The Idea
 
 Most RAG systems follow roughly:
 
@@ -34,501 +26,452 @@ Generate
 Answer
 ```
 
-That works for straightforward questions. But difficult research questions are rarely that simple.
+That works for straightforward questions.
+
+But difficult research questions are rarely that simple.
 
 A serious question may require:
 
-- Multiple searches with different strategies
-- Evidence from different documents
-- Verification of individual claims
-- Identifying missing information
-- Resolving contradictory evidence
-- Revisiting the research strategy
-- Deciding when enough evidence has actually been gathered
+* multiple searches
+* different retrieval strategies
+* evidence from different documents
+* verification of individual claims
+* identifying missing information
+* resolving contradictory evidence
+* revisiting the research strategy
+* deciding when enough evidence has actually been gathered
 
-I built ARGUS as a way to move beyond learning RAG techniques individually and understand what happens when they are combined into a complete research pipeline.
-
----
-
-## Traditional RAG vs ARGUS
-
-| | Traditional RAG | ARGUS |
-|---|---|---|
-| **Retrieval** | Usually one pass | Iterative |
-| **Query decomposition** | Optional | Research planning |
-| **Retrieval strategy** | Mostly static | Query-adaptive |
-| **Evidence assessment** | Often limited | Explicit |
-| **Contradiction handling** | Often absent | Explicit |
-| **Research adaptation** | Rare | Runtime strategy mutation |
-| **Stopping** | Fixed / implicit | Evidence-based |
-| **Provenance** | Citation-level | Evidence lineage |
-| **Reasoning trace** | Usually hidden | Inspectable |
-| **Visualization** | Usually absent | Brain UI |
-
----
-
-## Research Loop
-
-This is the most important diagram in this README. It shows how ARGUS investigates a question.
-
-```mermaid
-flowchart TD
-    Q["Research Question"] --> A["Query Analysis"]
-    A --> P["Research Planning"]
-    P --> R["Evidence Retrieval"]
-    R --> AS["Evidence Assessment"]
-    AS --> SC{"Sufficient?"}
-    SC -- "Gaps / Conflicts" --> AD["Strategy Mutation"]
-    AD --> R
-    SC -- "Sufficient" --> V["Evidence Verification"]
-    V --> SY["Grounded Synthesis"]
-    SY --> AN["Answer + Provenance"]
-```
-
-> **ARGUS does not assume that the first retrieval pass is sufficient. Assessment can change what the system searches for next.**
-
-### Adaptive Research Behaviors
-
-Three runtime strategy mutations are implemented in `app/orchestration/adaptive_research.py`:
-
-**Conflict-driven research.** When unresolved critical contradictions remain and the query pattern requires it (e.g., `conflict`), ARGUS front-loads a contradiction-resolution query in the next research iteration.
-
-**Gain-stall escalation.** When marginal information gain stalls (below threshold), retrieval depth increases for the next iteration, subject to a cap (top_k × 2, max 50).
-
-**Gap prioritization.** High-priority evidence gaps detected by the assessor are promoted ahead of lower-priority research queries.
-
-These are **runtime strategy mutations**, not configuration options. Each iteration's strategy is snapshotted and inspectable.
-
----
-
-## Architecture
-
-```mermaid
-flowchart TD
-    UI["Brain UI"] --> API["FastAPI API"]
-    API --> OR["LangGraph Orchestrator"]
-
-    OR --> RET["Retrieval Pipeline"]
-    OR --> EVD["Evidence Pipeline"]
-    OR --> LLM["LLM Gateway"]
-
-    RET --> BM25["BM25"]
-    RET --> FAISS["FAISS Dense"]
-    RET --> FUS["Hybrid Fusion"]
-    RET --> MQ["Multi-Query"]
-    RET --> RNK["Reranking"]
-
-    EVD --> VER["Verification"]
-    EVD --> CD["Contradiction Detection"]
-    EVD --> GD["Gap Detection"]
-
-    LLM --> P1["Query Analysis"]
-    LLM --> P2["Research Planning"]
-    LLM --> P3["Synthesis"]
-
-    OR --> KG["Knowledge Graph"]
-    OR --> MEM["Memory"]
-
-    OR --> ADAPT["Adaptive Research"]
-    ADAPT --> OR
-```
-
-### Components
-
-| Component | Purpose | Implementation |
-|---|---|---|
-| **FastAPI API** | HTTP endpoints, streaming, rate limiting | `app/api/` |
-| **LangGraph Orchestrator** | Stateful research loop | `app/orchestration/` |
-| **Hybrid Retrieval** | BM25 + FAISS with configurable fusion | `app/retrieval/` |
-| **Evidence Verification** | Claim-support checking | `app/verification/` |
-| **Contradiction Detection** | Pairwise conflict analysis | `app/orchestration/nodes.py` |
-| **Adaptive Research** | Runtime strategy mutation | `app/orchestration/adaptive_research.py` |
-| **Knowledge Graph** | Entity/claim/event graph | `app/graph/` |
-| **Memory** | Persistent multi-layer memory | `app/memory/` |
-| **LLM Gateway** | Multi-provider routing + fallback | `app/llm_gateway/` |
-| **Brain UI** | Pipeline visualization + inspection | `app/ui/brain/` |
-
----
-
-## Key Techniques
-
-### Hybrid Retrieval
-
-**What:** Combines lexical BM25 retrieval with dense FAISS vector retrieval.
-
-**Why:** Exact terminology and semantic similarity behave differently across query types. BM25 excels at exact terms, names, and technical terminology. Dense retrieval captures semantic similarity when wording differs.
-
-**How:** Configurable fusion weights per query pattern:
-
-| Pattern | BM25 Weight | Dense Weight |
-|---|---|---|
-| `exact_term` | 0.7 | 0.3 |
-| `conceptual` | 0.3 | 0.7 |
-| `comparative` | 0.5 | 0.5 |
-| `causal` | 0.4 | 0.6 |
-| `procedural` | 0.6 | 0.4 |
-
-### Multi-Query Research
-
-**What:** Decomposes complex questions into evidence-targeting sub-queries executed with bounded concurrency.
-
-**Why:** A single query rarely captures all evidence needs for a complex research question.
-
-**How:** The planner generates sub-queries, each targeting a specific evidence requirement. Sub-queries run in parallel against the hybrid index.
-
-### Evidence Verification
-
-**What:** Evaluates whether collected evidence actually supports the research requirements, separate from retrieval relevance.
-
-**Why:** A chunk can be relevant to a question without actually proving the claim being investigated.
-
-**How:** Deterministic claim-support checking with four statuses:
-
-| Status | Meaning |
-|---|---|
-| **Supported** | Evidence directly backs the claim |
-| **Partial** | Some evidence supports, some is missing |
-| **Contradicted** | Evidence conflicts with the claim |
-| **Unsupported** | No relevant evidence found |
-
-### Contradiction Detection
-
-**What:** Identifies contradictions across evidence sources using entity overlap, metric overlap, numerical discrepancies, and temporal context.
-
-**Why:** Not every disagreement between documents is a factual contradiction. Different values may both be correct if they refer to different time periods.
-
-**How:** Deterministic pairwise analysis with five conflict categories:
+ARGUS is built around this loop:
 
 ```text
-GENUINE_CONTRADICTION    Same entity, same metric, same timeframe, different values
-DIFFERENT_TIMEFRAME      Data from different time periods
-DIFFERENT_SOURCE         Different methodologies or scopes
-POSSIBLE_CONTRADICTION   Uncertain — needs human review
-IRRELEVANT_DIFFERENCE    Not a real conflict
+                    ┌──────────────────────┐
+                    │      User Query      │
+                    └──────────┬───────────┘
+                               ↓
+                    ┌──────────────────────┐
+                    │    Query Analysis    │
+                    └──────────┬───────────┘
+                               ↓
+                    ┌──────────────────────┐
+                    │   Research Planning  │
+                    └──────────┬───────────┘
+                               ↓
+                    ┌──────────────────────┐
+                    │   Evidence Retrieval │
+                    └──────────┬───────────┘
+                               ↓
+                    ┌──────────────────────┐
+                    │ Evidence Assessment  │
+                    └──────────┬───────────┘
+                               ↓
+                    ┌──────────┴───────────┐
+                    │                      │
+               Gaps / Conflicts       Sufficient?
+                    │                      │
+                    ↓                      ↓
+             Adapt Strategy            Synthesize
+                    │                      │
+                    └──────→ Research ←────┘
+                               ↓
+                    ┌──────────────────────┐
+                    │ Verified Synthesis   │
+                    └──────────┬───────────┘
+                               ↓
+                    ┌──────────────────────┐
+                    │ Answer + Provenance  │
+                    └──────────────────────┘
 ```
 
-### Adaptive Research
+The important part is the **feedback loop**.
 
-**What:** Changes research strategy based on what the system discovers during investigation.
+ARGUS does not treat retrieval as a one-shot operation. Research can continue when the evidence is insufficient, contradictory, or reveals a new information gap.
 
-**Why:** A fixed pipeline cannot respond to contradictions, evidence gaps, or diminishing returns.
+---
 
-**How:** Three runtime mutations applied between iterations:
+# Why ARGUS Exists
 
-1. **Conflict-driven** — Front-loads contradiction-resolution queries
-2. **Gain-stall escalation** — Increases retrieval depth when gain stalls
-3. **Gap-prioritized** — Promotes high-priority evidence gaps
+I built ARGUS as a way to move beyond learning RAG techniques individually and actually understand what happens when they are combined into a complete research pipeline.
 
-### Research Stopping
+The project became an engineering experiment around questions such as:
 
-**What:** Determines when to stop researching based on evidence sufficiency rather than a fixed number of passes.
+* How should lexical and semantic retrieval cooperate?
+* How should a system decide what to search for next?
+* How can retrieved evidence be evaluated before synthesis?
+* How should contradictions be represented?
+* How can evidence provenance survive the entire pipeline?
+* How can a system adapt its research strategy based on what it discovers?
+* How can the internal research process be made inspectable?
+* Where should deterministic algorithms be used, and where should LLM reasoning be used?
+* How can all of this remain testable and measurable?
 
-**Why:** More retrieval is not automatically better. The system needs to know when it has enough.
+ARGUS is the result of that experimentation.
 
-**How:** Five deterministic stopping conditions evaluated in priority order:
+---
+
+# Architecture
+
+ARGUS is organized as a stateful research pipeline rather than a simple retrieve-and-generate chain.
 
 ```text
-1. USER_EARLY_STOP          Explicit caller-requested stop
-2. BUDGET_EXHAUSTED         Iteration/token ceiling reached
-3. NEGLIGIBLE_EVIDENCE_GAIN New-evidence gain below threshold
-4. CLAIMS_SUPPORTED         Claims supported above threshold
-5. NO_UNRESOLVED_CONTRADICTION  No critical contradictions remain
+                         ┌─────────────────────┐
+                         │      Brain UI       │
+                         │ Visualization /     │
+                         │ Research Inspection │
+                         └──────────┬──────────┘
+                                    │
+                                    ▼
+                         ┌─────────────────────┐
+                         │     FastAPI API     │
+                         └──────────┬──────────┘
+                                    │
+                                    ▼
+                  ┌─────────────────────────────────┐
+                  │       LangGraph Orchestrator    │
+                  │                                 │
+                  │ Analyze → Plan → Retrieve       │
+                  │       → Assess → Stop           │
+                  │       → Research Again          │
+                  │       → Synthesize              │
+                  └───────┬───────────┬─────────────┘
+                          │           │
+             ┌────────────┘           └──────────────┐
+             ▼                                       ▼
+   ┌────────────────────┐                  ┌────────────────────┐
+   │ Retrieval Pipeline │                  │ Evidence Pipeline  │
+   │                    │                  │                    │
+   │ BM25               │                  │ Verification       │
+   │ Dense / FAISS      │                  │ Contradictions     │
+   │ Hybrid Fusion      │                  │ Gap Detection      │
+   │ Multi-Query        │                  │ Confidence         │
+   │ Reranking          │                  │ Provenance          │
+   └────────────────────┘                  └────────────────────┘
+             │                                       │
+             └────────────────┬──────────────────────┘
+                              ▼
+                   ┌──────────────────────┐
+                   │ Knowledge / Memory   │
+                   │                      │
+                   │ Evidence Store       │
+                   │ Knowledge Graph      │
+                   │ Persistent Memory    │
+                   └──────────────────────┘
+                              │
+                              ▼
+                   ┌──────────────────────┐
+                   │ LLM Gateway          │
+                   │ Multi-provider        │
+                   │ routing + fallback   │
+                   └──────────────────────┘
 ```
 
-### Provenance
+---
 
-**What:** Maintains evidence lineage from answer back to source.
+# Research Loop
 
-**Why:** The goal is not merely to produce citations. It is to preserve the **lineage of evidence** behind the answer.
+## 1. Query Analysis
 
-**How:** Every citation traces through:
+The first stage determines what kind of question ARGUS is dealing with.
+
+The query analysis layer identifies properties such as:
+
+* query pattern
+* entities
+* temporal references
+* research complexity
+* retrieval requirements
+* risk characteristics
+
+ARGUS supports a broad set of query patterns including:
 
 ```text
-Answer → Claim → Evidence → Chunk → Document → Source
+exact_term
+conceptual
+entity_relationship
+historical
+comparative
+causal
+procedural
+numerical
+technical_explanation
+multi_doc_synthesis
+conflict
+complex_research
+multi_hop
+absent_info
+adversarial
+...
 ```
+
+The purpose is not simply classification.
+
+The classification influences **how the system should investigate the question**.
 
 ---
 
-## Reasoning Graph
+# 2. Research Planning
 
-ARGUS maintains a graph representation of the research process.
+Instead of immediately searching the original question, ARGUS creates a research plan.
 
-```mermaid
-flowchart TD
-    Q["QUERY"] --> RT["RESEARCH TASK"]
-    RT --> H["HYPOTHESIS"]
-    H --> E["EVIDENCE"]
-    H --> CC["COUNTERCLAIM"]
-    E --> I["INFERENCE"]
-    CC --> I
-    I --> D["DECISION"]
-    D --> A["ANSWER"]
-```
+The planner can:
 
-The graph exists to make research provenance and reasoning inspectable. It connects to the Brain UI, which visualizes the research process:
+* decompose complex questions
+* generate targeted sub-queries
+* identify required evidence
+* establish research budgets
+* determine iteration limits
+* select retrieval strategies
 
-```text
-Research Runtime
-      │
-      ├── Evidence
-      ├── Strategy
-      ├── Decisions
-      └── Reasoning Trace
-              │
-              ▼
-          Brain UI
-```
-
-### Graph Node Types
-
-| Type | Description |
-|---|---|
-| `Entity` | Extracted entity (person, organization, location, concept) |
-| `Claim` | Factual proposition with subject-predicate-object |
-| `Event` | Temporally anchored occurrence |
-| `Document` | Source document |
-| `Chunk` | Evidence chunk within a document |
-| `Source` | Origin of a document |
-
-### Graph Edge Types
-
-| Type | Description |
-|---|---|
-| `supports` | Evidence supports a claim |
-| `contradicts` | Evidence contradicts a claim |
-| `derived_from` | Claim/entity derived from chunk |
-| `valid_during` | Claim/event valid during time period |
-| `relates_to` | Entity-entity or entity-claim relation |
-| `mentions` | Chunk mentions entity |
-
----
-
-## Brain UI
-
-The Brain UI is not a chatbot interface. It exists to answer:
-
-> **"What did ARGUS actually do to arrive at this answer?"**
-
-The interface exposes the internal research process through interactive visualization.
-
-| View | What It Shows |
-|---|---|
-| **Pipeline** | Research flow showing each processing stage |
-| **Node Inspector** | Click any node to see inputs, outputs, and reasoning |
-| **Evidence Trace** | Follow any citation back to source document |
-| **Conflict Visualization** | Detected conflicts and associated evidence |
-| **Reasoning Trace** | Question → Tasks → Evidence → Inference → Answer |
-| **Knowledge Graph** | Interactive entity/claim/event graph |
-
-**Open:** `http://localhost:8000/brain`
-
----
-
-## Evaluation
-
-ARGUS includes a fixed end-to-end evaluation benchmark designed to measure research-system behavior rather than simply counting tests.
-
-| | |
-|---|---|
-| **Cases** | 38 evaluation queries |
-| **Corpus** | 12-document fixed corpus |
-| **Mode** | Deterministic (no LLM calls) |
-| **Retrieval** | Real BM25 + FAISS with MiniLM embeddings |
-| **Storage** | Isolated temporary benchmark storage |
-
-### Results
-
-| Metric | Result | Notes |
-|---|---|---|
-| **Recall@8** | 98.65% | Gold documents found in top 8 |
-| **Precision@8** | 15.46% | Retrieval is broad, evidence selection narrows |
-| **Gold-fact coverage** | 90.35% | Coverage of required facts |
-| **Contradiction recall** | 100.00% | All contradictions detected |
-| **Contradiction precision** | 7.89% | High false-positive rate (known limitation) |
-| **Abstention accuracy** | 100.00% | Absent-info queries correctly abstained |
-| **Avg retrieval latency** | 46.3 ms | Deterministic path only |
-
-```
-Recall@8                 ███████████████████░ 98.65%
-Gold-fact coverage       █████████████████░░░ 90.35%
-Contradiction recall     ████████████████████ 100.00%
-Contradiction precision  █░░░░░░░░░░░░░░░░░░░  7.89%
-Abstention accuracy      ████████████████████ 100.00%
-```
-
-> **These measurements evaluate specific system behaviors on a controlled benchmark. They are not a general measure of intelligence.**
-
-The benchmark is intentionally fixed and deterministic. It measures specific components under controlled conditions. Live LLM evaluation is separated because provider availability, latency, rate limits, and model behavior introduce additional variables.
-
----
-
-<details>
-<summary><strong>Under the Hood: Query Analysis</strong></summary>
-
-**What:** Classifies the query into one of 20+ patterns and extracts entities, temporal references, and risk characteristics.
-
-**Why:** Different query patterns require different retrieval strategies, iteration budgets, and synthesis approaches.
-
-**How:** LLM-based classification into patterns including: `exact_term`, `conceptual`, `comparative`, `causal`, `procedural`, `multi_hop`, `conflict`, `absent_info`, `adversarial`, and more.
-
-The classification influences how the system should investigate the question, not just what to search for.
-
-**Key file:** `app/orchestration/nodes.py` → `make_analyze_node()`
-
-</details>
-
-<details>
-<summary><strong>Under the Hood: Research Planning</strong></summary>
-
-**What:** Decomposes complex questions into targeted sub-queries, each targeting specific evidence needs.
-
-**Why:** A single query rarely captures all evidence needs for a complex research question.
-
-**How:** LLM-based planning with budget clamping. The planner generates sub-queries, identifies required evidence, establishes research budgets, and determines iteration limits.
-
-For a complex question, the research plan may become:
+For a complex question, the research plan may therefore become:
 
 ```text
 Original Question
        │
        ├── What is the phenomenon?
+       │
        ├── What caused it?
+       │
        ├── What evidence supports it?
+       │
        ├── What evidence contradicts it?
+       │
        └── What information is still missing?
 ```
 
-**Key file:** `app/orchestration/nodes.py` → `make_plan_node()`
+This turns retrieval into an **evidence acquisition process**.
 
-</details>
+---
 
-<details>
-<summary><strong>Under the Hood: Hybrid Retrieval</strong></summary>
+# 3. Hybrid Retrieval
 
-**What:** Combines BM25 lexical search with FAISS dense vector search.
+ARGUS combines two fundamentally different retrieval paradigms.
 
-**Why:** Exact terminology and semantic similarity behave differently across query types.
+### BM25
 
-**How:**
+Lexical retrieval is useful when exact terms matter.
 
-- **BM25** — Term-frequency matching via `rank-bm25`. Good for exact keyword queries, names, technical terminology, identifiers, numerical queries.
-- **FAISS** — Vector similarity via `faiss-cpu` + `sentence-transformers`. Good for semantic queries where wording differs.
-- **Hybrid Fusion** — Combines both signals with configurable weights per query pattern.
+It performs well for:
 
-Fusion weights can vary according to the detected query pattern, allowing the retrieval layer to behave differently for an exact-term lookup versus a conceptual question.
+* names
+* technical terminology
+* exact phrases
+* identifiers
+* numerical queries
 
-**Key files:** `app/retrieval/hybrid.py`, `app/retrieval/bm25.py`, `app/retrieval/vector.py`
+### Dense Retrieval
 
-</details>
+FAISS-based vector retrieval captures semantic similarity.
 
-<details>
-<summary><strong>Under the Hood: Multi-Query Retrieval</strong></summary>
+It is useful when:
 
-**What:** Executes multiple sub-queries against the hybrid index with bounded concurrency.
+* wording differs
+* concepts are expressed indirectly
+* semantic similarity matters more than exact terms
 
-**Why:** Complex research questions often cannot be answered by one query.
+### Hybrid Fusion
 
-**How:** Sub-queries from the research plan run in parallel (max 4 concurrent). Each targets a specific evidence requirement. Results merge into a single evidence pool with deduplication.
+ARGUS combines both signals rather than assuming one retrieval method is universally superior.
 
-**Key file:** `app/retrieval/multi_query.py`
+Conceptually:
 
-</details>
+```text
+                 Query
+                   │
+          ┌────────┴────────┐
+          ↓                 ↓
+       BM25             Dense Search
+          │                 │
+          └────────┬────────┘
+                   ↓
+             Score Fusion
+                   ↓
+            Candidate Set
+```
 
-<details>
-<summary><strong>Under the Hood: Reranking</strong></summary>
+Fusion weights can vary according to the detected query pattern.
 
-**What:** Separates candidate generation from final evidence selection.
+This allows the retrieval layer to behave differently for an exact-term lookup versus a conceptual or causal question.
 
-**Why:** Initial retrieval is optimized for candidate generation, not final evidence quality.
+---
 
-**How:** Pluggable reranker architecture. Default is NoOp (returns candidates as-is). Any cross-encoder can be swapped in without restructuring the retrieval architecture.
+# 4. Multi-Query Retrieval
 
-**Key file:** `app/reranking/reranker.py`
+Complex research questions often cannot be answered by one query.
 
-</details>
+ARGUS decomposes research into multiple sub-queries and executes them with bounded concurrency.
 
-<details>
-<summary><strong>Under the Hood: Evidence Selection</strong></summary>
+```text
+Research Question
+       │
+       ├── Query A ──→ Retrieval
+       ├── Query B ──→ Retrieval
+       ├── Query C ──→ Retrieval
+       └── Query D ──→ Retrieval
+                         │
+                         ▼
+                 Evidence Pool
+```
 
-**What:** Selects a minimal high-coverage evidence subset for LLM context.
+This increases coverage while allowing each query to target a specific evidence requirement.
 
-**Why:** Retrieving many relevant chunks does not mean sending all of them to the LLM.
+---
 
-**How:**
+# 5. Reranking
 
-- Semantic deduplication (removes near-duplicate chunks)
-- Diversity selection (ensures coverage across different aspects)
-- Token budget enforcement (fits evidence into LLM context window)
-- Minimum source diversity (ensures at least 2 distinct source documents)
+Initial retrieval is optimized for candidate generation.
+
+It should not automatically determine what enters the final context.
+
+ARGUS therefore separates:
+
+```text
+Candidate Generation
+        ↓
+Retrieval
+        ↓
+Reranking
+        ↓
+Evidence Selection
+        ↓
+LLM Context
+```
+
+The reranking layer is pluggable, allowing stronger rerankers to be introduced without restructuring the retrieval architecture.
+
+---
+
+# 6. Evidence Selection
+
+Retrieving many relevant chunks does not mean sending all of them to the LLM.
+
+ARGUS performs evidence selection using:
+
+* semantic deduplication
+* diversity selection
+* relevance
+* evidence coverage
+* token-budget constraints
 
 The objective is to construct a **small but informative evidence set** rather than blindly maximizing retrieved context.
 
-**Key file:** `app/retrieval/evidence_selector.py`
+---
 
-</details>
+# 7. Evidence Verification
 
-<details>
-<summary><strong>Under the Hood: Evidence Verification</strong></summary>
+Before synthesis, ARGUS evaluates whether the collected evidence actually supports the research requirements.
 
-**What:** Evaluates whether collected evidence actually supports planned claims.
+Evidence can be classified as:
 
-**Why:** Finding relevant evidence and determining whether it supports a claim are different problems.
+| Status           | Meaning                                      |
+| ---------------- | -------------------------------------------- |
+| **Supported**    | Evidence directly supports the claim         |
+| **Partial**      | Evidence provides incomplete support         |
+| **Contradicted** | Evidence conflicts with the claim            |
+| **Unsupported**  | Sufficient supporting evidence was not found |
 
-**How:** Deterministic claim-support checking with four statuses: Supported, Partial, Contradicted, Unsupported. Produces confidence scores for evidence coverage, source quality, cross-source agreement, and temporal relevance.
+Verification considers factors such as:
 
-**Key files:** `app/verification/engine.py`, `app/verification/confidence.py`
+* evidence coverage
+* source quality
+* cross-source agreement
+* temporal relevance
+* confidence
 
-</details>
+This separates **retrieval relevance** from **evidence validity**.
 
-<details>
-<summary><strong>Under the Hood: Contradiction Detection</strong></summary>
+A chunk can be relevant to a question without actually proving the claim being investigated.
 
-**What:** Identifies contradictions across evidence sources using deterministic pairwise analysis.
+---
 
-**Why:** A research system should not treat every disagreement between documents as a factual contradiction.
+# 8. Contradiction Detection
 
-**How:** Three detection methods:
+Contradiction is one of the more difficult problems in evidence-grounded systems.
 
-1. **Negation pairs** — Detects opposing claims with topic coherence and entity overlap requirements
-2. **Numerical discrepancies** — Compares extracted numbers near shared metrics with unit normalization ($, %, billion, million)
-3. **Temporal context** — Extracts years and date ranges to distinguish historical differences from genuine contradictions
+ARGUS does not simply mark two different statements as contradictory.
 
-Unit normalization prevents false positives like `$2.1 billion` vs `$2,100 million`.
+The contradiction pipeline considers:
 
-**Key file:** `app/orchestration/nodes.py` → `_detect_contradictions()`
+### Entity overlap
 
-</details>
+Are both sources talking about the same entity?
 
-<details>
-<summary><strong>Under the Hood: Query-Aware Conflict Filtering</strong></summary>
+### Metric overlap
 
-**What:** Suppresses irrelevant conflicts based on what the user is asking about.
+Are they actually discussing the same quantity?
 
-**Why:** Not every conflict discovered in a corpus matters to the current question.
+### Numerical differences
 
-**How:** When `ARGUS_CONFLICT_FILTERING_ENABLED=true`:
+Do numerical values disagree after accounting for units?
 
-- Temporal differences are filtered if the query asks for current data
-- Low-confidence conflicts are suppressed
-- Metric-relevance filtering ensures only query-relevant conflicts surface
+```text
+$2.1 billion
+       vs
+$2,100 million
+```
 
-**Key file:** `app/orchestration/nodes.py` → `filter_contradictions_by_query()`
+These should not automatically become contradictions.
 
-</details>
+### Temporal context
 
-<details>
-<summary><strong>Under the Hood: Adaptive Research</strong></summary>
+Two different values may both be correct if they refer to different periods.
 
-**What:** Changes research strategy based on what the system discovers during investigation.
+```text
+Revenue in 2022: $4B
+Revenue in 2025: $7B
+```
 
-**Why:** A fixed pipeline cannot respond to contradictions, evidence gaps, or diminishing returns.
+Different ≠ contradictory.
 
-**How:** The `AdaptiveResearchPolicy` evaluates sufficiency after each iteration:
+### Conflict categories
 
-- **Sufficiency model** — Classifies evidence as INSUFFICIENT, MARGINAL, SUFFICIENT, STRONG, or CONFLICTED
-- **Marginal gain calculator** — Detects diminishing returns from retrieval gain history
-- **Pattern-specific policies** — Different query patterns have different iteration budgets and requirements
-- **Strategy mutations** — Three runtime mutations applied between iterations:
+ARGUS distinguishes between:
+
+```text
+GENUINE_CONTRADICTION
+DIFFERENT_TIMEFRAME
+DIFFERENT_SOURCE
+POSSIBLE_CONTRADICTION
+IRRELEVANT_DIFFERENCE
+```
+
+This is important because a research system should not treat every disagreement between documents as a factual contradiction.
+
+---
+
+# 9. Query-Aware Conflict Filtering
+
+Not every conflict discovered in a corpus matters to the current question.
+
+ARGUS can therefore evaluate conflict signals against the query context.
+
+For example:
+
+```text
+Corpus
+ ├── Conflict A → relevant
+ ├── Conflict B → irrelevant
+ ├── Conflict C → historical
+ └── Conflict D → relevant
+```
+
+Only conflicts relevant to the research question should influence the research process.
+
+This reduces the risk of derailing research because of unrelated disagreements elsewhere in the evidence set.
+
+---
+
+# 10. Adaptive Research
+
+This is one of the core ideas of ARGUS.
+
+A fixed RAG pipeline behaves like:
+
+```text
+Retrieve → Retrieve → Retrieve
+```
+
+ARGUS can instead change **what it does next based on what it discovers**.
+
+The research strategy is represented explicitly and snapshotted across iterations.
 
 ```text
 Iteration 1
@@ -539,7 +482,10 @@ Retrieve
    ↓
 Assess
    ↓
-Discover: contradiction / gap / stalled gain
+Discover:
+  • contradiction
+  • evidence gap
+  • retrieval gain stalled
    ↓
 Strategy Mutation
    ↓
@@ -548,172 +494,572 @@ Iteration 2
 Strategy B
 ```
 
-**Key file:** `app/orchestration/adaptive_research.py`
+### Conflict-driven adaptation
 
-</details>
+When unresolved critical contradictions remain, ARGUS can prioritize a contradiction-resolution query in the next research iteration.
 
-<details>
-<summary><strong>Under the Hood: Research Sufficiency & Stopping</strong></summary>
+```text
+Contradiction detected
+        ↓
+Identify conflict
+        ↓
+Generate resolution query
+        ↓
+Prioritize next retrieval
+```
 
-**What:** Evaluates whether research should continue based on evidence state.
+### Gain-stall escalation
 
-**Why:** More retrieval is not automatically better. The system needs mechanisms for evidence sufficiency and stopping.
+When additional retrieval produces diminishing information gain, ARGUS can increase retrieval depth for the next iteration, subject to a cap.
 
-**How:** Five deterministic stopping conditions evaluated in priority order:
+```text
+Low marginal gain
+       ↓
+Increase retrieval budget
+       ↓
+Search deeper
+```
 
-1. **USER_EARLY_STOP** — Explicit caller-requested stop
-2. **BUDGET_EXHAUSTED** — Iteration/token ceiling reached
-3. **NEGLIGIBLE_EVIDENCE_GAIN** — New-evidence gain below threshold
-4. **CLAIMS_SUPPORTED** — Claims supported above threshold (gated behind assessor verdict)
-5. **NO_UNRESOLVED_CONTRADICTION** — No critical contradictions remain
+### Gap prioritization
 
-Positive-completion conditions (4, 5) may only confirm the loop is done — they are gated behind the assessor's verdict. If the last assessment said more evidence is needed, these must not fire.
+When the evidence assessor identifies a high-priority information gap, the corresponding research query can be moved ahead of lower-priority work.
 
-**Key file:** `app/orchestration/stopping.py`
+```text
+Evidence gap
+     ↓
+Gap priority
+     ↓
+Next research query
+```
 
-</details>
-
-<details>
-<summary><strong>Under the Hood: Grounded Synthesis</strong></summary>
-
-**What:** Generates answer from verified evidence with citations.
-
-**Why:** The final answer should be generated from the **research state produced by the investigation**, not just from retrieved text.
-
-**How:** LLM-based synthesis with evidence grounding, citation traceability, conflict awareness, safe degradation, and claim-level support. The synthesis layer produces bracket citations `[1]` `[2]` that trace back through evidence to source documents.
-
-**Key file:** `app/orchestration/nodes.py` → `make_synthesize_node()`
-
-</details>
-
-<details>
-<summary><strong>Under the Hood: Knowledge Graph</strong></summary>
-
-**What:** Maintains a structured representation of relationships between evidence and extracted knowledge.
-
-**Why:** Provides a richer representation than a simple document list, and gives the Brain UI something to visualize.
-
-**How:** NetworkX MultiDiGraph with 6 node types (Entity, Claim, Event, Document, Chunk, Source) and 8 edge types (supports, contradicts, derived_from, valid_during, has_assumption, relates_to, mentions, instance_of). Exported as JSON for Brain UI visualization.
-
-**Key files:** `app/graph/store.py`, `app/graph/extraction.py`
-
-</details>
-
-<details>
-<summary><strong>Under the Hood: Memory</strong></summary>
-
-**What:** Persistent multi-layer memory architecture backed by SQLite.
-
-**Why:** Preserves information across research sessions and supports reuse of prior knowledge.
-
-**How:** 6-layer architecture: working, long_term_knowledge, research_history, source_memory, user_memory, vault_memory. Deliberately separated from the core retrieval pipeline — the research engine does not depend on persistent memory to function.
-
-**Key files:** `app/memory/store.py`, `app/memory/factory.py`
-
-</details>
-
-<details>
-<summary><strong>Under the Hood: LLM Gateway</strong></summary>
-
-**What:** Multi-provider LLM routing with fallback chains.
-
-**Why:** Research logic should remain decoupled from individual model providers.
-
-**How:** Different call types can be routed independently:
-
-| Call Type | Purpose |
-|---|---|
-| `query_analysis` | Pattern detection |
-| `research_planning` | Sub-query generation |
-| `evidence_extraction` | Evidence summarization |
-| `synthesis` | Answer generation |
-| `verification` | Claim checking |
-
-Provider fallback chains provide resilience when a provider is unavailable or rate-limited. Supported providers: Groq, Gemini, Cerebras, Z.ai, Zen, NVIDIA NIM.
-
-**Key files:** `app/llm_gateway/routing/router.py`, `app/llm_gateway/providers/`
-
-</details>
-
-<details>
-<summary><strong>Under the Hood: Configuration Modes</strong></summary>
-
-**What:** Explicit operating modes that supply tested default configurations.
-
-**Why:** The system accumulated ~9 independent opt-in behavioral flags. Modes collapse those into four tested configurations.
-
-| Mode | Purpose |
-|---|---|
-| `baseline` | Historical/default behavior |
-| `research` | Enables adaptive research |
-| `verified` | Enables verification-oriented capabilities |
-| `full` | Combines research, verification, memory, and multi-agent |
-
-A mode only supplies defaults. Any flag set explicitly always wins over the mode. Experimental capabilities (multimodal, BGE-M3, Obsidian) remain opt-in rather than silently changing the baseline system.
-
-**Key file:** `app/config.py`
-
-</details>
+The important distinction is that these are **runtime strategy mutations**, not merely configuration options.
 
 ---
 
-## Project Structure
+# 11. Research Strategy State
+
+ARGUS explicitly represents research strategy rather than hiding it inside individual nodes.
+
+A strategy can contain:
+
+```text
+retrieval mode
+queries
+source priorities
+verification depth
+iteration budget
+evidence budget
+mutation history
+```
+
+Each iteration can therefore be inspected as a state transition:
+
+```text
+Strategy₀
+   │
+   │ conflict detected
+   ▼
+Strategy₁
+   │
+   │ evidence gain stalled
+   ▼
+Strategy₂
+```
+
+This makes the research loop observable and testable.
+
+---
+
+# 12. Research Sufficiency & Stopping
+
+More retrieval is not automatically better.
+
+ARGUS evaluates whether research should continue.
+
+Stopping decisions can depend on:
+
+* evidence sufficiency
+* claim support
+* unresolved contradictions
+* marginal information gain
+* research budget
+* iteration limits
+* user-directed stopping
+
+The goal is:
+
+> **Continue when additional research is justified. Stop when it isn't.**
+
+This creates an explicit research-control problem rather than an arbitrary fixed number of retrieval passes.
+
+---
+
+# 13. Grounded Synthesis
+
+Once research reaches a sufficient state, ARGUS synthesizes the answer from the accumulated evidence.
+
+The synthesis layer is designed around:
+
+* evidence grounding
+* citation traceability
+* conflict awareness
+* safe degradation
+* claim-level support
+
+The desired flow is:
+
+```text
+Evidence
+   ↓
+Verified Claims
+   ↓
+Conflict Awareness
+   ↓
+Synthesis
+   ↓
+Citations
+   ↓
+Grounding Validation
+```
+
+The final answer is therefore not just generated from retrieved text.
+
+It is generated from the **research state produced by the investigation**.
+
+---
+
+# 14. Reasoning & Evidence Graph
+
+ARGUS maintains a graph representation of the research process.
+
+The graph can represent concepts such as:
+
+```text
+Query
+Research Task
+Hypothesis
+Evidence
+Claim
+Counterclaim
+Inference
+Decision
+Answer
+```
+
+Alongside the underlying evidence graph containing entities, claims, events, documents, chunks, and sources.
+
+A simplified reasoning chain can look like:
+
+```text
+QUERY
+  │
+  ▼
+RESEARCH TASK
+  │
+  ▼
+HYPOTHESIS
+  │
+  ├───────────────┐
+  ▼               ▼
+EVIDENCE       COUNTERCLAIM
+  │               │
+  └───────┬───────┘
+          ▼
+       INFERENCE
+          │
+          ▼
+       DECISION
+          │
+          ▼
+        ANSWER
+```
+
+This makes it possible to inspect not only **what evidence was retrieved**, but also how that evidence contributed to the research process.
+
+---
+
+# 15. Provenance
+
+ARGUS maintains evidence provenance through the pipeline.
+
+A citation can be traced through:
+
+```text
+Answer
+  ↓
+Claim
+  ↓
+Evidence
+  ↓
+Chunk
+  ↓
+Document
+  ↓
+Source
+```
+
+This is fundamental to the system's design.
+
+The goal is not merely to produce citations.
+
+The goal is to preserve the **lineage of evidence** behind the answer.
+
+---
+
+# 16. Knowledge Graph
+
+ARGUS uses a NetworkX-based evidence graph containing:
+
+### Node types
+
+```text
+Entity
+Claim
+Event
+Document
+Chunk
+Source
+```
+
+### Relationship types
+
+Examples include:
+
+```text
+supports
+contradicts
+derived_from
+relates_to
+```
+
+The graph provides a structured representation of relationships between evidence and extracted knowledge.
+
+It also gives the Brain UI something substantially richer to visualize than a simple document list.
+
+---
+
+# 17. Memory
+
+ARGUS includes a persistent multi-layer memory architecture backed by SQLite.
+
+Memory can preserve information across research sessions and support:
+
+* previous research context
+* memory promotion
+* versioning
+* reuse of prior information
+
+Memory is deliberately separated from the core retrieval pipeline so that the research engine does not depend on persistent memory to function.
+
+---
+
+# 18. Multi-Provider LLM Gateway
+
+ARGUS does not hard-code the research system around one LLM provider.
+
+The LLM Gateway separates:
+
+```text
+Research Logic
+      ↓
+LLM Gateway
+      ↓
+Provider Router
+      ↓
+Model
+```
+
+Different call types can be routed independently:
+
+```text
+Query Analysis
+Research Planning
+Evidence Extraction
+Verification
+Synthesis
+```
+
+Provider fallback chains provide resilience when a provider is unavailable or rate-limited.
+
+This also allows the orchestration layer to remain independent from individual model providers.
+
+---
+
+# 19. Configuration Modes
+
+ARGUS provides explicit operating modes.
+
+| Mode       | Purpose                                                              |
+| ---------- | -------------------------------------------------------------------- |
+| `baseline` | Historical/default behavior                                          |
+| `research` | Enables adaptive research                                            |
+| `verified` | Enables verification-oriented capabilities                           |
+| `full`     | Combines research, verification, memory and multi-agent capabilities |
+
+Explicit configuration overrides can take precedence over mode defaults.
+
+Experimental capabilities such as multimodal processing, BGE-M3 retrieval, and Obsidian integration remain opt-in rather than silently changing the baseline system.
+
+---
+
+# The Brain UI
+
+The Brain UI is not intended to be another chatbot interface.
+
+It exists to answer:
+
+> **"What did ARGUS actually do to arrive at this answer?"**
+
+The interface exposes the internal research process through interactive visualization.
+
+### Pipeline
+
+Shows the progression of the research state.
+
+### Node Inspector
+
+Selecting a node exposes information about:
+
+* what stage executed
+* what it received
+* what it produced
+* why the stage exists
+* how it contributed to the research process
+
+### Evidence Trace
+
+Allows evidence to be followed back toward its source.
+
+### Conflict Visualization
+
+Shows detected conflicts and their associated evidence.
+
+### Reasoning Trace
+
+Displays the relationship between:
+
+```text
+Question
+→ Research Tasks
+→ Hypotheses
+→ Evidence
+→ Claims
+→ Counterclaims
+→ Inferences
+→ Decisions
+→ Answer
+```
+
+### Knowledge Graph
+
+Provides an interactive representation of entities, claims, events and evidence relationships.
+
+The objective is to make the system **inspectable rather than opaque**.
+
+---
+
+# Evaluation
+
+ARGUS includes a fixed end-to-end evaluation benchmark designed to measure research-system behavior rather than simply counting tests.
+
+The deterministic benchmark uses:
+
+* **38 evaluation cases**
+* **12-document fixed corpus**
+* real BM25 retrieval
+* real FAISS retrieval
+* MiniLM embeddings
+* deterministic contradiction detection
+* deterministic evidence-abstention detection
+* isolated temporary storage
+
+Current benchmark measurements include approximately:
+
+| Metric                      |      Result |
+| --------------------------- | ----------: |
+| Recall@8                    |  **0.9865** |
+| Precision@8                 |  **0.1546** |
+| Gold-fact coverage          |  **~0.904** |
+| Contradiction recall        |  **1.0000** |
+| Contradiction precision     | **~0.0789** |
+| Abstention-trigger accuracy |  **1.0000** |
+
+These numbers should **not** be interpreted as proof that ARGUS is generally intelligent.
+
+The benchmark is intentionally fixed and deterministic. It measures specific components under controlled conditions.
+
+Live LLM evaluation is separated because provider availability, latency, rate limits and model behavior introduce additional variables.
+
+---
+
+# Engineering Philosophy
+
+ARGUS follows several design principles.
+
+### 1. Deterministic where possible
+
+If a problem can be reliably solved with deterministic logic, it should not automatically become an LLM call.
+
+### 2. LLMs where semantic reasoning is useful
+
+Model calls are used where semantic interpretation or generation provides genuine value.
+
+### 3. Retrieval ≠ verification
+
+Finding relevant evidence and determining whether it supports a claim are treated as different problems.
+
+### 4. Relevance ≠ truth
+
+A highly relevant document can still contain information that is outdated, incomplete or contradictory.
+
+### 5. More evidence ≠ better research
+
+The system needs mechanisms for evidence selection, sufficiency and stopping.
+
+### 6. Research should be stateful
+
+If the system discovers something important, that discovery should be capable of influencing what happens next.
+
+### 7. Observability is part of the architecture
+
+The research process should be inspectable, not reconstructed after the fact.
+
+### 8. Measure before claiming
+
+Benchmark numbers, test results and capabilities are documented separately from aspirational goals.
+
+---
+
+# What Makes ARGUS Different?
+
+ARGUS is **not** trying to compete with general-purpose AI assistants.
+
+It is an engineering exploration of what happens when a RAG system is treated as a **research process** rather than a retrieval component.
+
+The central distinction is:
+
+```text
+Traditional RAG
+
+Question
+   ↓
+Retrieve
+   ↓
+Generate
+
+
+ARGUS
+
+Question
+   ↓
+Analyze
+   ↓
+Plan
+   ↓
+Retrieve
+   ↓
+Assess
+   ↓
+     ┌───────────────┐
+     │ Enough?       │
+     └───────┬───────┘
+             │ No
+             ▼
+       Detect gaps /
+       conflicts / gain
+             │
+             ▼
+       Adapt strategy
+             │
+             └──────→ Retrieve again
+                          │
+                         Yes
+                          ↓
+                      Verify
+                          ↓
+                      Synthesize
+                          ↓
+                  Explain + Trace
+```
+
+The difference is not simply **"more RAG components."**
+
+It is the feedback loop connecting them.
+
+---
+
+# Project Structure
 
 ```text
 ARGUS/
+│
 ├── app/
 │   ├── api/                    # FastAPI endpoints
 │   ├── config.py               # Configuration and operating modes
+│   │
 │   ├── evidence/               # Evidence storage and provenance
 │   ├── graph/                  # Evidence / reasoning graph
 │   ├── ingestion/              # Document ingestion pipeline
 │   ├── llm_gateway/            # Multi-provider LLM routing
 │   ├── memory/                 # Persistent memory
+│   │
 │   ├── orchestration/          # LangGraph research workflow
 │   ├── retrieval/              # BM25 + dense + hybrid retrieval
 │   ├── reranking/              # Candidate reranking
 │   ├── verification/           # Claim/evidence verification
-│   └── ui/brain/               # Interactive Brain UI
+│   │
+│   └── ui/
+│       └── brain/              # Interactive Brain UI
+│
 ├── benchmarks/
 │   ├── eval_data/              # Fixed evaluation corpus
 │   └── e2e_intelligence.py     # End-to-end benchmark
-├── configs/                    # Provider and policy configurations
+│
+├── configs/
+│   ├── providers.yaml
+│   ├── model_policy.yaml
+│   └── retrieval_policy.yaml
+│
 ├── tests/                      # Unit + integration tests
 ├── docs/                       # Architecture and correctness docs
+│
 ├── knowledge_base/             # Local research corpus
+│
 ├── pyproject.toml
 └── README.md
 ```
 
-## Tech Stack
+---
 
-| Layer | Technology |
-|---|---|
-| Language | Python |
-| API | FastAPI |
-| Orchestration | LangGraph |
-| Lexical Retrieval | BM25 |
-| Dense Retrieval | FAISS + Sentence Transformers |
-| Embeddings | `all-MiniLM-L6-v2` |
-| Reranking | Pluggable reranker architecture |
-| Evidence Store | SQLite |
-| Knowledge Graph | NetworkX |
-| Memory | SQLite |
-| Frontend | HTML / JavaScript / D3 / Canvas |
-| Testing | pytest |
-| Linting | Ruff |
-| CI | GitHub Actions |
-| LLMs | Multi-provider gateway |
+# Tech Stack
+
+| Layer             | Technology                      |
+| ----------------- | ------------------------------- |
+| Language          | Python                          |
+| API               | FastAPI                         |
+| Orchestration     | LangGraph                       |
+| Lexical Retrieval | BM25                            |
+| Dense Retrieval   | FAISS + Sentence Transformers   |
+| Embeddings        | `all-MiniLM-L6-v2`              |
+| Reranking         | Pluggable reranker architecture |
+| Evidence Store    | SQLite                          |
+| Knowledge Graph   | NetworkX                        |
+| Memory            | SQLite                          |
+| Frontend          | HTML / JavaScript / D3 / Canvas |
+| Testing           | pytest                          |
+| Linting           | Ruff                            |
+| CI                | GitHub Actions                  |
+| LLMs              | Multi-provider gateway          |
 
 ---
 
-## Installation
+# Installation
 
 ### Requirements
 
-- Python 3.11+
-- At least one supported LLM provider API key for live research
-- Git
+* Python 3.11+
+* At least one supported LLM provider API key for live research
+* Git
 
 ### Clone
 
@@ -750,7 +1096,7 @@ Then add the required provider credentials.
 
 ---
 
-## Running ARGUS
+# Running ARGUS
 
 Start the API:
 
@@ -768,7 +1114,7 @@ The Brain UI provides the primary interface for inspecting ARGUS's research pipe
 
 ---
 
-## Testing
+# Testing
 
 Run the complete test suite:
 
@@ -790,7 +1136,7 @@ ruff check .
 
 ---
 
-## End-to-End Evaluation
+# End-to-End Evaluation
 
 Run the deterministic intelligence benchmark:
 
@@ -808,15 +1154,35 @@ The benchmark operates against an isolated evaluation corpus and does not modify
 
 ---
 
-## Known Limitations
+# Current Status
+
+ARGUS is an **experimental research and engineering project**.
+
+The system is functional enough to demonstrate the core research architecture, but it is not presented as a production-ready autonomous research platform.
+
+The project is intentionally being developed around measurable behavior rather than feature count.
+
+---
+
+# Known Limitations
+
+ARGUS still has important limitations.
 
 ### Contradiction precision
 
-The contradiction detector currently has high recall on the fixed benchmark but substantially lower precision (7.89%). This is a known research problem rather than a metric being hidden.
+The contradiction detector currently has high recall on the fixed benchmark but substantially lower precision.
+
+This is a known research problem rather than a metric being hidden.
 
 ### Live evaluation
 
-Full LLM evaluation is more variable than deterministic evaluation because of provider availability, model behavior, rate limits, latency, and token usage.
+Full LLM evaluation is more variable than deterministic evaluation because of:
+
+* provider availability
+* model behavior
+* rate limits
+* latency
+* token usage
 
 ### Embedding model
 
@@ -824,57 +1190,82 @@ Full LLM evaluation is more variable than deterministic evaluation because of pr
 
 ### Production hardening
 
-ARGUS is not currently designed for large-scale distributed deployment, enterprise authentication, horizontal scaling, production-grade observability infrastructure, or guaranteed provider availability.
+ARGUS is not currently designed for:
 
-### Backend streaming
+* large-scale distributed deployment
+* enterprise authentication
+* horizontal scaling
+* production-grade observability infrastructure
+* guaranteed provider availability
 
-The backend processes queries synchronously. The Brain UI's progressive pipeline building is a UI simulation, not actual backend streaming.
+### Experimental integrations
 
-### No persistent research history
-
-Research results are not persisted. Each query is stateless.
+Some capabilities remain intentionally optional and are not required by the core research loop.
 
 ---
 
-## Research Direction
+# Research Direction
 
-The long-term direction of ARGUS is not simply to keep adding RAG components. The interesting problem is:
+The long-term direction of ARGUS is not simply to keep adding RAG components.
+
+The interesting problem is:
 
 > **How far can an evidence-grounded retrieval system go when research itself becomes an adaptive control loop?**
 
 Areas of continued experimentation include:
 
-- Stronger semantic contradiction verification
-- Better research-policy adaptation
-- Improved evidence selection
-- Stronger reranking
-- Deeper claim-level verification
-- Richer reasoning traces
-- Improved evaluation methodology
-- More robust abstention
-- Better source-quality modeling
-- More informative research visualization
+* stronger semantic contradiction verification
+* better research-policy adaptation
+* improved evidence selection
+* stronger reranking
+* deeper claim-level verification
+* richer reasoning traces
+* improved evaluation methodology
+* more robust abstention
+* better source-quality modeling
+* more informative research visualization
 
 ---
 
-## Why the Project Is Called ARGUS
+# Why the Project Is Called ARGUS
 
-ARGUS is named after **Argus Panoptes**, the many-eyed watcher from Greek mythology. The metaphor fits the project's purpose:
+ARGUS is named after **Argus Panoptes**, the many-eyed watcher from Greek mythology. i remembered this name from reading certain novel
+and then after doing some research I found some RAG based projects with th esame name so i chose this as well. plus its'cool. 
+The metaphor fits the project's purpose:
 
 **ARGUS observes the research process from multiple perspectives — retrieval, evidence, conflicts, verification, reasoning and provenance — rather than looking only at the final answer.**
 
 ---
 
-## License
+# A Note on the Project
 
-MIT License. See [`LICENSE`](LICENSE).
+ARGUS started as an attempt to understand RAG by building one from the ground up.
+
+It evolved into something more specific:
+
+**an experiment in turning retrieval-augmented generation into an observable, iterative research process.**
+
+The project is therefore less about claiming that every component is state-of-the-art and more about exploring how advanced RAG techniques interact when placed inside a single research loop.
+
+That is the problem ARGUS is built to investigate.
+And I am going to continue this research as well in the future.
+
+---
+
+# License
+
+MIT License.
+
+See [`LICENSE`](LICENSE).
+
+---
 
 ## Documentation
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Detailed system architecture
-- [`docs/CORRECTNESS.md`](docs/CORRECTNESS.md) — Correctness and engineering evolution
-- [`CHANGELOG.md`](CHANGELOG.md) — Project history
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — Contribution guidelines
+* [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Detailed system architecture
+* [`docs/CORRECTNESS.md`](docs/CORRECTNESS.md) — Correctness and engineering evolution
+* [`CHANGELOG.md`](CHANGELOG.md) — Project history
+* [`CONTRIBUTING.md`](CONTRIBUTING.md) — Contribution guidelines
 
 ---
 
