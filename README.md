@@ -22,8 +22,6 @@ This is not a chatbot. It is not a second brain. It is a research architecture e
 
 > **The experiment:** Can a RAG system improve its own research process by using evidence from one retrieval pass to decide what it should investigate next?
 
-The easiest way to understand ARGUS is to watch a research run. A difficult question enters the system, evidence is retrieved and assessed, gaps or conflicts are identified, the next research strategy changes, and the final answer can be traced back through its evidence and reasoning lineage. [Demo video coming soon.]
-
 ---
 
 ## Why ARGUS Exists
