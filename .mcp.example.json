@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "vscode": {
+      "command": "node",
+      "args": [
+        "path/to/your/vscode/extension/out/mcp-server.js"
+      ]
+    }
+  }
+}
