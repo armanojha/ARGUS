@@ -20,17 +20,19 @@ It investigates complex research questions through repeated retrieval, evidence 
 
 This is not a chatbot. It is not a second brain. It is a research architecture exploring what happens when retrieval becomes an iterative process.
 
-> **The experiment:** Can a RAG system improve its own research process by using evidence from one retrieval pass to decide what it should investigate next?
-
 ---
 
 ## Why ARGUS Exists
 
-I learned RAG as a collection of techniques: hybrid retrieval, BM25, dense vectors, reranking, multi-query retrieval, evidence selection, verification, contradiction detection, knowledge graphs, memory, orchestration.
+ARGUS started as an attempt to put what I had learned about RAG into practice.
 
-Instead of leaving these as isolated techniques, ARGUS became an experiment in asking:
+After studying different retrieval techniques, evidence handling methods, evaluation approaches, and the components that make modern RAG systems work, I wanted to go beyond implementing each concept in isolation. I wanted to see what would happen if I combined the ideas I had learned into one complete experimental system.
 
-> **What happens when these techniques are combined into a system that can repeatedly investigate a question?**
+That experiment became ARGUS.
+
+As the system evolved, the focus became a specific question:
+
+> **What happens when retrieval is treated not as a single search before generation, but as an iterative process of investigation?**
 
 Most RAG systems follow roughly:
 
@@ -46,7 +48,7 @@ Answer
 
 That works for straightforward questions. But difficult research questions are rarely that simple. A serious question may require multiple searches with different strategies, evidence from different documents, verification of individual claims, identification of missing information, resolution of contradictory evidence, revisiting the research strategy, and deciding when enough evidence has actually been gathered.
 
-The fundamental assumption behind ARGUS is:
+ARGUS explores that idea through repeated retrieval, evidence assessment, gap and conflict detection, bounded research-strategy adaptation, verification, and grounded synthesis.
 
 > **Retrieval itself can become an iterative research problem.**
 
@@ -869,7 +871,9 @@ Research results are not persisted. Each query is stateless.
 
 ## What ARGUS Contributes
 
-ARGUS is primarily an engineering and research prototype that combines several established RAG techniques into a single observable iterative research loop. The contribution is the architecture and experimentation around how these techniques interact during repeated research, rather than claiming that each individual technique is novel.
+ARGUS does not claim that the individual techniques it uses are novel. The project is an experimental exploration of how established RAG ideas — hybrid retrieval, multi-query research, evidence assessment, contradiction detection, adaptive research, verification, provenance — can be combined into a single iterative research loop, and what behaviors emerge when these techniques operate together.
+
+ARGUS is primarily an engineering and research prototype. The contribution is the architecture and the experimentation around how these learned concepts interact during repeated research, not the invention of any individual technique.
 
 ARGUS uses agent-like orchestration, but its purpose is not to build a general autonomous agent. The focus is specifically on studying iterative retrieval and evidence-driven research behavior.
 
