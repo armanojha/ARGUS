@@ -58,6 +58,8 @@ Instead of retrieving once and generating, the system retrieves, evaluates what 
 
 ## Traditional RAG vs ARGUS
 
+I spent a lot of time with traditional RAG before building ARGUS. Here is how the two approaches differ:
+
 | | Traditional RAG | ARGUS |
 |---|---|---|
 | **Retrieval** | Usually one pass | Iterative |
@@ -75,7 +77,7 @@ Instead of retrieving once and generating, the system retrieves, evaluates what 
 
 ## Research Loop
 
-This loop is the core experiment behind ARGUS. It shows how the system investigates a question rather than simply answering it.
+This loop is the core experiment behind ARGUS. It shows how the system investigates a question rather than simply answering it. This is the part I found most interesting to build — the feedback loop where evidence shapes the next retrieval.
 
 ```mermaid
 flowchart TD
@@ -334,7 +336,7 @@ Research Runtime
 
 ## Brain UI
 
-The Brain UI exists primarily because the internal research process would otherwise be difficult to inspect. It is an observability and inspection surface for the architecture, not the core of the project.
+I built the Brain UI because I kept running ARGUS and then had no good way to see what it actually did. The internal research process would otherwise be difficult to inspect. It is an observability and inspection surface for the architecture, not the core of the project.
 
 Its purpose is to answer:
 
@@ -357,7 +359,7 @@ The interface exposes the internal research process through interactive visualiz
 
 ## Evaluation
 
-Because ARGUS is an experimental architecture, evaluation focuses on specific system behaviors rather than claiming a single number represents "intelligence." The deterministic benchmark measures retrieval, evidence assessment, contradiction detection, and abstention under controlled conditions.
+I wanted to measure specific behaviors, not just count tests. Because ARGUS is an experimental architecture, evaluation focuses on specific system behaviors rather than claiming a single number represents "intelligence." The deterministic benchmark measures retrieval, evidence assessment, contradiction detection, and abstention under controlled conditions.
 
 | | |
 |---|---|
@@ -740,6 +742,8 @@ ARGUS/
 
 ## Installation
 
+Here is how to get ARGUS running on your machine.
+
 ### Requirements
 
 - Python 3.11+
@@ -902,7 +906,7 @@ Areas of continued experimentation include:
 
 ## Why the Project Is Called ARGUS
 
-ARGUS is named after **Argus Panoptes**, the many-eyed watcher from Greek mythology. The metaphor fits the project's purpose:
+ARGUS is named after **Argus Panoptes**, the many-eyed watcher from Greek mythology. I came across the name while reading a novel and it stuck with me — it looked cool enough, and the metaphor fit perfectly.
 
 **ARGUS observes the research process from multiple perspectives — retrieval, evidence, conflicts, verification, reasoning and provenance — rather than looking only at the final answer.**
 
