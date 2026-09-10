@@ -5,22 +5,30 @@
 </p>
 
 <p align="center">
+  <a href="#why-argus-exists">Why</a> ·
   <a href="#research-loop">Research Loop</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#evaluation">Evaluation</a> ·
-  <a href="#installation">Installation</a> ·
-  <a href="#running-argus">Running</a>
+  <a href="#installation">Installation</a>
 </p>
 
 ---
 
-ARGUS investigates complex research questions through iterative retrieval, evidence assessment, contradiction detection, adaptive research, verification, and grounded synthesis.
+**ARGUS is an experimental RAG system built around one idea: retrieval should be an iterative investigation, not a single search followed by generation.**
 
-It is not a general-purpose RAG chatbot. It is an experimental research system built around a different idea: **retrieval should be an iterative investigation, not a single search followed by generation.**
+It investigates complex research questions through repeated retrieval, evidence assessment, gap and conflict detection, strategy adaptation, verification, and grounded synthesis. The entire process is observable through an interactive Brain UI.
+
+This is not a chatbot. It is not a second brain. It is a research architecture exploring what happens when retrieval becomes an iterative process.
 
 ---
 
 ## Why ARGUS Exists
+
+I learned RAG as a collection of techniques: hybrid retrieval, BM25, dense vectors, reranking, multi-query retrieval, evidence selection, verification, contradiction detection, knowledge graphs, memory, orchestration.
+
+Instead of leaving these as isolated techniques, ARGUS became an experiment in asking:
+
+> **What happens when these techniques are combined into a system that can repeatedly investigate a question?**
 
 Most RAG systems follow roughly:
 
@@ -34,19 +42,13 @@ Generate
 Answer
 ```
 
-That works for straightforward questions. But difficult research questions are rarely that simple.
+That works for straightforward questions. But difficult research questions are rarely that simple. A serious question may require multiple searches with different strategies, evidence from different documents, verification of individual claims, identification of missing information, resolution of contradictory evidence, revisiting the research strategy, and deciding when enough evidence has actually been gathered.
 
-A serious question may require:
+The fundamental assumption behind ARGUS is:
 
-- Multiple searches with different strategies
-- Evidence from different documents
-- Verification of individual claims
-- Identifying missing information
-- Resolving contradictory evidence
-- Revisiting the research strategy
-- Deciding when enough evidence has actually been gathered
+> **Retrieval itself can become an iterative research problem.**
 
-I built ARGUS as a way to move beyond learning RAG techniques individually and understand what happens when they are combined into a complete research pipeline.
+Instead of retrieving once and generating, the system retrieves, evaluates what it found, identifies gaps or conflicts, adapts its research strategy, and retrieves again. This loop continues until the evidence is sufficient — or the research budget is exhausted.
 
 ---
 
@@ -69,7 +71,7 @@ I built ARGUS as a way to move beyond learning RAG techniques individually and u
 
 ## Research Loop
 
-This is the most important diagram in this README. It shows how ARGUS investigates a question.
+This loop is the core experiment behind ARGUS. It shows how the system investigates a question rather than simply answering it.
 
 ```mermaid
 flowchart TD
@@ -87,21 +89,25 @@ flowchart TD
 
 > **ARGUS does not assume that the first retrieval pass is sufficient. Assessment can change what the system searches for next.**
 
+After each research pass, the system evaluates the evidence it has collected. Missing evidence, unresolved conflicts, or diminishing information gain can influence what happens in the next iteration. This is the central difference from traditional RAG.
+
 ### Adaptive Research Behaviors
 
-Three runtime strategy mutations are implemented in `app/orchestration/adaptive_research.py`:
+Three runtime strategy mutations are currently implemented in `app/orchestration/adaptive_research.py`. These are examples of how the research loop can adapt based on what it discovers:
 
-**Conflict-driven research.** When unresolved critical contradictions remain and the query pattern requires it (e.g., `conflict`), ARGUS front-loads a contradiction-resolution query in the next research iteration.
+**Conflict-driven research.** When unresolved critical contradictions remain and the query pattern requires it (e.g., `conflict`), ARGUS front-loads a contradiction-resolution query in the next research iteration. A contradiction becomes a reason to keep investigating rather than just an error to report.
 
-**Gain-stall escalation.** When marginal information gain stalls (below threshold), retrieval depth increases for the next iteration, subject to a cap (top_k × 2, max 50).
+**Gain-stall escalation.** When marginal information gain stalls (below threshold), retrieval depth increases for the next iteration, subject to a cap (top_k × 2, max 50). The system recognizes when it is no longer finding new information and widens its search.
 
-**Gap prioritization.** High-priority evidence gaps detected by the assessor are promoted ahead of lower-priority research queries.
+**Gap prioritization.** High-priority evidence gaps detected by the assessor are promoted ahead of lower-priority research queries. The system can reorder its research based on what it has not yet found.
 
-These are **runtime strategy mutations**, not configuration options. Each iteration's strategy is snapshotted and inspectable.
+These are **runtime strategy mutations**, not configuration options. Each iteration's strategy is snapshotted and inspectable. ARGUS currently implements a bounded set of these mutations that demonstrate the concept of adaptive research.
 
 ---
 
 ## Architecture
+
+The research loop is the idea. The architecture is how ARGUS implements that idea. Each component exists to support one part of the iterative investigation process.
 
 ```mermaid
 flowchart TD
@@ -156,7 +162,7 @@ flowchart TD
 
 **What:** Combines lexical BM25 retrieval with dense FAISS vector retrieval.
 
-**Why:** Exact terminology and semantic similarity behave differently across query types. BM25 excels at exact terms, names, and technical terminology. Dense retrieval captures semantic similarity when wording differs.
+**Why:** The research loop needs retrieval that can behave differently depending on what the current iteration is trying to discover. An exact-term lookup and a conceptual question require different retrieval strategies. ARGUS varies fusion weights per query pattern so the retrieval layer adapts to the investigation's current need.
 
 **How:** Configurable fusion weights per query pattern:
 
@@ -172,7 +178,7 @@ flowchart TD
 
 **What:** Decomposes complex questions into evidence-targeting sub-queries executed with bounded concurrency.
 
-**Why:** A single query rarely captures all evidence needs for a complex research question.
+**Why:** A complex research question usually has multiple evidence requirements. A single retrieval query cannot cover all of them. The research planner decomposes the question so each sub-query targets a specific evidence need, and the system can assess coverage independently for each.
 
 **How:** The planner generates sub-queries, each targeting a specific evidence requirement. Sub-queries run in parallel against the hybrid index.
 
@@ -180,7 +186,7 @@ flowchart TD
 
 **What:** Evaluates whether collected evidence actually supports the research requirements, separate from retrieval relevance.
 
-**Why:** A chunk can be relevant to a question without actually proving the claim being investigated.
+**Why:** Retrieval relevance is not equivalent to evidence sufficiency. A chunk can be relevant to a question without actually proving the claim being investigated. The research loop needs to distinguish "I found something related" from "this evidence supports the claim."
 
 **How:** Deterministic claim-support checking with four statuses:
 
@@ -195,7 +201,7 @@ flowchart TD
 
 **What:** Identifies contradictions across evidence sources using entity overlap, metric overlap, numerical discrepancies, and temporal context.
 
-**Why:** Not every disagreement between documents is a factual contradiction. Different values may both be correct if they refer to different time periods.
+**Why:** A contradiction is potentially a reason to continue investigating. If two sources disagree about the same entity, metric, and timeframe, that conflict may need resolution before synthesis. The detection pipeline classifies conflicts so the research loop can decide whether to investigate further or proceed.
 
 **How:** Deterministic pairwise analysis with five conflict categories:
 
@@ -211,7 +217,7 @@ IRRELEVANT_DIFFERENCE    Not a real conflict
 
 **What:** Changes research strategy based on what the system discovers during investigation.
 
-**Why:** A fixed pipeline cannot respond to contradictions, evidence gaps, or diminishing returns.
+**Why:** This is where the research loop's signals — contradictions, gaps, diminishing returns — can influence what happens next. A fixed pipeline cannot respond to what it discovers. Adaptive research connects evidence assessment back to retrieval.
 
 **How:** Three runtime mutations applied between iterations:
 
@@ -223,7 +229,7 @@ IRRELEVANT_DIFFERENCE    Not a real conflict
 
 **What:** Determines when to stop researching based on evidence sufficiency rather than a fixed number of passes.
 
-**Why:** More retrieval is not automatically better. The system needs to know when it has enough.
+**Why:** More retrieval is not automatically better. The system needs mechanisms for deciding when it has enough evidence to synthesize a grounded answer, and when additional research would not meaningfully improve the result.
 
 **How:** Five deterministic stopping conditions evaluated in priority order:
 
@@ -239,7 +245,7 @@ IRRELEVANT_DIFFERENCE    Not a real conflict
 
 **What:** Maintains evidence lineage from answer back to source.
 
-**Why:** The goal is not merely to produce citations. It is to preserve the **lineage of evidence** behind the answer.
+**Why:** If the research loop is going to evaluate evidence and make decisions based on it, the provenance of that evidence must survive the entire pipeline. Every claim in the final answer should be traceable back to the specific chunks and documents that support it.
 
 **How:** Every citation traces through:
 
@@ -251,7 +257,7 @@ Answer → Claim → Evidence → Chunk → Document → Source
 
 ## Reasoning Graph
 
-ARGUS maintains a graph representation of the research process.
+The reasoning graph represents the structure of the investigation — from the original question through research tasks, hypotheses, evidence, inferences, decisions, and the final answer. It is not the core reason ARGUS exists. It is a representation layer that makes the research process inspectable.
 
 ```mermaid
 flowchart TD
@@ -265,7 +271,7 @@ flowchart TD
     D --> A["ANSWER"]
 ```
 
-The graph exists to make research provenance and reasoning inspectable. It connects to the Brain UI, which visualizes the research process:
+The graph connects to the Brain UI, which visualizes the research process:
 
 ```text
 Research Runtime
@@ -305,7 +311,9 @@ Research Runtime
 
 ## Brain UI
 
-The Brain UI is not a chatbot interface. It exists to answer:
+The Brain UI exists primarily because the internal research process would otherwise be difficult to inspect. It is an observability and inspection surface for the architecture, not the core of the project.
+
+Its purpose is to answer:
 
 > **"What did ARGUS actually do to arrive at this answer?"**
 
@@ -326,7 +334,7 @@ The interface exposes the internal research process through interactive visualiz
 
 ## Evaluation
 
-ARGUS includes a fixed end-to-end evaluation benchmark designed to measure research-system behavior rather than simply counting tests.
+Because ARGUS is an experimental architecture, evaluation focuses on specific system behaviors rather than claiming a single number represents "intelligence." The deterministic benchmark measures retrieval, evidence assessment, contradiction detection, and abstention under controlled conditions.
 
 | | |
 |---|---|
@@ -809,6 +817,8 @@ The benchmark operates against an isolated evaluation corpus and does not modify
 ---
 
 ## Known Limitations
+
+ARGUS is deliberately presented as an experimental system. The current implementation demonstrates the architecture and research loop, but several components remain bounded, heuristic, or incompletely evaluated.
 
 ### Contradiction precision
 
